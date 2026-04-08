@@ -1,6 +1,8 @@
 # mechbase-sdk
 
-Official client SDKs for the [Mechbase](https://mechbase.arpedon.com) condition-monitoring platform.
+Official client SDKs for the [Mechbase](https://app.mechbase.io) condition-monitoring platform.
+
+The default base URL is `https://app.mechbase.io`. For self-hosted installations, pass your own base URL to the client constructor.
 
 Four languages, one uniform surface:
 
@@ -26,7 +28,9 @@ live mechbase-v2 `NinjaAPI`. All clients are hand-written to match it — no cod
 ```python
 from mechbase import Mechbase
 
-client = Mechbase(token="...", base_url="https://mechbase.arpedon.com")
+client = Mechbase(token="...")  # defaults to https://app.mechbase.io
+# or, for self-hosted:
+# client = Mechbase(token="...", base_url="https://mechbase.internal.acme.com")
 me = client.me()
 
 inst = client.for_installation(me.current_installation_id)

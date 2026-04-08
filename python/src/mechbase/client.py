@@ -26,13 +26,15 @@ class Mechbase:
 
         from mechbase import Mechbase
 
-        client = Mechbase(token="...", base_url="https://mechbase.arpedon.com")
+        client = Mechbase(token="...")  # defaults to https://app.mechbase.io
         me = client.me()
         inst = client.for_installation(me.current_installation_id)
         inst.measurements.create(point_id=1, data={"rms": 2.3})
     """
 
-    def __init__(self, *, token: str, base_url: str = "https://mechbase.arpedon.com", timeout: float = 30.0):
+    DEFAULT_BASE_URL = "https://app.mechbase.io"
+
+    def __init__(self, *, token: str, base_url: str = DEFAULT_BASE_URL, timeout: float = 30.0):
         self._http = HttpClient(token=token, base_url=base_url, timeout=timeout)
 
     def me(self) -> Me:
