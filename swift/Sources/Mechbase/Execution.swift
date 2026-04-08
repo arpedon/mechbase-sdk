@@ -70,19 +70,20 @@ public struct Execution: Sendable {
         let item_type: String
         let data: JSONValue
         let zone_id: Int?
-        let asset_id: Int?
         let config: JSONValue
         let notes: String
     }
 
     /// Append a field-discovered item to the execution.
+    ///
+    /// Items are zone-anchored (`zoneId`) or route-level (`nil`). Bind the item
+    /// to a specific asset after the walk via ``triage(routeItemUUID:assetId:)``.
     @discardableResult
     public func addFieldItem(
         label: String,
         itemType: String = "pass_fail",
         data: JSONValue = .object([:]),
         zoneId: Int? = nil,
-        assetId: Int? = nil,
         config: JSONValue = .object([:]),
         notes: String = ""
     ) async throws -> ItemResponse {
@@ -91,7 +92,6 @@ public struct Execution: Sendable {
             item_type: itemType,
             data: data,
             zone_id: zoneId,
-            asset_id: assetId,
             config: config,
             notes: notes
         )
@@ -105,7 +105,6 @@ public struct Execution: Sendable {
         itemType: String = "pass_fail",
         data: [String: Any],
         zoneId: Int? = nil,
-        assetId: Int? = nil,
         notes: String = ""
     ) async throws -> ItemResponse {
         try await addFieldItem(
@@ -113,7 +112,6 @@ public struct Execution: Sendable {
             itemType: itemType,
             data: JSONValue.from(data),
             zoneId: zoneId,
-            assetId: assetId,
             notes: notes
         )
     }

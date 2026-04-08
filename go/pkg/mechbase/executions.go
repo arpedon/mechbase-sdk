@@ -30,12 +30,14 @@ type RespondInput struct {
 }
 
 // FieldItemInput is the payload for adding an ad-hoc field item to an execution.
+//
+// Field items are zone-anchored (ZoneID) or route-level (nil). Asset assignment
+// is a separate step: call Triage after the walk to bind the item to an asset.
 type FieldItemInput struct {
 	Label    string
 	ItemType string // defaults to "pass_fail"
 	Data     map[string]any
 	ZoneID   *int
-	AssetID  *int
 	Config   map[string]any
 	Notes    string
 }
@@ -106,7 +108,6 @@ func (e *Execution) AddFieldItem(ctx context.Context, in FieldItemInput) (*ItemR
 		"item_type": itemType,
 		"data":      data,
 		"zone_id":   in.ZoneID,
-		"asset_id":  in.AssetID,
 		"config":    cfg,
 		"notes":     in.Notes,
 	}

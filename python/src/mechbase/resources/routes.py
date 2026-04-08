@@ -63,16 +63,19 @@ class Executions(InstallationScoped):
         item_type: str = "pass_fail",
         data: dict | None = None,
         zone_id: int | None = None,
-        asset_id: int | None = None,
         config: dict | None = None,
         notes: str = "",
     ) -> ItemResponse:
+        """Append a new checklist item to this execution, field-authored.
+
+        The item is zone-anchored (``zone_id``) or route-level (``None``).
+        Asset assignment happens afterward via :meth:`triage`.
+        """
         payload = {
             "label": label,
             "item_type": item_type,
             "data": data or {},
             "zone_id": zone_id,
-            "asset_id": asset_id,
             "config": config or {},
             "notes": notes,
         }

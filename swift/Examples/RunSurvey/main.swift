@@ -22,8 +22,7 @@ struct RunSurvey {
                 label: "Oil leak under pump",
                 itemType: "pass_fail",
                 data: ["passed": false, "severity": "major"],
-                zoneId: nil,
-                assetId: nil
+                zoneId: nil
             )
             print("added field item")
 
