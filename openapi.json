@@ -1,0 +1,2560 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Mechbase API",
+    "version": "1.0.0",
+    "description": "API for pushing measurements and managing industrial assets."
+  },
+  "paths": {
+    "/api/me": {
+      "get": {
+        "operationId": "api_installations_router_me",
+        "summary": "Current user + installations",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "installations"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}": {
+      "get": {
+        "operationId": "api_installations_router_installation_detail",
+        "summary": "Get installation detail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstallationDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "installations"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/sections": {
+      "get": {
+        "operationId": "api_registry_router_list_sections",
+        "summary": "List sections",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "title": "Offset",
+              "type": "integer"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_SectionOut_"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "registry"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/sections/{section_id}": {
+      "get": {
+        "operationId": "api_registry_router_get_section",
+        "summary": "Get section",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "section_id",
+            "schema": {
+              "title": "Section Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectionOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "registry"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/zones": {
+      "get": {
+        "operationId": "api_registry_router_list_zones",
+        "summary": "List zones",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "section_id",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Section Id"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "title": "Offset",
+              "type": "integer"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ZoneOut_"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "registry"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/zones/{zone_id}": {
+      "get": {
+        "operationId": "api_registry_router_get_zone",
+        "summary": "Get zone",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "zone_id",
+            "schema": {
+              "title": "Zone Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZoneOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "registry"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/assets": {
+      "get": {
+        "operationId": "api_registry_router_list_assets",
+        "summary": "List assets",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "zone_id",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Zone Id"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "title": "Offset",
+              "type": "integer"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_AssetOut_"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "registry"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/assets/{asset_id}": {
+      "get": {
+        "operationId": "api_registry_router_get_asset",
+        "summary": "Get asset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "asset_id",
+            "schema": {
+              "title": "Asset Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "registry"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/measurement-points": {
+      "get": {
+        "operationId": "api_registry_router_list_points",
+        "summary": "List measurement points",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "asset_id",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Asset Id"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "transducer_type",
+            "schema": {
+              "default": "",
+              "title": "Transducer Type",
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "title": "Offset",
+              "type": "integer"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_MeasurementPointOut_"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "registry"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/measurement-points/{point_id}": {
+      "get": {
+        "operationId": "api_registry_router_get_point",
+        "summary": "Get measurement point",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "point_id",
+            "schema": {
+              "title": "Point Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasurementPointOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "registry"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/measurements/": {
+      "post": {
+        "operationId": "api_measurements_router_create_measurement",
+        "summary": "Create a measurement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasurementOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "Record a new measurement for a measurement point. Send a JSON body with measurement_point_id, data, and optional notes/session_id/timestamp.",
+        "tags": [
+          "measurements"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeasurementIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/measurements/upload/": {
+      "post": {
+        "operationId": "api_measurements_router_create_measurement_with_file",
+        "summary": "Create a measurement with file attachment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasurementOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "Record a new measurement with a file attachment. Send as multipart/form-data with a 'payload' JSON string field and a 'file' field.",
+        "tags": [
+          "measurements"
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "title": "File",
+                    "type": "string"
+                  }
+                },
+                "title": "FileParams",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/measurement-points/{point_id}/measurements/": {
+      "get": {
+        "operationId": "api_measurements_router_list_measurements",
+        "summary": "List measurements for a point",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "point_id",
+            "schema": {
+              "title": "Point Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "title": "Offset",
+              "type": "integer"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_MeasurementOut_"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "measurements"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/routes": {
+      "get": {
+        "operationId": "api_routes_router_list_routes",
+        "summary": "List routes",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "title": "Offset",
+              "type": "integer"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_RouteOut_"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "routes"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/routes/{route_uuid}": {
+      "get": {
+        "operationId": "api_routes_router_get_route",
+        "summary": "Get route (with items)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "route_uuid",
+            "schema": {
+              "title": "Route Uuid",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "routes"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/routes/{route_uuid}/executions": {
+      "post": {
+        "operationId": "api_routes_router_start_execution",
+        "summary": "Start a route execution",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "route_uuid",
+            "schema": {
+              "title": "Route Uuid",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "routes"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/executions/{execution_uuid}": {
+      "get": {
+        "operationId": "api_routes_router_get_execution",
+        "summary": "Get execution",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "execution_uuid",
+            "schema": {
+              "title": "Execution Uuid",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "routes"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/executions/{execution_uuid}/complete": {
+      "post": {
+        "operationId": "api_routes_router_complete_execution",
+        "summary": "Complete an execution",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "execution_uuid",
+            "schema": {
+              "title": "Execution Uuid",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "routes"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/executions/{execution_uuid}/responses": {
+      "post": {
+        "operationId": "api_routes_router_submit_response",
+        "summary": "Submit an item response",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "execution_uuid",
+            "schema": {
+              "title": "Execution Uuid",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemResponseOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "routes"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResponseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/executions/{execution_uuid}/responses/upload": {
+      "post": {
+        "operationId": "api_routes_router_submit_response_with_files",
+        "summary": "Submit an item response with photo attachments",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "execution_uuid",
+            "schema": {
+              "title": "Execution Uuid",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemResponseOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "routes"
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "files": {
+                    "items": {
+                      "format": "binary",
+                      "type": "string"
+                    },
+                    "title": "Files",
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "files"
+                ],
+                "title": "FileParams",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/executions/{execution_uuid}/items": {
+      "post": {
+        "operationId": "api_routes_router_create_field_item",
+        "summary": "Create a route item + response during execution (field-authored)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "execution_uuid",
+            "schema": {
+              "title": "Execution Uuid",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemResponseOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "routes"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FieldItemIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/executions/{execution_uuid}/triage": {
+      "post": {
+        "operationId": "api_routes_router_triage_item",
+        "summary": "Assign a zone-only field item to an asset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "execution_uuid",
+            "schema": {
+              "title": "Execution Uuid",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemResponseOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "routes"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriageAssignIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "InstallationOut": {
+        "properties": {
+          "installation_id": {
+            "title": "Installation Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "installation_id",
+          "name"
+        ],
+        "title": "InstallationOut",
+        "type": "object"
+      },
+      "MeOut": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserOut"
+          },
+          "installations": {
+            "items": {
+              "$ref": "#/components/schemas/InstallationOut"
+            },
+            "title": "Installations",
+            "type": "array"
+          },
+          "current_installation_id": {
+            "title": "Current Installation Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user",
+          "installations",
+          "current_installation_id"
+        ],
+        "title": "MeOut",
+        "type": "object"
+      },
+      "UserOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          },
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "full_name",
+          "email"
+        ],
+        "title": "UserOut",
+        "type": "object"
+      },
+      "InstallationDetail": {
+        "properties": {
+          "installation_id": {
+            "title": "Installation Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "installation_id",
+          "name",
+          "created_at"
+        ],
+        "title": "InstallationDetail",
+        "type": "object"
+      },
+      "ErrorOut": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorOut",
+        "type": "object"
+      },
+      "Page_SectionOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SectionOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[SectionOut]",
+        "type": "object"
+      },
+      "SectionOut": {
+        "properties": {
+          "uuid": {
+            "format": "uuid",
+            "title": "Uuid",
+            "type": "string"
+          },
+          "section_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "section_id",
+          "name"
+        ],
+        "title": "SectionOut",
+        "type": "object"
+      },
+      "Page_ZoneOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ZoneOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[ZoneOut]",
+        "type": "object"
+      },
+      "ZoneOut": {
+        "properties": {
+          "uuid": {
+            "format": "uuid",
+            "title": "Uuid",
+            "type": "string"
+          },
+          "zone_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zone Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "section_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Id"
+          }
+        },
+        "required": [
+          "uuid",
+          "zone_id",
+          "name",
+          "section_id"
+        ],
+        "title": "ZoneOut",
+        "type": "object"
+      },
+      "AssetOut": {
+        "properties": {
+          "uuid": {
+            "format": "uuid",
+            "title": "Uuid",
+            "type": "string"
+          },
+          "asset_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "zone_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zone Id"
+          },
+          "machine_class": {
+            "title": "Machine Class",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "uuid",
+          "asset_id",
+          "name",
+          "zone_id",
+          "machine_class",
+          "status"
+        ],
+        "title": "AssetOut",
+        "type": "object"
+      },
+      "Page_AssetOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AssetOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[AssetOut]",
+        "type": "object"
+      },
+      "MeasurementPointOut": {
+        "properties": {
+          "uuid": {
+            "format": "uuid",
+            "title": "Uuid",
+            "type": "string"
+          },
+          "point_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Point Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "asset_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Id"
+          },
+          "transducer_type": {
+            "title": "Transducer Type",
+            "type": "string"
+          },
+          "measurement_unit_code": {
+            "title": "Measurement Unit Code",
+            "type": "string"
+          },
+          "location": {
+            "title": "Location",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "uuid",
+          "point_id",
+          "name",
+          "asset_id",
+          "transducer_type",
+          "measurement_unit_code",
+          "location",
+          "status"
+        ],
+        "title": "MeasurementPointOut",
+        "type": "object"
+      },
+      "Page_MeasurementPointOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MeasurementPointOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[MeasurementPointOut]",
+        "type": "object"
+      },
+      "MeasurementOut": {
+        "properties": {
+          "uuid": {
+            "format": "uuid",
+            "title": "Uuid",
+            "type": "string"
+          },
+          "measurement_point_id": {
+            "title": "Measurement Point Id",
+            "type": "integer"
+          },
+          "point_sequence": {
+            "title": "Point Sequence",
+            "type": "integer"
+          },
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "notes": {
+            "title": "Notes",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "file_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Url"
+          }
+        },
+        "required": [
+          "uuid",
+          "measurement_point_id",
+          "point_sequence",
+          "data",
+          "status",
+          "notes",
+          "created_at"
+        ],
+        "title": "MeasurementOut",
+        "type": "object"
+      },
+      "MeasurementIn": {
+        "properties": {
+          "measurement_point_id": {
+            "title": "Measurement Point Id",
+            "type": "integer"
+          },
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "timestamp": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp"
+          }
+        },
+        "required": [
+          "measurement_point_id",
+          "data"
+        ],
+        "title": "MeasurementIn",
+        "type": "object"
+      },
+      "Page_MeasurementOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MeasurementOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[MeasurementOut]",
+        "type": "object"
+      },
+      "Page_RouteOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RouteOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[RouteOut]",
+        "type": "object"
+      },
+      "RouteOut": {
+        "properties": {
+          "uuid": {
+            "format": "uuid",
+            "title": "Uuid",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "name",
+          "description"
+        ],
+        "title": "RouteOut",
+        "type": "object"
+      },
+      "RouteDetail": {
+        "properties": {
+          "uuid": {
+            "format": "uuid",
+            "title": "Uuid",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RouteItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "uuid",
+          "name",
+          "description",
+          "items"
+        ],
+        "title": "RouteDetail",
+        "type": "object"
+      },
+      "RouteItemOut": {
+        "properties": {
+          "uuid": {
+            "format": "uuid",
+            "title": "Uuid",
+            "type": "string"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "item_type": {
+            "title": "Item Type",
+            "type": "string"
+          },
+          "asset_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Id"
+          },
+          "zone_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zone Id"
+          },
+          "measurement_point_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measurement Point Id"
+          },
+          "config": {
+            "additionalProperties": true,
+            "title": "Config",
+            "type": "object"
+          }
+        },
+        "required": [
+          "uuid",
+          "order",
+          "label",
+          "item_type",
+          "asset_id",
+          "zone_id",
+          "measurement_point_id",
+          "config"
+        ],
+        "title": "RouteItemOut",
+        "type": "object"
+      },
+      "ExecutionOut": {
+        "properties": {
+          "uuid": {
+            "format": "uuid",
+            "title": "Uuid",
+            "type": "string"
+          },
+          "route_uuid": {
+            "format": "uuid",
+            "title": "Route Uuid",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "route_uuid",
+          "status",
+          "started_at",
+          "completed_at",
+          "session_id"
+        ],
+        "title": "ExecutionOut",
+        "type": "object"
+      },
+      "ItemResponseOut": {
+        "properties": {
+          "uuid": {
+            "format": "uuid",
+            "title": "Uuid",
+            "type": "string"
+          },
+          "route_item_uuid": {
+            "format": "uuid",
+            "title": "Route Item Uuid",
+            "type": "string"
+          },
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "notes": {
+            "title": "Notes",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "route_item_uuid",
+          "data",
+          "notes",
+          "status",
+          "created_at"
+        ],
+        "title": "ItemResponseOut",
+        "type": "object"
+      },
+      "ResponseIn": {
+        "properties": {
+          "route_item_uuid": {
+            "format": "uuid",
+            "title": "Route Item Uuid",
+            "type": "string"
+          },
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          }
+        },
+        "required": [
+          "route_item_uuid",
+          "data"
+        ],
+        "title": "ResponseIn",
+        "type": "object"
+      },
+      "FieldItemIn": {
+        "description": "Create a RouteItem + ItemResponse in one call (field-authored survey item).",
+        "properties": {
+          "zone_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zone Id"
+          },
+          "asset_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Id"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "item_type": {
+            "default": "pass_fail",
+            "title": "Item Type",
+            "type": "string"
+          },
+          "config": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Config",
+            "type": "object"
+          },
+          "data": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Data",
+            "type": "object"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "FieldItemIn",
+        "type": "object"
+      },
+      "TriageAssignIn": {
+        "properties": {
+          "route_item_uuid": {
+            "format": "uuid",
+            "title": "Route Item Uuid",
+            "type": "string"
+          },
+          "asset_id": {
+            "title": "Asset Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "route_item_uuid",
+          "asset_id"
+        ],
+        "title": "TriageAssignIn",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  },
+  "servers": []
+}
