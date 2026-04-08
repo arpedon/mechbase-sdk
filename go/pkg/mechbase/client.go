@@ -17,6 +17,10 @@ import (
 // userAgent identifies this SDK in API requests.
 const userAgent = "mechbase-go/0.1"
 
+// DefaultBaseURL is the hosted Mechbase service. Pass a different URL to New
+// for self-hosted installations.
+const DefaultBaseURL = "https://app.mechbase.io"
+
 // Client is the top-level Mechbase API client.
 type Client struct {
 	token   string
@@ -42,8 +46,11 @@ func WithTimeout(d time.Duration) Option {
 	}
 }
 
-// New creates a new Mechbase Client.
+// New creates a new Mechbase Client. Pass an empty baseURL to use DefaultBaseURL.
 func New(token, baseURL string, opts ...Option) *Client {
+	if baseURL == "" {
+		baseURL = DefaultBaseURL
+	}
 	c := &Client{
 		token:   token,
 		baseURL: strings.TrimRight(baseURL, "/"),

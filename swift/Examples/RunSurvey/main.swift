@@ -9,7 +9,7 @@ struct RunSurvey {
             FileHandle.standardError.write(Data("MECHBASE_TOKEN and ROUTE_UUID required\n".utf8))
             exit(1)
         }
-        let baseURL = URL(string: env["MECHBASE_BASE_URL"] ?? "https://mechbase.arpedon.com")!
+        let baseURL = env["MECHBASE_BASE_URL"].flatMap(URL.init(string:)) ?? MechbaseClient.defaultBaseURL
 
         let client = MechbaseClient(token: token, baseURL: baseURL)
         do {

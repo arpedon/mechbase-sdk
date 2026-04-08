@@ -8,7 +8,7 @@ import kotlinx.coroutines.runBlocking
 fun main() = runBlocking {
     val token = System.getenv("MECHBASE_TOKEN")
         ?: error("Set MECHBASE_TOKEN")
-    val baseUrl = System.getenv("MECHBASE_URL") ?: "https://mechbase.arpedon.com"
+    val baseUrl = System.getenv("MECHBASE_URL") ?: MechbaseClient.DEFAULT_BASE_URL
 
     val client = MechbaseClient(token = token, baseUrl = baseUrl)
     val me = client.me()
