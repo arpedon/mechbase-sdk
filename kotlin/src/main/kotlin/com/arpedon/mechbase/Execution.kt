@@ -41,12 +41,17 @@ class Execution internal constructor(
         }
     }
 
+    /**
+     * Append a field-discovered item to the execution.
+     *
+     * Items are zone-anchored ([zoneId]) or route-level (`null`). Bind the item
+     * to a specific asset after the walk via [triage].
+     */
     suspend fun addFieldItem(
         label: String,
         itemType: String = "pass_fail",
         data: Map<String, Any?> = emptyMap(),
         zoneId: Int? = null,
-        assetId: Int? = null,
         config: Map<String, Any?> = emptyMap(),
         notes: String = "",
     ): ItemResponse {
@@ -55,7 +60,6 @@ class Execution internal constructor(
             put("item_type", JsonPrimitive(itemType))
             put("data", data.toJsonObject())
             put("zone_id", if (zoneId == null) JsonNull else JsonPrimitive(zoneId))
-            put("asset_id", if (assetId == null) JsonNull else JsonPrimitive(assetId))
             put("config", config.toJsonObject())
             put("notes", JsonPrimitive(notes))
         }

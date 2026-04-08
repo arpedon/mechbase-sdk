@@ -24,12 +24,10 @@ def main() -> None:
         execution = inst.routes.start(route_uuid)
         print(f"started execution {execution.uuid}")
 
-        first_asset = inst.assets.list(limit=1)[0]
-
         resp = execution.add_field_item(
             label="Oil leak under pump",
             item_type="pass_fail",
-            asset_id=first_asset.asset_id,
+            zone_id=None,  # route-level — triage to an asset later
             data={"passed": False, "severity": "major"},
             notes="under coupling",
         )
