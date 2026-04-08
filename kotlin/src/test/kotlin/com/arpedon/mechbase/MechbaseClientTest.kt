@@ -50,7 +50,7 @@ class MechbaseClientTest {
         assertEquals("Plant", me.installations[0].name)
 
         val recorded = server.takeRequest()
-        assertEquals("/api/me", recorded.path)
+        assertEquals("/api/me/", recorded.path)
         assertEquals("Bearer tok", recorded.getHeader("Authorization"))
         assertEquals("mechbase-kotlin/0.1", recorded.getHeader("User-Agent"))
     }

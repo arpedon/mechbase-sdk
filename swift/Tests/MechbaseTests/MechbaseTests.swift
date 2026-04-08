@@ -53,7 +53,8 @@ final class MechbaseTests: XCTestCase {
 
     func testMe() async throws {
         MockURLProtocol.handler = { req in
-            XCTAssertEqual(req.url?.path, "/api/me")
+            // URL.path strips trailing slashes; check the raw URL instead.
+            XCTAssertTrue(req.url?.absoluteString.hasSuffix("/api/me/") ?? false)
             XCTAssertEqual(req.value(forHTTPHeaderField: "Authorization"), "Bearer tok")
             let body = """
             {"user":{"id":1,"username":"u","full_name":"U U","email":"u@u"},

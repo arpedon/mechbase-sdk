@@ -18,7 +18,7 @@ def client():
 
 @respx.mock
 def test_me(client):
-    respx.get("https://example.test/api/me").mock(
+    respx.get("https://example.test/api/me/").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -85,7 +85,7 @@ def test_create_measurement(client):
 
 @respx.mock
 def test_auth_error_raises(client):
-    respx.get("https://example.test/api/me").mock(
+    respx.get("https://example.test/api/me/").mock(
         return_value=httpx.Response(401, json={"detail": "nope"})
     )
     with pytest.raises(AuthError):

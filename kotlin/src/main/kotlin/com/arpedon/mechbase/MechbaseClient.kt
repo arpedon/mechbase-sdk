@@ -21,7 +21,7 @@ class MechbaseClient(
     internal val http: Http = Http(token, baseUrl, okHttpClient)
 
     suspend fun me(): Me =
-        http.getJson("/api/me", null, Me.serializer())
+        http.getJson("/api/me/", null, Me.serializer())
 
     fun forInstallation(installationId: Int): Installation =
         Installation(http, installationId)

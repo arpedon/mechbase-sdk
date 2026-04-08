@@ -30,7 +30,7 @@ func assertAuth(t *testing.T, r *http.Request) {
 func TestMe(t *testing.T) {
 	c, stop := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		assertAuth(t, r)
-		if r.URL.Path != "/api/me" {
+		if r.URL.Path != "/api/me/" {
 			t.Fatalf("path = %s", r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
