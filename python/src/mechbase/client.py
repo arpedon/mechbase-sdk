@@ -38,7 +38,7 @@ class Mechbase:
         self._http = HttpClient(token=token, base_url=base_url, timeout=timeout)
 
     def me(self) -> Me:
-        return Me.from_dict(self._http.request("GET", "/api/me"))
+        return Me.from_dict(self._http.request("GET", "/api/me/"))
 
     def for_installation(self, installation_id: int) -> InstallationHandle:
         return InstallationHandle(self._http, installation_id)

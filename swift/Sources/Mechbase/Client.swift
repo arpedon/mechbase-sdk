@@ -21,7 +21,7 @@ public final class MechbaseClient: Sendable {
 
     /// Fetch the current user, their installations, and the active installation id.
     public func me() async throws -> Me {
-        try await http.get("/api/me", as: Me.self)
+        try await http.get("/api/me/", as: Me.self)
     }
 
     /// Return a handle bound to a specific installation.

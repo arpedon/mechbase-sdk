@@ -88,7 +88,7 @@ type Installation_ struct {
 // Me returns the authenticated user and accessible installations.
 func (c *Client) Me(ctx context.Context) (*Me, error) {
 	var out Me
-	if err := c.doJSON(ctx, http.MethodGet, "/api/me", nil, nil, &out); err != nil {
+	if err := c.doJSON(ctx, http.MethodGet, "/api/me/", nil, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
