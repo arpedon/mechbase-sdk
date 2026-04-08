@@ -1,0 +1,27 @@
+## Python
+.venv/
+__pycache__/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+## Go
+/go/bin/
+
+## Swift
+.build/
+.swiftpm/
+Package.resolved
+
+## Kotlin / Gradle
+.gradle/
+kotlin/build/
+kotlin/.gradle/
+!kotlin/gradle/wrapper/gradle-wrapper.jar
+
+## Editors
+.idea/
+.vscode/
+*.iml
+.DS_Store
