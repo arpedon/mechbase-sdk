@@ -17,10 +17,15 @@ public struct PointInput: Encodable, Sendable {
                 assetExternalId: String? = nil, transducerType: String? = nil,
                 measurementUnitCode: String? = nil, location: String? = nil,
                 bodySegment: Int? = nil, bodyAngle: Int? = nil, machineClass: String? = nil) {
-        self.name = name; self.externalId = externalId; self.assetId = assetId
-        self.assetExternalId = assetExternalId; self.transducerType = transducerType
-        self.measurementUnitCode = measurementUnitCode; self.location = location
-        self.bodySegment = bodySegment; self.bodyAngle = bodyAngle
+        self.name = name
+        self.externalId = externalId
+        self.assetId = assetId
+        self.assetExternalId = assetExternalId
+        self.transducerType = transducerType
+        self.measurementUnitCode = measurementUnitCode
+        self.location = location
+        self.bodySegment = bodySegment
+        self.bodyAngle = bodyAngle
         self.machineClass = machineClass
     }
 

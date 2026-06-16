@@ -112,8 +112,11 @@ public struct MeasurementInput: Encodable, Sendable {
                 timestamp: String? = nil, externalId: String? = nil) {
         self.measurementPointId = measurementPointId
         self.measurementPointExternalId = measurementPointExternalId
-        self.data = data; self.notes = notes; self.sessionId = sessionId
-        self.timestamp = timestamp; self.externalId = externalId
+        self.data = data
+        self.notes = notes
+        self.sessionId = sessionId
+        self.timestamp = timestamp
+        self.externalId = externalId
     }
 
     public init(measurementPointId: Int? = nil, measurementPointExternalId: String? = nil,
@@ -162,18 +165,16 @@ public extension Measurements {
             Task {
                 var cursor: String? = ""
                 do {
-                    while true {
-                        var q: [URLQueryItem] = [
-                            URLQueryItem(name: "cursor", value: cursor),
+                    while !Task.isCancelled {
+                        let q: [URLQueryItem] = [
+                            URLQueryItem(name: "cursor", value: cursor ?? ""),
                             URLQueryItem(name: "limit", value: String(pageSize)),
                             URLQueryItem(name: "created_from", value: createdFrom),
                             URLQueryItem(name: "created_to", value: createdTo),
                         ]
-                        // keep cursor="" so the API selects cursor mode
-                        q = q.filter { $0.name == "cursor" || ($0.value != nil && $0.value != "") }
                         let page = try await scope.http.get(
                             scope.path("/measurement-points/\(pointId)/measurements/"),
-                            query: q, as: CursorPage<Measurement>.self)
+                            query: q, stripEmpty: false, as: CursorPage<Measurement>.self)
                         for m in page.items { continuation.yield(m) }
                         guard let next = page.nextCursor, !next.isEmpty else { break }
                         cursor = next

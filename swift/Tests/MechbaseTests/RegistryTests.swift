@@ -33,6 +33,7 @@ final class RegistryTests: XCTestCase {
     func testCreateZone() async throws {
         MockURLProtocol.handler = { req in
             XCTAssertEqual(req.url?.path, "/api/installations/2012/zones")
+            XCTAssertEqual(req.httpMethod, "POST")
             return (201, self.json("""
             {"uuid":"z-1","zone_id":9,"name":"Zone 9","section_id":3,"external_id":"Z-9"}
             """))
@@ -44,7 +45,8 @@ final class RegistryTests: XCTestCase {
 
     func testCreateBatch() async throws {
         MockURLProtocol.handler = { req in
-            XCTAssertTrue(req.url?.absoluteString.hasSuffix("/api/installations/2012/measurements/batch/") ?? false)
+            XCTAssertEqual(req.url?.absoluteString, "https://example.test/api/installations/2012/measurements/batch/")
+            XCTAssertEqual(req.httpMethod, "POST")
             return (200, self.json("""
             {"created":1,"duplicates":0,"errors":0,"results":[
               {"index":0,"status":"created","measurement_point_id":1,"point_sequence":5,
@@ -60,14 +62,16 @@ final class RegistryTests: XCTestCase {
 
     func testIterForPoint() async throws {
         var page = 0
-        MockURLProtocol.handler = { _ in
+        MockURLProtocol.handler = { req in
             page += 1
             if page == 1 {
+                XCTAssertTrue(req.url?.query?.contains("cursor=") ?? false, "first request must send cursor= to opt into cursor mode")
                 return (200, self.json("""
                 {"items":[{"uuid":"m-1","measurement_point_id":42,"point_sequence":1,
                  "data":{},"status":"good","notes":"","created_at":"t1"}],"next_cursor":"CUR2"}
                 """))
             }
+            XCTAssertTrue(req.url?.query?.contains("cursor=CUR2") ?? false, "second request must carry cursor=CUR2")
             return (200, self.json("""
             {"items":[{"uuid":"m-2","measurement_point_id":42,"point_sequence":2,
              "data":{},"status":"good","notes":"","created_at":"t2"}],"next_cursor":null}

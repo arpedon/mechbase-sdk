@@ -28,13 +28,13 @@ actor HTTPClient {
 
     // MARK: - URL building
 
-    private func url(path: String, query: [URLQueryItem] = []) -> URL {
+    private func url(path: String, query: [URLQueryItem] = [], stripEmpty: Bool = true) -> URL {
         // Preserve trailing slashes by hand-building the string — URLComponents
         // will silently strip them when round-tripping `path`.
         var base = baseURL.absoluteString
         if base.hasSuffix("/") { base.removeLast() }
         var combined = base + path
-        let filtered = query.filter { $0.value != nil && $0.value != "" }
+        let filtered = query.filter { $0.value != nil && (!stripEmpty || $0.value != "") }
         if !filtered.isEmpty {
             var qs: [String] = []
             for item in filtered {
@@ -58,8 +58,8 @@ actor HTTPClient {
 
     // MARK: - Verbs
 
-    func get<T: Decodable>(_ path: String, query: [URLQueryItem] = [], as: T.Type) async throws -> T {
-        let req = makeRequest("GET", url(path: path, query: query))
+    func get<T: Decodable>(_ path: String, query: [URLQueryItem] = [], stripEmpty: Bool = true, as: T.Type) async throws -> T {
+        let req = makeRequest("GET", url(path: path, query: query, stripEmpty: stripEmpty))
         return try await send(req)
     }
 
