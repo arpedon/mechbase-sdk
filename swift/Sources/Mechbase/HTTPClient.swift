@@ -75,6 +75,25 @@ actor HTTPClient {
         return try await send(req)
     }
 
+    func putJSON<T: Decodable, B: Encodable>(_ path: String, body: B, as: T.Type) async throws -> T {
+        var req = makeRequest("PUT", url(path: path))
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try encoder.encode(body)
+        return try await send(req)
+    }
+
+    func patchJSON<T: Decodable, B: Encodable>(_ path: String, body: B, as: T.Type) async throws -> T {
+        var req = makeRequest("PATCH", url(path: path))
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try encoder.encode(body)
+        return try await send(req)
+    }
+
+    func delete<T: Decodable>(_ path: String, query: [URLQueryItem] = [], as: T.Type) async throws -> T {
+        let req = makeRequest("DELETE", url(path: path, query: query))
+        return try await send(req)
+    }
+
     func postMultipart<T: Decodable>(
         _ path: String,
         fields: [String: String],
