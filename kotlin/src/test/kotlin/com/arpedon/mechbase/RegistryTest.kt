@@ -53,6 +53,61 @@ class RegistryTest {
         assertEquals("created", res.results[0].status)
         val rec = server.takeRequest()
         assertEquals("/api/installations/2012/measurements/batch/", rec.path)
+        assertEquals("POST", rec.method)
+        assertTrue(rec.body.readUtf8().contains("\"items\":["))
+    }
+
+    @Test fun assetWriteVerbs() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(200).setHeader("Content-Type", "application/json").setBody(
+            """{"uuid":"a-1","asset_id":7,"name":"Pump 7b","section_id":3,"zone_id":2,"machine_class":"II","equipment_type":"pump","status":1,"external_id":"P-7"}""".trimIndent()))
+        server.enqueue(MockResponse().setResponseCode(200).setHeader("Content-Type", "application/json").setBody(
+            """{"uuid":"a-1","asset_id":7,"name":"Pump 7c","section_id":3,"zone_id":2,"machine_class":"II","equipment_type":"pump","status":1,"external_id":"P-7"}""".trimIndent()))
+        server.enqueue(MockResponse().setResponseCode(200).setHeader("Content-Type", "application/json").setBody(
+            """{"deleted":true,"uuid":"a-1"}""".trimIndent()))
+
+        val assets = client.forInstallation(2012).assets
+        val up = assets.upsert(AssetInput(externalId = "P-7", name = "Pump 7b"))
+        assertEquals("Pump 7b", up.name)
+        val updated = assets.update(7, AssetInput(name = "Pump 7c"))
+        assertEquals("Pump 7c", updated.name)
+        val del = assets.delete(7, cascade = true)
+        assertTrue(del.deleted)
+
+        val r1 = server.takeRequest()
+        assertEquals("PUT", r1.method)
+        assertEquals("/api/installations/2012/assets", r1.path)
+
+        val r2 = server.takeRequest()
+        assertEquals("PATCH", r2.method)
+        assertEquals("/api/installations/2012/assets/7", r2.path)
+        val patchBody = r2.body.readUtf8()
+        assertTrue(patchBody.contains("\"name\":\"Pump 7c\""))
+        assertTrue("PATCH body must omit null fields", !patchBody.contains("external_id"))
+
+        val r3 = server.takeRequest()
+        assertEquals("DELETE", r3.method)
+        assertEquals("/api/installations/2012/assets/7?cascade=true", r3.path)
+    }
+
+    @Test fun sectionsAndZones() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(201).setHeader("Content-Type", "application/json").setBody(
+            """{"uuid":"s-1","section_id":3,"name":"Hall A","external_id":"S-1"}""".trimIndent()))
+        server.enqueue(MockResponse().setResponseCode(201).setHeader("Content-Type", "application/json").setBody(
+            """{"uuid":"z-1","zone_id":9,"name":"Zone 9","section_id":3,"external_id":"Z-9"}""".trimIndent()))
+
+        val inst = client.forInstallation(2012)
+        val s = inst.sections.create(SectionInput(name = "Hall A", externalId = "S-1"))
+        assertEquals(3, s.sectionId)
+        assertEquals("Hall A", s.name)
+        val z = inst.zones.create(ZoneInput(name = "Zone 9", externalId = "Z-9", sectionExternalId = "S-1"))
+        assertEquals(9, z.zoneId)
+
+        val r1 = server.takeRequest()
+        assertEquals("POST", r1.method)
+        assertEquals("/api/installations/2012/sections", r1.path)
+        val r2 = server.takeRequest()
+        assertEquals("POST", r2.method)
+        assertEquals("/api/installations/2012/zones", r2.path)
     }
 
     @Test fun iterForPoint() = runBlocking {
