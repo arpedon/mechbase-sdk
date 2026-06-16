@@ -22,7 +22,7 @@ func assertAuth(t *testing.T, r *http.Request) {
 	if got := r.Header.Get("Authorization"); got != "Bearer tok" {
 		t.Fatalf("authorization header = %q", got)
 	}
-	if got := r.Header.Get("User-Agent"); got != "mechbase-go/0.1" {
+	if got := r.Header.Get("User-Agent"); got != "mechbase-go/0.2" {
 		t.Fatalf("user-agent = %q", got)
 	}
 }
