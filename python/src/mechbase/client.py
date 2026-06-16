@@ -3,7 +3,7 @@ from __future__ import annotations
 from ._http import HttpClient
 from .models import Me
 from .resources.measurements import Measurements
-from .resources.registry import Assets, MeasurementPoints
+from .resources.registry import Assets, MeasurementPoints, Sections, Zones
 from .resources.routes import Routes
 
 
@@ -17,6 +17,8 @@ class InstallationHandle:
         self.measurement_points = MeasurementPoints(http, installation_id)
         self.measurements = Measurements(http, installation_id)
         self.routes = Routes(http, installation_id)
+        self.sections = Sections(http, installation_id)
+        self.zones = Zones(http, installation_id)
 
 
 class Mechbase:

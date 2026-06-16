@@ -70,9 +70,12 @@ class Asset:
     uuid: str
     asset_id: int | None
     name: str
+    section_id: int | None
     zone_id: int | None
     machine_class: str
+    equipment_type: str
     status: int
+    external_id: str | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -80,11 +83,14 @@ class Asset:
         d = dict(d)
         return cls(
             uuid=d.pop("uuid"),
-            asset_id=d.pop("asset_id"),
+            asset_id=d.pop("asset_id", None),
             name=d.pop("name"),
-            zone_id=d.pop("zone_id"),
+            section_id=d.pop("section_id", None),
+            zone_id=d.pop("zone_id", None),
             machine_class=d.pop("machine_class", ""),
+            equipment_type=d.pop("equipment_type", ""),
             status=d.pop("status"),
+            external_id=d.pop("external_id", None),
             extra=d,
         )
 
@@ -99,6 +105,7 @@ class MeasurementPoint:
     measurement_unit_code: str
     location: str
     status: int
+    external_id: str | None = None
 
     @classmethod
     def from_dict(cls, d: dict) -> "MeasurementPoint":
@@ -111,6 +118,7 @@ class MeasurementPoint:
             measurement_unit_code=d["measurement_unit_code"],
             location=d["location"],
             status=d["status"],
+            external_id=d.get("external_id"),
         )
 
 
@@ -123,6 +131,7 @@ class Measurement:
     status: str
     notes: str
     created_at: str
+    external_id: str | None = None
     file_url: str | None = None
 
     @classmethod
@@ -135,6 +144,7 @@ class Measurement:
             status=d["status"],
             notes=d.get("notes", ""),
             created_at=d["created_at"],
+            external_id=d.get("external_id"),
             file_url=d.get("file_url"),
         )
 
@@ -189,4 +199,128 @@ class ItemResponse:
             notes=d.get("notes", ""),
             status=d["status"],
             created_at=d["created_at"],
+        )
+
+
+@dataclass
+class Section:
+    uuid: str
+    section_id: int | None
+    name: str
+    external_id: str | None = None
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Section":
+        return cls(
+            uuid=d["uuid"],
+            section_id=d.get("section_id"),
+            name=d["name"],
+            external_id=d.get("external_id"),
+        )
+
+
+@dataclass
+class Zone:
+    uuid: str
+    zone_id: int | None
+    name: str
+    section_id: int | None = None
+    external_id: str | None = None
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Zone":
+        return cls(
+            uuid=d["uuid"],
+            zone_id=d.get("zone_id"),
+            name=d["name"],
+            section_id=d.get("section_id"),
+            external_id=d.get("external_id"),
+        )
+
+
+@dataclass
+class DeleteResult:
+    deleted: bool
+    uuid: str
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "DeleteResult":
+        return cls(deleted=d["deleted"], uuid=d["uuid"])
+
+
+@dataclass
+class BatchItemResult:
+    index: int
+    status: str
+    measurement_point_id: int | None = None
+    point_sequence: int | None = None
+    uuid: str | None = None
+    external_id: str | None = None
+    detail: str | None = None
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "BatchItemResult":
+        return cls(
+            index=d["index"],
+            status=d["status"],
+            measurement_point_id=d.get("measurement_point_id"),
+            point_sequence=d.get("point_sequence"),
+            uuid=d.get("uuid"),
+            external_id=d.get("external_id"),
+            detail=d.get("detail"),
+        )
+
+
+@dataclass
+class BatchResult:
+    created: int
+    duplicates: int
+    errors: int
+    results: list[BatchItemResult]
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "BatchResult":
+        return cls(
+            created=d["created"],
+            duplicates=d["duplicates"],
+            errors=d["errors"],
+            results=[BatchItemResult.from_dict(r) for r in d["results"]],
+        )
+
+
+@dataclass
+class FileAttachment:
+    uuid: str
+    name: str
+    kind: str
+    file_url: str
+    created_at: str
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "FileAttachment":
+        return cls(
+            uuid=d["uuid"],
+            name=d["name"],
+            kind=d["kind"],
+            file_url=d["file_url"],
+            created_at=d["created_at"],
+        )
+
+
+@dataclass
+class MeasurementResult:
+    mapping_uuid: str
+    ok: bool
+    measurement_uuid: str | None = None
+    local_uuid: str = ""
+    error: str = ""
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "MeasurementResult":
+        return cls(
+            mapping_uuid=d["mapping_uuid"],
+            ok=d["ok"],
+            measurement_uuid=d.get("measurement_uuid"),
+            local_uuid=d.get("local_uuid", ""),
+            error=d.get("error", ""),
         )
