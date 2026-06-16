@@ -146,7 +146,7 @@ type FileAttachment struct {
 	Name      string `json:"name"`
 	Kind      string `json:"kind"`
 	FileURL   string `json:"file_url"`
-	CreatedAt string `json:"created_at"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // MeasurementResult is the per-item outcome of a maintnode measurement push.

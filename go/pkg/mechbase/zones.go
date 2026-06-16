@@ -29,6 +29,7 @@ type ListZonesOptions struct {
 	Offset    int
 }
 
+// List returns a page of zones.
 func (z *Zones) List(ctx context.Context, opts ListZonesOptions) ([]Zone, error) {
 	q := url.Values{}
 	if opts.Q != "" {
@@ -45,6 +46,7 @@ func (z *Zones) List(ctx context.Context, opts ListZonesOptions) ([]Zone, error)
 	return env.Items, nil
 }
 
+// Get fetches one zone by numeric id.
 func (z *Zones) Get(ctx context.Context, zoneID int) (*Zone, error) {
 	var out Zone
 	if err := z.client.doJSON(ctx, http.MethodGet, pathf(z.iid, fmt.Sprintf("/zones/%d", zoneID)), nil, nil, &out); err != nil {
@@ -53,6 +55,7 @@ func (z *Zones) Get(ctx context.Context, zoneID int) (*Zone, error) {
 	return &out, nil
 }
 
+// Create creates a zone.
 func (z *Zones) Create(ctx context.Context, in ZoneInput) (*Zone, error) {
 	var out Zone
 	if err := z.client.doJSON(ctx, http.MethodPost, pathf(z.iid, "/zones"), nil, in, &out); err != nil {
@@ -61,6 +64,7 @@ func (z *Zones) Create(ctx context.Context, in ZoneInput) (*Zone, error) {
 	return &out, nil
 }
 
+// Upsert creates or updates a zone, matched by external_id.
 func (z *Zones) Upsert(ctx context.Context, in ZoneInput) (*Zone, error) {
 	var out Zone
 	if err := z.client.doJSON(ctx, http.MethodPut, pathf(z.iid, "/zones"), nil, in, &out); err != nil {
@@ -69,6 +73,7 @@ func (z *Zones) Upsert(ctx context.Context, in ZoneInput) (*Zone, error) {
 	return &out, nil
 }
 
+// Update partially updates a zone by numeric id.
 func (z *Zones) Update(ctx context.Context, zoneID int, in ZoneInput) (*Zone, error) {
 	var out Zone
 	if err := z.client.doJSON(ctx, http.MethodPatch, pathf(z.iid, fmt.Sprintf("/zones/%d", zoneID)), nil, in, &out); err != nil {
@@ -77,6 +82,7 @@ func (z *Zones) Update(ctx context.Context, zoneID int, in ZoneInput) (*Zone, er
 	return &out, nil
 }
 
+// Delete removes a zone; cascade also removes children.
 func (z *Zones) Delete(ctx context.Context, zoneID int, cascade bool) (*DeleteResult, error) {
 	q := url.Values{}
 	if cascade {

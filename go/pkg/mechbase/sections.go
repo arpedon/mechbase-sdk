@@ -26,6 +26,7 @@ type ListSectionsOptions struct {
 	Offset int
 }
 
+// List returns a page of sections.
 func (s *Sections) List(ctx context.Context, opts ListSectionsOptions) ([]Section, error) {
 	q := url.Values{}
 	if opts.Q != "" {
@@ -39,6 +40,7 @@ func (s *Sections) List(ctx context.Context, opts ListSectionsOptions) ([]Sectio
 	return env.Items, nil
 }
 
+// Get fetches one section by numeric id.
 func (s *Sections) Get(ctx context.Context, sectionID int) (*Section, error) {
 	var out Section
 	if err := s.client.doJSON(ctx, http.MethodGet, pathf(s.iid, fmt.Sprintf("/sections/%d", sectionID)), nil, nil, &out); err != nil {
@@ -47,6 +49,7 @@ func (s *Sections) Get(ctx context.Context, sectionID int) (*Section, error) {
 	return &out, nil
 }
 
+// Create creates a section.
 func (s *Sections) Create(ctx context.Context, in SectionInput) (*Section, error) {
 	var out Section
 	if err := s.client.doJSON(ctx, http.MethodPost, pathf(s.iid, "/sections"), nil, in, &out); err != nil {
@@ -55,6 +58,7 @@ func (s *Sections) Create(ctx context.Context, in SectionInput) (*Section, error
 	return &out, nil
 }
 
+// Upsert creates or updates a section, matched by external_id.
 func (s *Sections) Upsert(ctx context.Context, in SectionInput) (*Section, error) {
 	var out Section
 	if err := s.client.doJSON(ctx, http.MethodPut, pathf(s.iid, "/sections"), nil, in, &out); err != nil {
@@ -63,6 +67,7 @@ func (s *Sections) Upsert(ctx context.Context, in SectionInput) (*Section, error
 	return &out, nil
 }
 
+// Update partially updates a section by numeric id.
 func (s *Sections) Update(ctx context.Context, sectionID int, in SectionInput) (*Section, error) {
 	var out Section
 	if err := s.client.doJSON(ctx, http.MethodPatch, pathf(s.iid, fmt.Sprintf("/sections/%d", sectionID)), nil, in, &out); err != nil {
@@ -71,6 +76,7 @@ func (s *Sections) Update(ctx context.Context, sectionID int, in SectionInput) (
 	return &out, nil
 }
 
+// Delete removes a section; cascade also removes children.
 func (s *Sections) Delete(ctx context.Context, sectionID int, cascade bool) (*DeleteResult, error) {
 	q := url.Values{}
 	if cascade {
