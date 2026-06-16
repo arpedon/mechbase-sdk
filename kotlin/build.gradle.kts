@@ -1,6 +1,7 @@
 plugins {
     kotlin("jvm") version "1.9.24"
     kotlin("plugin.serialization") version "1.9.24"
+    `maven-publish`
 }
 
 group = "com.arpedon"
@@ -44,5 +45,20 @@ tasks.test {
     testLogging {
         events("passed", "failed", "skipped")
         showStandardStreams = true
+    }
+}
+
+java {
+    withSourcesJar()
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            groupId = "com.arpedon"
+            artifactId = "mechbase-sdk"
+            version = "0.2.0"
+            from(components["java"])
+        }
     }
 }
