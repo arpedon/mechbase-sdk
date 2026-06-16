@@ -9,6 +9,8 @@ class Installation internal constructor(
     val measurementPoints: MeasurementPoints = MeasurementPoints(http, installationId)
     val measurements: Measurements = Measurements(http, installationId)
     val routes: Routes = Routes(http, installationId)
+    val sections: Sections = Sections(http, installationId)
+    val zones: Zones = Zones(http, installationId)
 }
 
 internal fun installationPath(installationId: Int, suffix: String): String =
