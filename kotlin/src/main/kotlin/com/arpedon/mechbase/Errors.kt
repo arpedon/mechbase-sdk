@@ -19,6 +19,14 @@ class NotFoundException(message: String, status: Int? = null, body: String? = nu
 class ValidationException(message: String, status: Int? = null, body: String? = null) :
     MechbaseException(message, status, body)
 
+/** 409. */
+class ConflictException(message: String, status: Int? = null, body: String? = null) :
+    MechbaseException(message, status, body)
+
+/** 413. */
+class PayloadTooLargeException(message: String, status: Int? = null, body: String? = null) :
+    MechbaseException(message, status, body)
+
 /** 5xx and other unexpected statuses. */
 class ServerException(message: String, status: Int? = null, body: String? = null) :
     MechbaseException(message, status, body)

@@ -7,6 +7,8 @@ public final class Installation: Sendable {
     public let measurementPoints: MeasurementPoints
     public let measurements: Measurements
     public let routes: Routes
+    public let sections: Sections
+    public let zones: Zones
 
     init(http: HTTPClient, installationId: Int) {
         self.installationId = installationId
@@ -14,6 +16,8 @@ public final class Installation: Sendable {
         self.measurementPoints = MeasurementPoints(http: http, installationId: installationId)
         self.measurements = Measurements(http: http, installationId: installationId)
         self.routes = Routes(http: http, installationId: installationId)
+        self.sections = Sections(http: http, installationId: installationId)
+        self.zones = Zones(http: http, installationId: installationId)
     }
 }
 

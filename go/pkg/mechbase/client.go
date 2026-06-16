@@ -15,7 +15,7 @@ import (
 )
 
 // userAgent identifies this SDK in API requests.
-const userAgent = "mechbase-go/0.1"
+const userAgent = "mechbase-go/0.2"
 
 // DefaultBaseURL is the hosted Mechbase service. Pass a different URL to New
 // for self-hosted installations.
@@ -71,6 +71,8 @@ func (c *Client) ForInstallation(id int) *Installation_ {
 		MeasurementPoints: &MeasurementPoints{client: c, iid: id},
 		Measurements:      &Measurements{client: c, iid: id},
 		Routes:            &Routes{client: c, iid: id},
+		Sections:          &Sections{client: c, iid: id},
+		Zones:             &Zones{client: c, iid: id},
 	}
 }
 
@@ -83,6 +85,8 @@ type Installation_ struct {
 	MeasurementPoints *MeasurementPoints
 	Measurements      *Measurements
 	Routes            *Routes
+	Sections          *Sections
+	Zones             *Zones
 }
 
 // Me returns the authenticated user and accessible installations.
@@ -165,7 +169,9 @@ func (c *Client) newRequest(ctx context.Context, method, path string, query url.
 	if err != nil {
 		return nil, fmt.Errorf("mechbase: build request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
 	req.Header.Set("User-Agent", userAgent)
 	req.Header.Set("Accept", "application/json")
 	return req, nil

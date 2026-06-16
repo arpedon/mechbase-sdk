@@ -28,13 +28,13 @@ actor HTTPClient {
 
     // MARK: - URL building
 
-    private func url(path: String, query: [URLQueryItem] = []) -> URL {
+    private func url(path: String, query: [URLQueryItem] = [], stripEmpty: Bool = true) -> URL {
         // Preserve trailing slashes by hand-building the string — URLComponents
         // will silently strip them when round-tripping `path`.
         var base = baseURL.absoluteString
         if base.hasSuffix("/") { base.removeLast() }
         var combined = base + path
-        let filtered = query.filter { $0.value != nil && $0.value != "" }
+        let filtered = query.filter { $0.value != nil && (!stripEmpty || $0.value != "") }
         if !filtered.isEmpty {
             var qs: [String] = []
             for item in filtered {
@@ -51,15 +51,15 @@ actor HTTPClient {
         var req = URLRequest(url: url)
         req.httpMethod = method
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        req.setValue("mechbase-swift/0.1", forHTTPHeaderField: "User-Agent")
+        req.setValue("mechbase-swift/0.2", forHTTPHeaderField: "User-Agent")
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         return req
     }
 
     // MARK: - Verbs
 
-    func get<T: Decodable>(_ path: String, query: [URLQueryItem] = [], as: T.Type) async throws -> T {
-        let req = makeRequest("GET", url(path: path, query: query))
+    func get<T: Decodable>(_ path: String, query: [URLQueryItem] = [], stripEmpty: Bool = true, as: T.Type) async throws -> T {
+        let req = makeRequest("GET", url(path: path, query: query, stripEmpty: stripEmpty))
         return try await send(req)
     }
 
@@ -72,6 +72,25 @@ actor HTTPClient {
         var req = makeRequest("POST", url(path: path))
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try encoder.encode(body)
+        return try await send(req)
+    }
+
+    func putJSON<T: Decodable, B: Encodable>(_ path: String, body: B, as: T.Type) async throws -> T {
+        var req = makeRequest("PUT", url(path: path))
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try encoder.encode(body)
+        return try await send(req)
+    }
+
+    func patchJSON<T: Decodable, B: Encodable>(_ path: String, body: B, as: T.Type) async throws -> T {
+        var req = makeRequest("PATCH", url(path: path))
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try encoder.encode(body)
+        return try await send(req)
+    }
+
+    func delete<T: Decodable>(_ path: String, query: [URLQueryItem] = [], as: T.Type) async throws -> T {
+        let req = makeRequest("DELETE", url(path: path, query: query))
         return try await send(req)
     }
 
@@ -142,6 +161,8 @@ actor HTTPClient {
         switch status {
         case 401, 403: throw MechbaseError.auth(message)
         case 404: throw MechbaseError.notFound(message)
+        case 409: throw MechbaseError.conflict(message)
+        case 413: throw MechbaseError.tooLarge(message)
         case 422: throw MechbaseError.validation(message)
         default: throw MechbaseError.server(status, message)
         }

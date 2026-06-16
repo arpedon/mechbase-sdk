@@ -20,8 +20,17 @@ live mechbase-v2 `NinjaAPI`. All clients are hand-written to match it — no cod
 
 - **Maintnode / ops scripts (Python, Go):** push measurements, list assets and measurement
   points, poll historical readings.
+- **Registry sync (all languages):** create, upsert, update, and delete assets,
+  measurement-points, sections, and zones — all addressable by `external_id`, so you can
+  mirror a registry from a CMMS or ERP without managing numeric IDs.
+- **Batch measurement push (all languages):** send many readings in a single request via
+  `create_batch` / `CreateBatch`; the response reports created, duplicate, and error counts
+  per item.
 - **Field survey apps (Swift iOS, Kotlin Android):** start a route execution, submit item
   responses with photos, author new findings on the fly, triage zone-only items to assets.
+
+A **maintnode device client** (`MaintNode` in Python, `NewMaintNode` in Go) is available
+for edge agents that are identified by a `node_uuid` rather than a bearer token.
 
 ## Uniform public surface (Python example)
 
@@ -50,6 +59,30 @@ execution.complete()
 
 Go / Swift / Kotlin expose the same shape with idiomatic names
 (`client.ForInstallation(id).Assets.List(ctx, …)`, etc.).
+
+### Registry sync + batch push (Python)
+
+```python
+from mechbase import Mechbase
+
+client = Mechbase(token="...")
+inst = client.for_installation(client.me().current_installation_id)
+
+# Upsert the hierarchy by external_id — safe to run repeatedly
+inst.sections.upsert(external_id="HALL-A", name="Hall A")
+inst.zones.upsert(external_id="Z-1", name="Pump Row", section_external_id="HALL-A")
+inst.assets.upsert(external_id="PUMP-1", name="Feed Pump 1",
+                   zone_external_id="Z-1", equipment_type="pump", machine_class="II")
+inst.measurement_points.upsert(external_id="PUMP-1-DE", name="Drive End",
+                               asset_external_id="PUMP-1", transducer_type="accel",
+                               measurement_unit_code="mm_s")
+
+# Push readings in bulk
+result = inst.measurements.create_batch([
+    {"measurement_point_external_id": "PUMP-1-DE", "data": {"rms": 2.3}, "external_id": "r-1"},
+])
+print(f"created={result.created} duplicates={result.duplicates} errors={result.errors}")
+```
 
 ## Auth
 
