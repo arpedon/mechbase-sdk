@@ -2,6 +2,7 @@ package mechbase
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -16,6 +17,17 @@ func TestMaintNodePush(t *testing.T) {
 		case "/api/maintnode/node-1/config/":
 			_, _ = w.Write([]byte(`"ssh: abc"`))
 		case "/api/maintnode/node-1/measurements/":
+			if r.Method != http.MethodPost {
+				t.Fatalf("method = %s", r.Method)
+			}
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatal(err)
+			}
+			measurements, ok := body["measurements"].([]any)
+			if !ok || len(measurements) != 1 {
+				t.Fatalf("measurements = %v", body["measurements"])
+			}
 			_, _ = w.Write([]byte(`[{"mapping_uuid":"map-1","ok":true,"measurement_uuid":"m-1","local_uuid":"L1","error":""}]`))
 		default:
 			t.Fatalf("unexpected %s", r.URL.Path)
