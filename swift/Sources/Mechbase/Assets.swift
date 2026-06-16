@@ -15,9 +15,13 @@ public struct AssetInput: Encodable, Sendable {
     public init(name: String? = nil, externalId: String? = nil, sectionId: Int? = nil,
                 sectionExternalId: String? = nil, zoneId: Int? = nil, zoneExternalId: String? = nil,
                 equipmentType: String? = nil, machineClass: String? = nil) {
-        self.name = name; self.externalId = externalId; self.sectionId = sectionId
-        self.sectionExternalId = sectionExternalId; self.zoneId = zoneId
-        self.zoneExternalId = zoneExternalId; self.equipmentType = equipmentType
+        self.name = name
+        self.externalId = externalId
+        self.sectionId = sectionId
+        self.sectionExternalId = sectionExternalId
+        self.zoneId = zoneId
+        self.zoneExternalId = zoneExternalId
+        self.equipmentType = equipmentType
         self.machineClass = machineClass
     }
 
