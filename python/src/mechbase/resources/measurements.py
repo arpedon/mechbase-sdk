@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 from typing import Any, BinaryIO
@@ -82,7 +83,6 @@ class Measurements(InstallationScoped):
             fh = open(file, "rb")  # noqa: SIM115
             opened = True
         elif isinstance(file, (bytes, bytearray)):
-            import io
             fh = io.BytesIO(file)
         try:
             body = self._http.request(

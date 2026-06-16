@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import httpx
 import respx
 
@@ -33,6 +35,9 @@ def test_push_measurements():
     node = MaintNode(node_uuid="node-1", base_url=BASE)
     res = node.push_measurements([{"mapping_uuid": "map-1", "data": {"rms": 1.0}}])
     assert res[0].ok is True and res[0].measurement_uuid == "m-1"
+    assert json.loads(respx.calls.last.request.content) == {
+        "measurements": [{"mapping_uuid": "map-1", "data": {"rms": 1.0}}]
+    }
 
 
 @respx.mock
