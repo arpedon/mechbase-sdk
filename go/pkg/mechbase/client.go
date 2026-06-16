@@ -71,6 +71,8 @@ func (c *Client) ForInstallation(id int) *Installation_ {
 		MeasurementPoints: &MeasurementPoints{client: c, iid: id},
 		Measurements:      &Measurements{client: c, iid: id},
 		Routes:            &Routes{client: c, iid: id},
+		Sections:          &Sections{client: c, iid: id},
+		Zones:             &Zones{client: c, iid: id},
 	}
 }
 
@@ -83,6 +85,8 @@ type Installation_ struct {
 	MeasurementPoints *MeasurementPoints
 	Measurements      *Measurements
 	Routes            *Routes
+	Sections          *Sections
+	Zones             *Zones
 }
 
 // Me returns the authenticated user and accessible installations.
