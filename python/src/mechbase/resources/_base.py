@@ -21,3 +21,8 @@ def _paginated(http, path: str, *, params: dict, parse) -> list:
     params = {k: v for k, v in params.items() if v is not None and v != ""}
     body = http.request("GET", path, params=params)
     return [parse(i) for i in body["items"]]
+
+
+def _clean(d: dict) -> dict:
+    """Drop keys whose value is None (keeps PATCH partial)."""
+    return {k: v for k, v in d.items() if v is not None}

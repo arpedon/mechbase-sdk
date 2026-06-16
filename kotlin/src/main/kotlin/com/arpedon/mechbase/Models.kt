@@ -39,9 +39,12 @@ data class Asset(
     val uuid: String,
     @SerialName("asset_id") val assetId: Int? = null,
     val name: String,
+    @SerialName("section_id") val sectionId: Int? = null,
     @SerialName("zone_id") val zoneId: Int? = null,
     @SerialName("machine_class") val machineClass: String = "",
+    @SerialName("equipment_type") val equipmentType: String = "",
     val status: Int,
+    @SerialName("external_id") val externalId: String? = null,
 )
 
 @Serializable
@@ -54,6 +57,7 @@ data class MeasurementPoint(
     @SerialName("measurement_unit_code") val measurementUnitCode: String,
     val location: String,
     val status: Int,
+    @SerialName("external_id") val externalId: String? = null,
 )
 
 @Serializable
@@ -66,6 +70,7 @@ data class Measurement(
     val notes: String = "",
     @SerialName("created_at") val createdAt: String,
     @SerialName("file_url") val fileUrl: String? = null,
+    @SerialName("external_id") val externalId: String? = null,
 )
 
 @Serializable
@@ -125,6 +130,70 @@ internal data class PaginatedRoutes(
     val total: Int = 0,
     val limit: Int = 0,
     val offset: Int = 0,
+)
+
+@Serializable
+data class Section(
+    val uuid: String,
+    @SerialName("section_id") val sectionId: Int? = null,
+    val name: String,
+    @SerialName("external_id") val externalId: String? = null,
+)
+
+@Serializable
+data class Zone(
+    val uuid: String,
+    @SerialName("zone_id") val zoneId: Int? = null,
+    val name: String,
+    @SerialName("section_id") val sectionId: Int? = null,
+    @SerialName("external_id") val externalId: String? = null,
+)
+
+@Serializable
+data class DeleteResult(val deleted: Boolean, val uuid: String)
+
+@Serializable
+data class BatchItemResult(
+    val index: Int,
+    val status: String,
+    @SerialName("measurement_point_id") val measurementPointId: Int? = null,
+    @SerialName("point_sequence") val pointSequence: Int? = null,
+    val uuid: String? = null,
+    @SerialName("external_id") val externalId: String? = null,
+    val detail: String? = null,
+)
+
+@Serializable
+data class BatchResult(
+    val created: Int,
+    val duplicates: Int,
+    val errors: Int,
+    val results: List<BatchItemResult>,
+)
+
+@Serializable
+data class FileAttachment(
+    val uuid: String,
+    val name: String,
+    val kind: String,
+    @SerialName("file_url") val fileUrl: String,
+    @SerialName("created_at") val createdAt: String,
+)
+
+@Serializable
+internal data class PaginatedSections(
+    val items: List<Section>, val total: Int = 0, val limit: Int = 0, val offset: Int = 0,
+)
+
+@Serializable
+internal data class PaginatedZones(
+    val items: List<Zone>, val total: Int = 0, val limit: Int = 0, val offset: Int = 0,
+)
+
+@Serializable
+internal data class CursorMeasurements(
+    val items: List<Measurement>,
+    @SerialName("next_cursor") val nextCursor: String? = null,
 )
 
 /** Convert a loose `Map<String, Any?>` into a `JsonObject` for request bodies. */

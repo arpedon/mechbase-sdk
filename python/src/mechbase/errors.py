@@ -17,3 +17,11 @@ class NotFoundError(MechbaseError):
 
 class ValidationError(MechbaseError):
     """422."""
+
+
+class ConflictError(MechbaseError):
+    """409."""
+
+
+class PayloadTooLargeError(MechbaseError):
+    """413."""

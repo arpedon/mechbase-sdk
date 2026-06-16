@@ -4,18 +4,27 @@ from typing import Any
 
 import httpx
 
-from .errors import AuthError, MechbaseError, NotFoundError, ValidationError
+from .errors import (
+    AuthError,
+    ConflictError,
+    MechbaseError,
+    NotFoundError,
+    PayloadTooLargeError,
+    ValidationError,
+)
 
 
 class HttpClient:
-    def __init__(self, *, token: str, base_url: str, timeout: float = 30.0):
+    def __init__(self, *, token: str | None, base_url: str, timeout: float = 30.0):
+        headers = {
+            "User-Agent": "mechbase-python/0.2",
+            "Accept": "application/json",
+        }
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
         self._client = httpx.Client(
             base_url=base_url.rstrip("/"),
-            headers={
-                "Authorization": f"Bearer {token}",
-                "User-Agent": "mechbase-python/0.1",
-                "Accept": "application/json",
-            },
+            headers=headers,
             timeout=timeout,
         )
 
@@ -68,4 +77,8 @@ class HttpClient:
             raise NotFoundError(message, status=response.status_code, body=body)
         if response.status_code == 422:
             raise ValidationError(message, status=response.status_code, body=body)
+        if response.status_code == 409:
+            raise ConflictError(message, status=response.status_code, body=body)
+        if response.status_code == 413:
+            raise PayloadTooLargeError(message, status=response.status_code, body=body)
         raise MechbaseError(message, status=response.status_code, body=body)
