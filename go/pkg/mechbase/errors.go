@@ -10,6 +10,8 @@ var (
 	ErrAuth       = errors.New("mechbase: authentication failed")
 	ErrNotFound   = errors.New("mechbase: not found")
 	ErrValidation = errors.New("mechbase: validation failed")
+	ErrConflict   = errors.New("mechbase: conflict")
+	ErrTooLarge   = errors.New("mechbase: payload too large")
 )
 
 // APIError is returned for non-2xx responses from the Mechbase API.
@@ -32,6 +34,10 @@ func (e *APIError) Unwrap() error {
 		return ErrNotFound
 	case 422:
 		return ErrValidation
+	case 409:
+		return ErrConflict
+	case 413:
+		return ErrTooLarge
 	}
 	return nil
 }
