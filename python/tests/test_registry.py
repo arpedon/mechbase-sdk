@@ -1,6 +1,8 @@
 """Offline tests for registry CRUD, batch, files, history, errors."""
 from __future__ import annotations
 
+import json
+
 import httpx
 import pytest
 import respx
@@ -65,6 +67,8 @@ def test_asset_crud_roundtrip(client):
     assert upserted.name == "Pump 7b"
     updated = assets.update(7, name="Pump 7c")
     assert updated.name == "Pump 7c"
+    patch_call = next(c for c in respx.calls if c.request.method == "PATCH")
+    assert json.loads(patch_call.request.content) == {"name": "Pump 7c"}
     deleted = assets.delete(7, cascade=True)
     assert deleted.deleted is True and deleted.uuid == "a-1"
 
@@ -134,3 +138,4 @@ def test_iter_for_point_cursor(client):
     ]
     got = list(client.for_installation(2012).measurements.iter_for_point(42, page_size=1))
     assert [m.uuid for m in got] == ["m-1", "m-2"]
+    assert respx.calls[1].request.url.params["cursor"] == "CUR2"
