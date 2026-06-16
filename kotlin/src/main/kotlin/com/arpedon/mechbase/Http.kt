@@ -35,12 +35,12 @@ internal class Http(
 ) {
     private val baseUrl: String = baseUrl.trimEnd('/')
 
-    private fun buildUrl(path: String, params: Map<String, Any?>?): okhttp3.HttpUrl {
+    private fun buildUrl(path: String, params: Map<String, Any?>?, stripEmpty: Boolean = true): okhttp3.HttpUrl {
         val builder = (baseUrl + path).toHttpUrl().newBuilder()
         params?.forEach { (k, v) ->
             if (v == null) return@forEach
             val s = v.toString()
-            if (s.isEmpty()) return@forEach
+            if (stripEmpty && s.isEmpty()) return@forEach
             builder.addQueryParameter(k, s)
         }
         return builder.build()
@@ -50,15 +50,16 @@ internal class Http(
         Request.Builder()
             .url(url)
             .header("Authorization", "Bearer $token")
-            .header("User-Agent", "mechbase-kotlin/0.1")
+            .header("User-Agent", "mechbase-kotlin/0.2")
             .header("Accept", "application/json")
 
     suspend fun <T> getJson(
         path: String,
         params: Map<String, Any?>? = null,
         serializer: KSerializer<T>,
+        stripEmpty: Boolean = true,
     ): T = withContext(Dispatchers.IO) {
-        val request = baseRequest(buildUrl(path, params)).get().build()
+        val request = baseRequest(buildUrl(path, params, stripEmpty)).get().build()
         ok.newCall(request).execute().use { resp ->
             val body = handle(resp)
             SDK_JSON.decodeFromString(serializer, body)
@@ -73,6 +74,34 @@ internal class Http(
         val bodyStr = if (payload == null) "" else SDK_JSON.encodeToString(JsonElement.serializer(), payload)
         val rb: RequestBody = bodyStr.toRequestBody(JSON_MEDIA)
         val request = baseRequest(buildUrl(path, null)).post(rb).build()
+        ok.newCall(request).execute().use { resp ->
+            val body = handle(resp)
+            if (body.isEmpty()) {
+                @Suppress("UNCHECKED_CAST")
+                Unit as T
+            } else {
+                SDK_JSON.decodeFromString(serializer, body)
+            }
+        }
+    }
+
+    suspend fun <T> sendJson(
+        method: String,
+        path: String,
+        payload: JsonElement?,
+        params: Map<String, Any?>? = null,
+        serializer: KSerializer<T>,
+    ): T = withContext(Dispatchers.IO) {
+        val rb: RequestBody? = payload?.let {
+            SDK_JSON.encodeToString(JsonElement.serializer(), it).toRequestBody(JSON_MEDIA)
+        }
+        val builder = baseRequest(buildUrl(path, params))
+        val request = when (method) {
+            "PUT" -> builder.put(rb ?: "".toRequestBody(JSON_MEDIA))
+            "PATCH" -> builder.patch(rb ?: "".toRequestBody(JSON_MEDIA))
+            "DELETE" -> if (rb != null) builder.delete(rb) else builder.delete()
+            else -> error("unsupported method $method")
+        }.build()
         ok.newCall(request).execute().use { resp ->
             val body = handle(resp)
             if (body.isEmpty()) {
@@ -107,6 +136,17 @@ internal class Http(
         }
     }
 
+    suspend fun <T> postFile(
+        path: String,
+        files: List<MultipartFile>,
+        serializer: KSerializer<T>,
+    ): T = withContext(Dispatchers.IO) {
+        val mb = MultipartBody.Builder().setType(MultipartBody.FORM)
+        files.forEach { mf -> mb.addFormDataPart(mf.fieldName, mf.filename, mf.file.asRequestBody(OCTET_MEDIA)) }
+        val request = baseRequest(buildUrl(path, null)).post(mb.build()).build()
+        ok.newCall(request).execute().use { resp -> SDK_JSON.decodeFromString(serializer, handle(resp)) }
+    }
+
     private fun handle(resp: Response): String {
         val code = resp.code
         val text = resp.body?.string().orEmpty()
@@ -121,6 +161,8 @@ internal class Http(
         throw when (code) {
             401, 403 -> AuthException(message, code, text)
             404 -> NotFoundException(message, code, text)
+            409 -> ConflictException(message, code, text)
+            413 -> PayloadTooLargeException(message, code, text)
             422 -> ValidationException(message, code, text)
             else -> ServerException(message, code, text)
         }
