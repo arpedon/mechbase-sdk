@@ -105,15 +105,21 @@ public struct Asset: Codable, Sendable {
     public let uuid: String
     public let assetId: Int?
     public let name: String
+    public let sectionId: Int?
     public let zoneId: Int?
     public let machineClass: String
+    public let equipmentType: String
     public let status: Int
+    public let externalId: String?
 
     enum CodingKeys: String, CodingKey {
         case uuid, name, status
         case assetId = "asset_id"
+        case sectionId = "section_id"
         case zoneId = "zone_id"
         case machineClass = "machine_class"
+        case equipmentType = "equipment_type"
+        case externalId = "external_id"
     }
 
     public init(from decoder: Decoder) throws {
@@ -121,9 +127,12 @@ public struct Asset: Codable, Sendable {
         self.uuid = try c.decode(String.self, forKey: .uuid)
         self.assetId = try c.decodeIfPresent(Int.self, forKey: .assetId)
         self.name = try c.decode(String.self, forKey: .name)
+        self.sectionId = try c.decodeIfPresent(Int.self, forKey: .sectionId)
         self.zoneId = try c.decodeIfPresent(Int.self, forKey: .zoneId)
         self.machineClass = (try? c.decode(String.self, forKey: .machineClass)) ?? ""
+        self.equipmentType = (try? c.decode(String.self, forKey: .equipmentType)) ?? ""
         self.status = try c.decode(Int.self, forKey: .status)
+        self.externalId = try c.decodeIfPresent(String.self, forKey: .externalId)
     }
 }
 
@@ -136,6 +145,7 @@ public struct MeasurementPoint: Codable, Sendable {
     public let measurementUnitCode: String
     public let location: String
     public let status: Int
+    public let externalId: String?
 
     enum CodingKeys: String, CodingKey {
         case uuid, name, location, status
@@ -143,6 +153,7 @@ public struct MeasurementPoint: Codable, Sendable {
         case assetId = "asset_id"
         case transducerType = "transducer_type"
         case measurementUnitCode = "measurement_unit_code"
+        case externalId = "external_id"
     }
 }
 
@@ -155,6 +166,7 @@ public struct Measurement: Codable, Sendable {
     public let notes: String
     public let createdAt: String
     public let fileUrl: String?
+    public let externalId: String?
 
     enum CodingKeys: String, CodingKey {
         case uuid, data, status, notes
@@ -162,6 +174,7 @@ public struct Measurement: Codable, Sendable {
         case pointSequence = "point_sequence"
         case createdAt = "created_at"
         case fileUrl = "file_url"
+        case externalId = "external_id"
     }
 
     public init(from decoder: Decoder) throws {
@@ -174,6 +187,7 @@ public struct Measurement: Codable, Sendable {
         self.notes = (try? c.decode(String.self, forKey: .notes)) ?? ""
         self.createdAt = try c.decode(String.self, forKey: .createdAt)
         self.fileUrl = try c.decodeIfPresent(String.self, forKey: .fileUrl)
+        self.externalId = try c.decodeIfPresent(String.self, forKey: .externalId)
     }
 }
 
@@ -240,6 +254,83 @@ struct Page<T: Decodable>: Decodable {
     let total: Int?
     let limit: Int?
     let offset: Int?
+}
+
+public struct Section: Codable, Sendable {
+    public let uuid: String
+    public let sectionId: Int?
+    public let name: String
+    public let externalId: String?
+    enum CodingKeys: String, CodingKey {
+        case uuid, name
+        case sectionId = "section_id"
+        case externalId = "external_id"
+    }
+}
+
+public struct Zone: Codable, Sendable {
+    public let uuid: String
+    public let zoneId: Int?
+    public let name: String
+    public let sectionId: Int?
+    public let externalId: String?
+    enum CodingKeys: String, CodingKey {
+        case uuid, name
+        case zoneId = "zone_id"
+        case sectionId = "section_id"
+        case externalId = "external_id"
+    }
+}
+
+public struct DeleteResult: Codable, Sendable {
+    public let deleted: Bool
+    public let uuid: String
+}
+
+public struct BatchItemResult: Codable, Sendable {
+    public let index: Int
+    public let status: String
+    public let measurementPointId: Int?
+    public let pointSequence: Int?
+    public let uuid: String?
+    public let externalId: String?
+    public let detail: String?
+    enum CodingKeys: String, CodingKey {
+        case index, status, uuid, detail
+        case measurementPointId = "measurement_point_id"
+        case pointSequence = "point_sequence"
+        case externalId = "external_id"
+    }
+}
+
+public struct BatchResult: Codable, Sendable {
+    public let created: Int
+    public let duplicates: Int
+    public let errors: Int
+    public let results: [BatchItemResult]
+}
+
+public struct FileAttachment: Codable, Sendable {
+    public let uuid: String
+    public let name: String
+    public let kind: String
+    public let fileUrl: String
+    public let createdAt: String
+    enum CodingKeys: String, CodingKey {
+        case uuid, name, kind
+        case fileUrl = "file_url"
+        case createdAt = "created_at"
+    }
+}
+
+/// Cursor-paginated wrapper for history iteration.
+struct CursorPage<T: Decodable>: Decodable {
+    let items: [T]
+    let nextCursor: String?
+    enum CodingKeys: String, CodingKey {
+        case items
+        case nextCursor = "next_cursor"
+    }
 }
 
 /// A photo to upload via multipart.
