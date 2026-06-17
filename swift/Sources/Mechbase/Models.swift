@@ -231,6 +231,64 @@ public struct Route: Codable, Sendable {
     enum CodingKeys: String, CodingKey { case uuid, name, description }
 }
 
+public struct SectionRef: Codable, Sendable {
+    public let sectionId: Int?
+    public let name: String
+    enum CodingKeys: String, CodingKey { case sectionId = "section_id"; case name }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.sectionId = try c.decodeIfPresent(Int.self, forKey: .sectionId)
+        self.name = (try? c.decode(String.self, forKey: .name)) ?? ""
+    }
+}
+
+public struct RouteItem: Codable, Sendable {
+    public let uuid: String
+    public let checkId: Int?
+    public let label: String
+    public let itemType: String
+    public let assetId: Int?
+    public let zoneId: Int?
+    public let zoneName: String?
+    public let measurementPointId: Int?
+    public let config: JSONValue
+    enum CodingKeys: String, CodingKey {
+        case uuid, label, config
+        case checkId = "check_id"; case itemType = "item_type"
+        case assetId = "asset_id"; case zoneId = "zone_id"; case zoneName = "zone_name"
+        case measurementPointId = "measurement_point_id"
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.uuid = try c.decode(String.self, forKey: .uuid)
+        self.checkId = try c.decodeIfPresent(Int.self, forKey: .checkId)
+        self.label = (try? c.decode(String.self, forKey: .label)) ?? ""
+        self.itemType = (try? c.decode(String.self, forKey: .itemType)) ?? ""
+        self.assetId = try c.decodeIfPresent(Int.self, forKey: .assetId)
+        self.zoneId = try c.decodeIfPresent(Int.self, forKey: .zoneId)
+        self.zoneName = try c.decodeIfPresent(String.self, forKey: .zoneName)
+        self.measurementPointId = try c.decodeIfPresent(Int.self, forKey: .measurementPointId)
+        self.config = (try? c.decode(JSONValue.self, forKey: .config)) ?? .object([:])
+    }
+}
+
+public struct RouteDetail: Codable, Sendable {
+    public let uuid: String
+    public let name: String
+    public let description: String
+    public let section: SectionRef?
+    public let items: [RouteItem]
+    enum CodingKeys: String, CodingKey { case uuid, name, description, section, items }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.uuid = try c.decode(String.self, forKey: .uuid)
+        self.name = (try? c.decode(String.self, forKey: .name)) ?? ""
+        self.description = (try? c.decode(String.self, forKey: .description)) ?? ""
+        self.section = try c.decodeIfPresent(SectionRef.self, forKey: .section)
+        self.items = (try? c.decode([RouteItem].self, forKey: .items)) ?? []
+    }
+}
+
 public struct RouteExecution: Codable, Sendable {
     public let uuid: String
     public let routeUuid: String
