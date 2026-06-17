@@ -24,6 +24,14 @@ class Routes internal constructor(
             Route.serializer(),
         )
 
+    /** The route plus its embedded section and ordered item list. */
+    suspend fun detail(routeUUID: String): RouteDetail =
+        http.getJson(
+            installationPath(installationId, "/routes/$routeUUID"),
+            null,
+            RouteDetail.serializer(),
+        )
+
     suspend fun start(routeUUID: String): Execution {
         val execution: RouteExecution = http.postJson(
             installationPath(installationId, "/routes/$routeUUID/executions"),
