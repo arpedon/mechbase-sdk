@@ -141,6 +141,12 @@ public struct MeasurementPoint: Codable, Sendable {
     public let pointId: Int?
     public let name: String
     public let assetId: Int?
+    // Optional metadata, drift-plausible from a legacy import. The server
+    // columns are `blank=True, default=""` NOT NULL by intent, but if a
+    // future server regression or import drift ever sends `null` (or omits
+    // the key), the per-field `(try? decode(...)) ?? ""` pattern used
+    // everywhere else in this file keeps decode resilient instead of
+    // throwing. See issue #2.
     public let transducerType: String
     public let measurementUnitCode: String
     public let location: String
@@ -155,12 +161,31 @@ public struct MeasurementPoint: Codable, Sendable {
         case measurementUnitCode = "measurement_unit_code"
         case externalId = "external_id"
     }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.uuid = try c.decode(String.self, forKey: .uuid)
+        self.pointId = try c.decodeIfPresent(Int.self, forKey: .pointId)
+        self.name = try c.decode(String.self, forKey: .name)
+        self.assetId = try c.decodeIfPresent(Int.self, forKey: .assetId)
+        self.transducerType = (try? c.decode(String.self, forKey: .transducerType)) ?? ""
+        self.measurementUnitCode = (try? c.decode(String.self, forKey: .measurementUnitCode)) ?? ""
+        self.location = (try? c.decode(String.self, forKey: .location)) ?? ""
+        self.status = try c.decode(Int.self, forKey: .status)
+        self.externalId = try c.decodeIfPresent(String.self, forKey: .externalId)
+    }
 }
 
 public struct Measurement: Codable, Sendable {
     public let uuid: String
     public let measurementPointId: Int
-    public let pointSequence: Int
+    // `point_sequence` is genuinely DB-nullable on the server
+    // (`Measurement.point_sequence: null=True`); new rows always get a
+    // value via `MeasurementService.create`, but legacy/imported rows can
+    // be null. `decode(Int.self)` throws on null; switch to
+    // `decodeIfPresent` to mirror the Kotlin `Int? = null` widening from
+    // the SDK#2 fix. See issue #2.
+    public let pointSequence: Int?
     public let data: JSONValue
     public let status: String
     public let notes: String
@@ -181,7 +206,7 @@ public struct Measurement: Codable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.uuid = try c.decode(String.self, forKey: .uuid)
         self.measurementPointId = try c.decode(Int.self, forKey: .measurementPointId)
-        self.pointSequence = try c.decode(Int.self, forKey: .pointSequence)
+        self.pointSequence = try c.decodeIfPresent(Int.self, forKey: .pointSequence)
         self.data = (try? c.decode(JSONValue.self, forKey: .data)) ?? .object([:])
         self.status = try c.decode(String.self, forKey: .status)
         self.notes = (try? c.decode(String.self, forKey: .notes)) ?? ""
