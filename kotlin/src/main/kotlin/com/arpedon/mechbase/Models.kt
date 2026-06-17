@@ -80,6 +80,37 @@ data class Route(
     val description: String = "",
 )
 
+/** Lightweight section reference embedded in a route (`{section_id, name}`). */
+@Serializable
+data class SectionRef(
+    @SerialName("section_id") val sectionId: Int,
+    val name: String,
+)
+
+/** A single check within a route. `config` is a loose JSON blob (per item-type). */
+@Serializable
+data class RouteItem(
+    val uuid: String,
+    @SerialName("check_id") val checkId: Int? = null,
+    val label: String,
+    @SerialName("item_type") val itemType: String,
+    @SerialName("asset_id") val assetId: Int? = null,
+    @SerialName("zone_id") val zoneId: Int? = null,
+    @SerialName("zone_name") val zoneName: String? = null,
+    @SerialName("measurement_point_id") val measurementPointId: Int? = null,
+    val config: JsonObject = JsonObject(emptyMap()),
+)
+
+/** A route with its embedded section reference and ordered item list. */
+@Serializable
+data class RouteDetail(
+    val uuid: String,
+    val name: String,
+    val description: String = "",
+    val section: SectionRef? = null,
+    val items: List<RouteItem> = emptyList(),
+)
+
 @Serializable
 data class RouteExecution(
     val uuid: String,
