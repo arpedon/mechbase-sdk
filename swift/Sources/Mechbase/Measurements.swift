@@ -21,7 +21,8 @@ public struct Measurements: Sendable {
         data: JSONValue,
         notes: String = "",
         sessionId: String? = nil,
-        timestamp: String? = nil
+        timestamp: String? = nil,
+        idempotencyKey: String? = nil
     ) async throws -> Measurement {
         let body = CreateBody(
             measurement_point_id: pointId,
@@ -33,6 +34,7 @@ public struct Measurements: Sendable {
         return try await scope.http.postJSON(
             scope.path("/measurements/"),
             body: body,
+            headers: idempotencyKey.map { ["X-Idempotency-Key": $0] } ?? [:],
             as: Measurement.self
         )
     }
@@ -43,14 +45,16 @@ public struct Measurements: Sendable {
         data: [String: Any],
         notes: String = "",
         sessionId: String? = nil,
-        timestamp: String? = nil
+        timestamp: String? = nil,
+        idempotencyKey: String? = nil
     ) async throws -> Measurement {
         try await create(
             pointId: pointId,
             data: JSONValue.from(data),
             notes: notes,
             sessionId: sessionId,
-            timestamp: timestamp
+            timestamp: timestamp,
+            idempotencyKey: idempotencyKey
         )
     }
 

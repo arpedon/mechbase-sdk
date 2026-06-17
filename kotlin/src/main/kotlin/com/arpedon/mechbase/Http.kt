@@ -23,6 +23,15 @@ internal val SDK_JSON: Json = Json {
     ignoreUnknownKeys = true
     encodeDefaults = false
     explicitNulls = false
+    // Without this, a JSON `null` on a *non-nullable* property that has a
+    // Kotlin default value (e.g. `Route.description: String = ""`) still
+    // throws at decode time — defaults only apply to *absent* keys. The flag
+    // extends the default to present-but-null values, which closes the long
+    // tail of `TextField(blank=True, default="")` columns that may drift to
+    // SQL NULL on a legacy row. It does nothing for non-nullable properties
+    // that have no default — those must be made nullable in the model
+    // (see issue #2).
+    coerceInputValues = true
 }
 
 private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
