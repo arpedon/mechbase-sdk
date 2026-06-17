@@ -149,4 +149,35 @@ final class MechbaseTests: XCTestCase {
         XCTAssertEqual(resp.status, 1)
         XCTAssertEqual(calls, 2)
     }
+
+    func testRespondSendsIdempotencyKey() async throws {
+        nonisolated(unsafe) var seenKey: String?
+        MockURLProtocol.handler = { req in
+            seenKey = req.value(forHTTPHeaderField: "X-Idempotency-Key")
+            let body = """
+            {"uuid":"resp-uuid","route_item_uuid":"item-uuid","data":{"passed":true},
+            "notes":"","status":1,"created_at":"2026-04-08T10:00:01Z"}
+            """
+            return (201, self.json(body))
+        }
+        let exec = client.forInstallation(id: 2012).routes.execution(uuid: "exec-uuid")
+        _ = try await exec.respond(routeItemUUID: "item-uuid", data: ["passed": true],
+                                   idempotencyKey: "resp-local-1")
+        XCTAssertEqual(seenKey, "resp-local-1")
+    }
+
+    func testCompleteSendsIdempotencyKey() async throws {
+        nonisolated(unsafe) var seenKey: String?
+        MockURLProtocol.handler = { req in
+            seenKey = req.value(forHTTPHeaderField: "X-Idempotency-Key")
+            let body = """
+            {"uuid":"exec-uuid","route_uuid":"r-uuid","status":"completed",
+            "started_at":null,"completed_at":"2026-04-08T11:00:00Z","session_id":"sess"}
+            """
+            return (200, self.json(body))
+        }
+        let exec = client.forInstallation(id: 2012).routes.execution(uuid: "exec-uuid")
+        _ = try await exec.complete(idempotencyKey: "exec-uuid")
+        XCTAssertEqual(seenKey, "exec-uuid")
+    }
 }

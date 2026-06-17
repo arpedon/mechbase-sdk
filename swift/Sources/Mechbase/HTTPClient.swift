@@ -63,8 +63,9 @@ actor HTTPClient {
         return try await send(req)
     }
 
-    func post<T: Decodable>(_ path: String, as: T.Type) async throws -> T {
-        let req = makeRequest("POST", url(path: path))
+    func post<T: Decodable>(_ path: String, headers: [String: String] = [:], as: T.Type) async throws -> T {
+        var req = makeRequest("POST", url(path: path))
+        for (k, v) in headers { req.setValue(v, forHTTPHeaderField: k) }
         return try await send(req)
     }
 
@@ -99,11 +100,13 @@ actor HTTPClient {
         _ path: String,
         fields: [String: String],
         files: [(name: String, filename: String, mimeType: String, data: Data)],
+        headers: [String: String] = [:],
         as: T.Type
     ) async throws -> T {
         let boundary = "----MechbaseSwiftBoundary\(UUID().uuidString)"
         var req = makeRequest("POST", url(path: path))
         req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        for (k, v) in headers { req.setValue(v, forHTTPHeaderField: k) }
         req.httpBody = Self.buildMultipart(boundary: boundary, fields: fields, files: files)
         return try await send(req)
     }
