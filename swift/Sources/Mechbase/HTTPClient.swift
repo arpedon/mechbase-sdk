@@ -68,9 +68,10 @@ actor HTTPClient {
         return try await send(req)
     }
 
-    func postJSON<T: Decodable, B: Encodable>(_ path: String, body: B, as: T.Type) async throws -> T {
+    func postJSON<T: Decodable, B: Encodable>(_ path: String, body: B, headers: [String: String] = [:], as: T.Type) async throws -> T {
         var req = makeRequest("POST", url(path: path))
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        for (k, v) in headers { req.setValue(v, forHTTPHeaderField: k) }
         req.httpBody = try encoder.encode(body)
         return try await send(req)
     }
