@@ -53,9 +53,14 @@ data class MeasurementPoint(
     @SerialName("point_id") val pointId: Int? = null,
     val name: String,
     @SerialName("asset_id") val assetId: Int? = null,
-    @SerialName("transducer_type") val transducerType: String,
-    @SerialName("measurement_unit_code") val measurementUnitCode: String,
-    val location: String,
+    // Backing columns are `blank=True, default=""` (NOT NULL by intent) but
+    // they're optional metadata drift-plausible from a legacy import. We make
+    // them nullable so an explicit JSON `null` (or a server regression to
+    // SQL NULL) doesn't crash decode — `coerceInputValues` can't save
+    // no-default properties, only nullable ones can. See issue #2.
+    @SerialName("transducer_type") val transducerType: String? = null,
+    @SerialName("measurement_unit_code") val measurementUnitCode: String? = null,
+    val location: String? = null,
     val status: Int,
     @SerialName("external_id") val externalId: String? = null,
 )
@@ -64,7 +69,12 @@ data class MeasurementPoint(
 data class Measurement(
     val uuid: String,
     @SerialName("measurement_point_id") val measurementPointId: Int,
-    @SerialName("point_sequence") val pointSequence: Int,
+    // `point_sequence` is genuinely DB-nullable on the server
+    // (`Measurement.point_sequence: null=True`), unlike the defaulted-text
+    // fields. `coerceInputValues` can't save it (no default), so the SDK
+    // must accept null. New server rows always get a value via
+    // `MeasurementService.create` — null here means a legacy/imported row.
+    @SerialName("point_sequence") val pointSequence: Int? = null,
     val data: JsonObject = JsonObject(emptyMap()),
     val status: String,
     val notes: String = "",
@@ -83,7 +93,11 @@ data class Route(
 /** Lightweight section reference embedded in a route (`{section_id, name}`). */
 @Serializable
 data class SectionRef(
-    @SerialName("section_id") val sectionId: Int,
+    // The server's `Section.section_id` is `PositiveIntegerField(null=True)` by
+    // design (per-installation auto-increment can be unassigned). The web
+    // sibling-risk audit widens `SectionRef.section_id` to `int | None`
+    // (#164) so the same must happen here, pre-emptively. See issue #2.
+    @SerialName("section_id") val sectionId: Int? = null,
     val name: String,
 )
 
