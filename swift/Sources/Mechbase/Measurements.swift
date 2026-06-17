@@ -66,7 +66,8 @@ public struct Measurements: Sendable {
         sessionId: String? = nil,
         timestamp: String? = nil,
         fileURL: URL,
-        mimeType: String = "application/octet-stream"
+        mimeType: String = "application/octet-stream",
+        idempotencyKey: String? = nil
     ) async throws -> Measurement {
         let body = CreateBody(
             measurement_point_id: pointId,
@@ -82,6 +83,7 @@ public struct Measurements: Sendable {
             scope.path("/measurements/upload/"),
             fields: ["payload": payloadStr],
             files: [(name: "file", filename: fileURL.lastPathComponent, mimeType: mimeType, data: fileData)],
+            headers: idempotencyKey.map { ["X-Idempotency-Key": $0] } ?? [:],
             as: Measurement.self
         )
     }
