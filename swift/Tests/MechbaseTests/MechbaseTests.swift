@@ -113,6 +113,16 @@ final class MechbaseTests: XCTestCase {
         }
     }
 
+    func testMeasurementCreate_sendsIdempotencyKey() async throws {
+        MockURLProtocol.handler = { req in
+            XCTAssertEqual(req.value(forHTTPHeaderField: "X-Idempotency-Key"), "idem-123")
+            return (201, self.json(#"{"uuid":"m1","measurement_point_id":5,"point_sequence":1,"data":{"value":2.3},"status":"good","notes":"","created_at":"2026-01-01T00:00:00Z"}"#))
+        }
+        let m = try await client.forInstallation(id: 1).measurements.create(
+            pointId: 5, data: .object(["value": .double(2.3)]), notes: "", idempotencyKey: "idem-123")
+        XCTAssertEqual(m.uuid, "m1")
+    }
+
     func testStartExecutionAndRespond() async throws {
         var calls = 0
         MockURLProtocol.handler = { req in
