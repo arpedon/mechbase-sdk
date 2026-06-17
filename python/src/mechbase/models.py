@@ -28,8 +28,16 @@ class User:
         return cls(
             id=d.pop("id"),
             username=d.pop("username"),
-            full_name=d.pop("full_name"),
-            email=d.pop("email", ""),
+            # `d.pop("full_name")` raises on missing *and* silently coerces a
+            # present-but-null value to `None`, lying about the type. Mirror
+            # the Kotlin `coerceInputValues = true` + default pattern (and
+            # the Swift `(try? decode(...)) ?? ""` pattern) by falling back
+            # to "" on *either* case. The `or ""` (vs. `d.pop(..., "")`) is
+            # what handles the present-but-null case — `dict.get`'s default
+            # only fires on missing keys, not on None values. The property
+            # stays `str`; the type stops lying. See issue #2.
+            full_name=d.pop("full_name") or "",
+            email=d.pop("email") or "",
             extra=d,
         )
 
@@ -101,6 +109,16 @@ class MeasurementPoint:
     point_id: int | None
     name: str
     asset_id: int | None
+    # Backing columns are `blank=True, default=""` NOT NULL by intent, but
+    # they're optional metadata drift-plausible from a legacy import. The
+    # original `d["key"]` access raises on missing *and* silently coerces a
+    # present-but-null value to `None`, lying about the type. Switch to
+    # `d.get("key") or ""` to mirror the Kotlin `coerceInputValues = true`
+    # plus a default, and the Swift `(try? decode(...)) ?? ""` pattern.
+    # The `or ""` (vs. `d.get("key", "")`) is what handles the
+    # present-but-null case — `dict.get`'s default only fires on missing
+    # keys, not on None values. Properties stay `str` (no call-site
+    # changes); the decode path is what becomes resilient. See issue #2.
     transducer_type: str
     measurement_unit_code: str
     location: str
@@ -114,9 +132,9 @@ class MeasurementPoint:
             point_id=d["point_id"],
             name=d["name"],
             asset_id=d["asset_id"],
-            transducer_type=d["transducer_type"],
-            measurement_unit_code=d["measurement_unit_code"],
-            location=d["location"],
+            transducer_type=d.get("transducer_type") or "",
+            measurement_unit_code=d.get("measurement_unit_code") or "",
+            location=d.get("location") or "",
             status=d["status"],
             external_id=d.get("external_id"),
         )
@@ -126,9 +144,19 @@ class MeasurementPoint:
 class Measurement:
     uuid: str
     measurement_point_id: int
-    point_sequence: int
+    # `point_sequence` is genuinely DB-nullable on the server
+    # (`Measurement.point_sequence: null=True`); new rows always get a
+    # value via `MeasurementService.create`, but legacy/imported rows can
+    # be null. Mirror the Kotlin/Swift widening: type widens to
+    # `int | None` and the decoder uses `d.get(...)` (no default — null
+    # is a meaningful state, not a missing-data state). Callers must
+    # handle "no sequence." See issue #2.
+    point_sequence: int | None
     data: dict
     status: str
+    # `or ""` (vs. `d.get("notes", "")`) coerces a present-but-null to "",
+    # not just a missing key — same null-coercion rationale as the other
+    # defaulted text fields in this file. See issue #2.
     notes: str
     created_at: str
     external_id: str | None = None
@@ -139,10 +167,10 @@ class Measurement:
         return cls(
             uuid=d["uuid"],
             measurement_point_id=d["measurement_point_id"],
-            point_sequence=d["point_sequence"],
+            point_sequence=d.get("point_sequence"),
             data=d["data"],
             status=d["status"],
-            notes=d.get("notes", ""),
+            notes=d.get("notes") or "",
             created_at=d["created_at"],
             external_id=d.get("external_id"),
             file_url=d.get("file_url"),
@@ -157,7 +185,11 @@ class Route:
 
     @classmethod
     def from_dict(cls, d: dict) -> "Route":
-        return cls(uuid=d["uuid"], name=d["name"], description=d.get("description", ""))
+        # `or ""` (vs. `d.get("description", "")`) coerces a
+        # present-but-null to "" — same rationale as the other defaulted
+        # text fields. The exact production crash on installations 2012/2013
+        # (issue #164 server side; #2 client side). See issue #2.
+        return cls(uuid=d["uuid"], name=d["name"], description=d.get("description") or "")
 
 
 @dataclass
@@ -195,8 +227,10 @@ class ItemResponse:
         return cls(
             uuid=d["uuid"],
             route_item_uuid=d["route_item_uuid"],
-            data=d.get("data", {}),
-            notes=d.get("notes", ""),
+            # `or ""` (vs. `d.get(key, default)`) coerces a
+            # present-but-null to "" — see issue #2.
+            data=d.get("data") or {},
+            notes=d.get("notes") or "",
             status=d["status"],
             created_at=d["created_at"],
         )
