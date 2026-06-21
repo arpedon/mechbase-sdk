@@ -101,7 +101,19 @@ data class SectionRef(
     val name: String,
 )
 
-/** A single check within a route. `config` is a loose JSON blob (per item-type). */
+/** Threshold context for a measurement reading — drives "Limit X" + the
+ *  OK/Watch/Alarm band. Resolved server-side from the point's threshold AlarmRules. */
+@Serializable
+data class MeasurementLimit(
+    val minor: Double? = null,
+    val major: Double? = null,
+    val direction: String = "high",
+    val unit: String = "",
+)
+
+/** A single check within a route. `config` is a loose JSON blob (per item-type).
+ *  [instructions], [referenceImageUrl] and [limit] are first-class, resolved
+ *  server-side; all additive with defaults so legacy payloads decode unchanged. */
 @Serializable
 data class RouteItem(
     val uuid: String,
@@ -113,6 +125,9 @@ data class RouteItem(
     @SerialName("zone_name") val zoneName: String? = null,
     @SerialName("measurement_point_id") val measurementPointId: Int? = null,
     val config: JsonObject = JsonObject(emptyMap()),
+    val instructions: List<String> = emptyList(),
+    @SerialName("reference_image_url") val referenceImageUrl: String? = null,
+    val limit: MeasurementLimit? = null,
 )
 
 /** A route with its embedded section reference and ordered item list. */

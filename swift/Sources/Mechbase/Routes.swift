@@ -17,6 +17,11 @@ public struct Routes: Sendable {
         return page.items
     }
 
+    /// Fetch the ordered detail (items) for a route.
+    public func detail(routeUUID: String) async throws -> RouteDetail {
+        try await scope.http.get(scope.path("/routes/\(routeUUID)"), as: RouteDetail.self)
+    }
+
     /// Start a new execution of a route.
     public func start(routeUUID: String) async throws -> Execution {
         let exec = try await scope.http.post(
