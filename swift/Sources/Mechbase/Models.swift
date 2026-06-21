@@ -242,6 +242,27 @@ public struct SectionRef: Codable, Sendable {
     }
 }
 
+/// Threshold context for a measurement reading (drives "Limit X" + the
+/// OK/Watch/Alarm band on the redesigned Point screen). Resolved server-side
+/// from the point's threshold alarm rules. All fields default so an absent or
+/// partial `limit` decodes cleanly.
+public struct MeasurementLimit: Codable, Sendable {
+    public let minor: Double?
+    public let major: Double?
+    public let direction: String
+    public let unit: String
+
+    enum CodingKeys: String, CodingKey { case minor, major, direction, unit }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.minor = try c.decodeIfPresent(Double.self, forKey: .minor)
+        self.major = try c.decodeIfPresent(Double.self, forKey: .major)
+        self.direction = (try? c.decode(String.self, forKey: .direction)) ?? "high"
+        self.unit = (try? c.decode(String.self, forKey: .unit)) ?? ""
+    }
+}
+
 public struct RouteItem: Codable, Sendable {
     public let uuid: String
     public let checkId: Int?
@@ -252,11 +273,17 @@ public struct RouteItem: Codable, Sendable {
     public let zoneName: String?
     public let measurementPointId: Int?
     public let config: JSONValue
+    // First-class, server-resolved fields for the redesigned Point screen.
+    // Additive with defaults so legacy payloads decode unchanged.
+    public let instructions: [String]
+    public let referenceImageUrl: String?
+    public let limit: MeasurementLimit?
     enum CodingKeys: String, CodingKey {
-        case uuid, label, config
+        case uuid, label, config, instructions, limit
         case checkId = "check_id"; case itemType = "item_type"
         case assetId = "asset_id"; case zoneId = "zone_id"; case zoneName = "zone_name"
         case measurementPointId = "measurement_point_id"
+        case referenceImageUrl = "reference_image_url"
     }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -269,6 +296,9 @@ public struct RouteItem: Codable, Sendable {
         self.zoneName = try c.decodeIfPresent(String.self, forKey: .zoneName)
         self.measurementPointId = try c.decodeIfPresent(Int.self, forKey: .measurementPointId)
         self.config = (try? c.decode(JSONValue.self, forKey: .config)) ?? .object([:])
+        self.instructions = (try? c.decode([String].self, forKey: .instructions)) ?? []
+        self.referenceImageUrl = try c.decodeIfPresent(String.self, forKey: .referenceImageUrl)
+        self.limit = try c.decodeIfPresent(MeasurementLimit.self, forKey: .limit)
     }
 }
 
