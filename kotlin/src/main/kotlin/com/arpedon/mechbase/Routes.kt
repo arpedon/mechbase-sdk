@@ -1,5 +1,8 @@
 package com.arpedon.mechbase
 
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+
 class Routes internal constructor(
     private val http: Http,
     private val installationId: Int,
@@ -32,10 +35,26 @@ class Routes internal constructor(
             RouteDetail.serializer(),
         )
 
-    suspend fun start(routeUUID: String): Execution {
+    /**
+     * Start a route execution. Online callers pass only [routeUUID] and the
+     * server mints the execution uuid. Offline-first clients mint the uuid
+     * locally and pass [uuid] (plus the real field [startedAt] as ISO-8601) so a
+     * queued, later-pushed start lands deterministically; the server upserts on
+     * uuid, so a retried push is idempotent. Both are optional → a bare call is
+     * byte-for-byte the legacy empty POST.
+     */
+    suspend fun start(
+        routeUUID: String,
+        uuid: String? = null,
+        startedAt: String? = null,
+    ): Execution {
+        val body = buildJsonObject {
+            uuid?.let { put("uuid", it) }
+            startedAt?.let { put("started_at", it) }
+        }.takeIf { it.isNotEmpty() }
         val execution: RouteExecution = http.postJson(
             installationPath(installationId, "/routes/$routeUUID/executions"),
-            null,
+            body,
             RouteExecution.serializer(),
         )
         return Execution.fromExecution(http, installationId, execution)
