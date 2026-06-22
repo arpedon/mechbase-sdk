@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 
 /// A heterogeneous JSON value used for free-form `data` fields and request payloads.
 public enum JSONValue: Codable, Equatable, Sendable {
@@ -45,6 +46,19 @@ public extension JSONValue {
     }
 
     private static func wrap(_ v: Any) -> JSONValue {
+        // `JSONSerialization` represents JSON numbers AND booleans as `NSNumber`.
+        // A numeric `NSNumber` whose value is 0 or 1 will *also* satisfy
+        // `as? Bool` (NSNumber(1) as? Bool == true), so a plain `case let b as
+        // Bool` first would silently coerce a measurement of 0/1 into a boolean
+        // — corrupting the value and disabling server-side alarm evaluation
+        // (Decimal(str(True)) throws -> GOOD). Disambiguate genuine booleans
+        // from numbers by the CoreFoundation type id BEFORE the bridging casts.
+        if let num = v as? NSNumber {
+            if CFGetTypeID(num) == CFBooleanGetTypeID() { return .bool(num.boolValue) }
+            // Integer-valued numbers stay ints; everything else is a double.
+            if CFNumberIsFloatType(num) { return .double(num.doubleValue) }
+            return .int(num.intValue)
+        }
         switch v {
         case is NSNull: return .null
         case let b as Bool: return .bool(b)
