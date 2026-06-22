@@ -25,3 +25,6 @@ kotlin/.gradle/
 .vscode/
 *.iml
 .DS_Store
+
+## AI planning artifacts (local-only working memory, never committed)
+docs/
