@@ -376,7 +376,7 @@ public struct ItemResponse: Codable, Sendable {
 }
 
 /// Generic paginated wrapper used by list endpoints.
-struct Page<T: Decodable>: Decodable {
+struct Page<T: Decodable & Sendable>: Decodable, Sendable {
     let items: [T]
     let total: Int?
     let limit: Int?
@@ -451,7 +451,7 @@ public struct FileAttachment: Codable, Sendable {
 }
 
 /// Cursor-paginated wrapper for history iteration.
-struct CursorPage<T: Decodable>: Decodable {
+struct CursorPage<T: Decodable & Sendable>: Decodable, Sendable {
     let items: [T]
     let nextCursor: String?
     enum CodingKeys: String, CodingKey {
