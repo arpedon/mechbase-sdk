@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.arpedon"
-version = "0.2.0"
+version = "0.2.1"
 
 repositories {
     mavenCentral()
@@ -57,7 +57,7 @@ publishing {
         create<MavenPublication>("maven") {
             groupId = "com.arpedon"
             artifactId = "mechbase-sdk"
-            version = "0.2.0"
+            version = "0.2.1"
             from(components["java"])
         }
     }
