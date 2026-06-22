@@ -25,15 +25,22 @@ public struct Execution: Sendable {
     }
 
     /// Submit a response for a route item.
+    ///
+    /// When `idempotencyKey` is supplied it is sent as the `X-Idempotency-Key`
+    /// header so the server can dedupe retries of the same logical response
+    /// (the client uses the local response id as the key). Photo uploads use a
+    /// multipart request; the header is applied there too.
     public func respond(
         routeItemUUID: String,
         data: JSONValue,
         notes: String = "",
-        photos: [PhotoUpload] = []
+        photos: [PhotoUpload] = [],
+        idempotencyKey: String? = nil
     ) async throws -> ItemResponse {
         let body = RespondBody(route_item_uuid: routeItemUUID, data: data, notes: notes)
+        let headers = idempotencyKey.map { ["X-Idempotency-Key": $0] } ?? [:]
         if photos.isEmpty {
-            return try await scope.http.postJSON(url("/responses"), body: body, as: ItemResponse.self)
+            return try await scope.http.postJSON(url("/responses"), body: body, headers: headers, as: ItemResponse.self)
         }
         let payloadJSON = try JSONEncoder().encode(body)
         let payloadStr = String(data: payloadJSON, encoding: .utf8) ?? "{}"
@@ -44,6 +51,7 @@ public struct Execution: Sendable {
             url("/responses/upload"),
             fields: ["payload": payloadStr],
             files: files,
+            headers: headers,
             as: ItemResponse.self
         )
     }
@@ -53,13 +61,15 @@ public struct Execution: Sendable {
         routeItemUUID: String,
         data: [String: Any],
         notes: String = "",
-        photos: [PhotoUpload] = []
+        photos: [PhotoUpload] = [],
+        idempotencyKey: String? = nil
     ) async throws -> ItemResponse {
         try await respond(
             routeItemUUID: routeItemUUID,
             data: JSONValue.from(data),
             notes: notes,
-            photos: photos
+            photos: photos,
+            idempotencyKey: idempotencyKey
         )
     }
 
@@ -131,8 +141,12 @@ public struct Execution: Sendable {
 
     // MARK: - complete
 
+    /// Finalize the execution. When `idempotencyKey` is supplied it is sent as
+    /// the `X-Idempotency-Key` header so the server can dedupe a retried
+    /// completion (the client uses the execution uuid as the key).
     @discardableResult
-    public func complete() async throws -> RouteExecution {
-        try await scope.http.post(url("/complete"), as: RouteExecution.self)
+    public func complete(idempotencyKey: String? = nil) async throws -> RouteExecution {
+        let headers = idempotencyKey.map { ["X-Idempotency-Key": $0] } ?? [:]
+        return try await scope.http.post(url("/complete"), headers: headers, as: RouteExecution.self)
     }
 }

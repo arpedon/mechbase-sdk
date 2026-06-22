@@ -14,7 +14,7 @@ Four languages, one uniform surface:
 | Kotlin   | [`kotlin/`](kotlin/) | `com.arpedon:mechbase-sdk` (Maven — tbd)  |
 
 The canonical API surface is tracked in [`openapi.json`](openapi.json), dumped from the
-live mechbase-v2 `NinjaAPI`. All clients are hand-written to match it — no codegen in v1.
+live mechbase-web `NinjaAPI`. All clients are hand-written to match it — no codegen in v1.
 
 ## What the SDK lets you do
 
@@ -91,7 +91,7 @@ a single user + installation.
 
 ## Updating `openapi.json`
 
-Run from a mechbase-v2 checkout:
+Run from a mechbase-web checkout:
 
 ```bash
 python scripts/dump-openapi.py > /path/to/mechbase-sdk/openapi.json
