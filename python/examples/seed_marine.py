@@ -24,20 +24,14 @@ def healthy_reading(transducer_type: str, rng: random.Random) -> dict:
     return {"value": round(rng.uniform(1.0, 10.0), 1)}
 
 
-def _hotspot(rng: random.Random, severity: int, max_temp: float) -> dict:
-    return {"cx_pct": round(rng.uniform(30, 70), 1), "cy_pct": round(rng.uniform(30, 70), 1),
-            "max_temp_c": max_temp, "delta_t_c": round(max_temp - rng.uniform(20, 30), 1),
-            "severity": severity, "source": "manual"}
-
-
 def fault_reading(kind: str, rng: random.Random) -> tuple[dict, list[dict] | None]:
     if kind == "vb_minor":
         return ({"vel_10hz": round(rng.uniform(3.2, 4.5), 3), "rms": round(rng.uniform(0.8, 1.4), 3),
                  "peak": round(rng.uniform(3.0, 5.0), 3), "crest_factor": round(rng.uniform(2.5, 3.5), 2)}, None)
     if kind == "ir_minor":
-        return ({"value": 72.0}, [_hotspot(rng, 3, 72.0)])
+        return ({"value": round(rng.uniform(68.0, 85.0), 1)}, None)
     if kind == "ir_major":
-        return ({"value": 96.0}, [_hotspot(rng, 4, 96.0)])
+        return ({"value": round(rng.uniform(92.0, 105.0), 1)}, None)
     raise ValueError(f"unknown fault kind {kind!r}")
 
 
@@ -66,14 +60,12 @@ def seed_measurements(inst, points, rng, *, dry_run: bool) -> int:
             days_ago = (N_READINGS - 1 - i) * DAY_STEP
             recent = i >= N_READINGS - 2          # fault ramps on the last 2 readings
             if fault and recent:
-                data, clusters = fault_reading(fault, rng)
+                data, _ = fault_reading(fault, rng)
             else:
-                data, clusters = healthy_reading(p.transducer_type, rng), None
+                data = healthy_reading(p.transducer_type, rng)
             item = {"measurement_point_external_id": p.external_id, "data": data,
                     "timestamp": _iso_days_ago(days_ago),
                     "external_id": f"{p.external_id}-{i}"}
-            if clusters:
-                item["hot_clusters"] = clusters
             items.append(item)
     if dry_run:
         print(f"[dry-run] would push {len(items)} readings")

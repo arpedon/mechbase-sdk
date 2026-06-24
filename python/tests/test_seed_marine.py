@@ -29,10 +29,11 @@ def test_vb_minor_fault_breaches_minor_not_major():
     assert 2.8 < data["vel_10hz"] < 7.1  # Minor band
 
 
-def test_ir_hotspot_severity_mapping():
+def test_ir_faults_breach_value_thresholds():
     rng = random.Random(4)
-    _, minor = sm.fault_reading("ir_minor", rng)
-    _, major = sm.fault_reading("ir_major", rng)
-    assert minor[0]["severity"] == 3 and major[0]["severity"] == 4
-    for c in (minor[0], major[0]):
-        assert {"cx_pct", "cy_pct", "max_temp_c", "delta_t_c", "severity"} <= c.keys()
+    minor_data, minor_clusters = sm.fault_reading("ir_minor", rng)
+    major_data, major_clusters = sm.fault_reading("ir_major", rng)
+    assert minor_clusters is None and major_clusters is None
+    # IR alarm rule: minor=65, major=90 (°C). Minor band is (65, 90]; Major is > 90.
+    assert 65.0 < minor_data["value"] <= 90.0
+    assert major_data["value"] > 90.0
