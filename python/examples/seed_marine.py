@@ -14,9 +14,12 @@ import random
 
 def healthy_reading(transducer_type: str, rng: random.Random) -> dict:
     if transducer_type == "VB":
-        vel = round(rng.uniform(1.0, 2.5), 3)  # mm/s, below ISO minor 2.8
+        # mm/s. Must stay below the LOWEST ISO 10816 minor threshold across the
+        # machine classes in the demo — Class I is 1.8 mm/s — so healthy readings
+        # on small (Class I) machines don't falsely trip Minor. Keep margin: <1.5.
+        vel = round(rng.uniform(0.4, 1.4), 3)
         return {"vel_10hz": vel, "rms": round(rng.uniform(0.3, 0.9), 3),
-                "peak": round(rng.uniform(1.0, 2.5), 3), "crest_factor": round(rng.uniform(1.4, 2.2), 2)}
+                "peak": round(rng.uniform(0.8, 1.6), 3), "crest_factor": round(rng.uniform(1.4, 2.2), 2)}
     if transducer_type in ("IR", "TM"):
         return {"value": round(rng.uniform(35.0, 52.0), 1)}
     if transducer_type == "US":

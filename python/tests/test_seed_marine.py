@@ -12,7 +12,9 @@ def test_healthy_vb_below_iso_minor():
     for _ in range(50):
         data = sm.healthy_reading("VB", rng)
         assert "vel_10hz" in data
-        assert data["vel_10hz"] < 2.8  # ISO minor floor
+        # Below the LOWEST ISO 10816 minor threshold in the demo (Class I = 1.8 mm/s),
+        # so small Class-I machines read healthy, not a false Minor.
+        assert data["vel_10hz"] < 1.8
 
 
 def test_healthy_ir_tm_in_safe_band():
