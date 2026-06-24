@@ -39,7 +39,7 @@ from mechbase import Mechbase  # noqa: E402
 
 INSTALLATION_NAME = "Aeolian Fortune"
 # Mirror of mechbase-web measurements.marine_demo.MARINE_FAULTS.
-FAULTS = {"AF-SWP2-PDE": "vb_minor", "AF-MSB-BUS": "ir_major", "AF-FOT-IRM": "ir_minor"}
+FAULTS = {"AF-SWP2-PDE": "vb_minor", "AF-MSB-BRK": "ir_major", "AF-FOT-IRM": "ir_minor"}
 N_READINGS = 8           # readings per point (weekly cadence, ~60 days)
 DAY_STEP = 7
 
