@@ -73,9 +73,16 @@ def seed_measurements(inst, points, rng, *, dry_run: bool) -> int:
     if dry_run:
         print(f"[dry-run] would push {len(items)} readings")
         return len(items)
-    result = inst.measurements.create_batch(items)
-    print(f"readings: created={result.created} duplicates={result.duplicates} errors={result.errors}")
-    return result.created
+    # The batch endpoint caps at 1000 items per request; chunk to stay under it.
+    chunk = 500
+    created = duplicates = errors = 0
+    for start in range(0, len(items), chunk):
+        result = inst.measurements.create_batch(items[start : start + chunk])
+        created += result.created
+        duplicates += result.duplicates
+        errors += result.errors
+    print(f"readings: created={created} duplicates={duplicates} errors={errors}")
+    return created
 
 
 def run_routes(inst, points_by_id, rng, *, dry_run: bool) -> int:
