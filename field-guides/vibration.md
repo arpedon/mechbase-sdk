@@ -2,7 +2,11 @@
 
 Sensor: **TE Connectivity WVS** wireless tri-axial accelerometer
 
-![TE Connectivity WVS vibration sensor](images/te-wvs-sensor.png)
+![TE Connectivity WVS vibration sensor](images/te-wvs-sensor.jpg)
+
+*Note the X/Y/Z axis marker on the hex base (align **X** with the shaft), the
+magnetic twist-mount indicator, the threaded/stud base, and the Ex ia IIC (ATEX/IS)
+rating for hazardous machinery spaces.*
 
 ---
 
