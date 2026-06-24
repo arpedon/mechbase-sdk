@@ -1,6 +1,14 @@
-"""Seed the Aeolian Fortune marine demo via the mechbase SDK.
+"""Standalone SDK example: drive the full client flow against a Mechbase instance.
 
-Run after `python manage.py bootstrap_marine` on the target instance:
+This demonstrates the end-to-end client path — discover the structure, batch-push
+manual point readings (with a couple of curated faults), and run + complete one
+execution of each route — using only the public ``mechbase`` SDK surface.
+
+NOTE: the Aeolian Fortune demo itself is now seeded entirely by mechbase-web's
+``python manage.py bootstrap_marine`` command (structure + measurements + route
+executions, via the ORM). This script is kept as a reusable SDK example; pointed
+at an installation that bootstrap_marine created, it will push additional readings
+and route runs through the live API.
 
     MECHBASE_TOKEN=<token> MECHBASE_URL=https://app.mechbase.io \
         python examples/seed_marine.py [--dry-run]
