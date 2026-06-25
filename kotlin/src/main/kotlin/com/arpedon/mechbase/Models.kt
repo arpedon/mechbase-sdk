@@ -63,6 +63,10 @@ data class MeasurementPoint(
     val location: String? = null,
     val status: Int,
     @SerialName("external_id") val externalId: String? = null,
+    // Effective working instruction (the point's override, else the
+    // transducer-type default) as sanitized HTML; embedded image URLs are
+    // absolute. Server always populates it; nullable keeps decode drift-safe.
+    val instructions: String? = null,
 )
 
 @Serializable

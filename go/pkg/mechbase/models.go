@@ -47,6 +47,10 @@ type MeasurementPoint struct {
 	Location            string  `json:"location"`
 	Status              int     `json:"status"`
 	ExternalID          *string `json:"external_id"`
+	// Instructions is the effective working instruction (the point's override,
+	// else the transducer-type default) as sanitized HTML; embedded image URLs
+	// are absolute. The server always populates it.
+	Instructions string `json:"instructions"`
 }
 
 // Measurement is a single reading at a point.
