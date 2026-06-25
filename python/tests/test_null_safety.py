@@ -179,6 +179,7 @@ def test_measurement_point_optional_metadata_all_null_decodes_to_empty(client):
                 "location": None,
                 "status": 1,
                 "external_id": "P-1-DE",
+                "instructions": None,
             },
         )
     )
@@ -188,6 +189,30 @@ def test_measurement_point_optional_metadata_all_null_decodes_to_empty(client):
     assert p.transducer_type == ""
     assert p.measurement_unit_code == ""
     assert p.location == ""
+    assert p.instructions == ""
+
+
+@respx.mock
+def test_measurement_point_instructions_decodes(client):
+    respx.post(f"{BASE}/api/installations/2012/measurement-points").mock(
+        return_value=httpx.Response(
+            201,
+            json={
+                "uuid": "p-2",
+                "point_id": 2,
+                "name": "Drive End",
+                "asset_id": 100,
+                "transducer_type": "VB",
+                "measurement_unit_code": "mm/s",
+                "location": "",
+                "status": 1,
+                "external_id": None,
+                "instructions": "<ul><li>Mount on the bearing housing.</li></ul>",
+            },
+        )
+    )
+    p = client.for_installation(2012).measurement_points.create(name="Drive End")
+    assert p.instructions == "<ul><li>Mount on the bearing housing.</li></ul>"
 
 
 # --- Regression guard: fully populated response still decodes the same -----

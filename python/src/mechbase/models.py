@@ -124,6 +124,10 @@ class MeasurementPoint:
     location: str
     status: int
     external_id: str | None = None
+    # Effective working instruction (the point's override, else the
+    # transducer-type default) as sanitized HTML; embedded image URLs are
+    # absolute. The server always populates it; `or ""` keeps decode resilient.
+    instructions: str = ""
 
     @classmethod
     def from_dict(cls, d: dict) -> "MeasurementPoint":
@@ -137,6 +141,7 @@ class MeasurementPoint:
             location=d.get("location") or "",
             status=d["status"],
             external_id=d.get("external_id"),
+            instructions=d.get("instructions") or "",
         )
 
 

@@ -166,9 +166,14 @@ public struct MeasurementPoint: Codable, Sendable {
     public let location: String
     public let status: Int
     public let externalId: String?
+    // Effective working instruction (the point's override, else the
+    // transducer-type default) as sanitized HTML; embedded image URLs are
+    // absolute. Server always populates it; the resilient `?? ""` decode keeps
+    // it safe against drift.
+    public let instructions: String
 
     enum CodingKeys: String, CodingKey {
-        case uuid, name, location, status
+        case uuid, name, location, status, instructions
         case pointId = "point_id"
         case assetId = "asset_id"
         case transducerType = "transducer_type"
@@ -187,6 +192,7 @@ public struct MeasurementPoint: Codable, Sendable {
         self.location = (try? c.decode(String.self, forKey: .location)) ?? ""
         self.status = try c.decode(Int.self, forKey: .status)
         self.externalId = try c.decodeIfPresent(String.self, forKey: .externalId)
+        self.instructions = (try? c.decode(String.self, forKey: .instructions)) ?? ""
     }
 }
 
