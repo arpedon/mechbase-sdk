@@ -75,6 +75,26 @@ No API tokens, no GitHub secrets. OIDC handles auth.
 
 ---
 
+## Dry-run a Kotlin release first (recommended)
+
+`publishToMavenCentral` (note: **not** `...AndRelease`) uploads a *staging*
+deployment you can inspect and **drop** — it validates signing, auth, the POM,
+and namespace ownership without releasing anything irreversibly:
+
+```bash
+cd kotlin                                   # on a branch whose version is the one you'll cut
+read -rs -p "GPG passphrase: " PASS; echo   # keeps the passphrase off-screen/out of history
+ORG_GRADLE_PROJECT_mavenCentralUsername=<token-user> \
+ORG_GRADLE_PROJECT_mavenCentralPassword=<token-pass> \
+ORG_GRADLE_PROJECT_signingInMemoryKeyPassword="$PASS" \
+ORG_GRADLE_PROJECT_signingInMemoryKey="$(gpg --batch --pinentry-mode loopback --passphrase "$PASS" --armor --export-secret-keys KEY_ID)" \
+./gradlew publishToMavenCentral --no-configuration-cache
+```
+
+`BUILD SUCCESSFUL` means the pipeline is sound. Drop the staging deployment at
+<https://central.sonatype.com> → **Deployments** (it won't auto-release), then
+push the tag below for the real, auto-released run.
+
 ## Cutting a release
 
 Bump the version **in the manifest**, commit, then tag. CI checks the tag matches
@@ -98,3 +118,17 @@ git tag v0.2.0 && git push origin v0.2.0
 
 After PyPI/Maven Central publishes, the package may take a few minutes to be
 installable (PyPI is near-instant; Maven Central sync can take ~10–30 min).
+
+**Verify it landed:**
+
+| SDK    | Where to check                                                              |
+|--------|-----------------------------------------------------------------------------|
+| Kotlin | central.sonatype.com → **Deployments** (state *Published*), then synced to <https://repo1.maven.org/maven2/com/arpedon/mechbase-sdk/> |
+| Python | <https://pypi.org/project/mechbase/>                                        |
+| Go     | `go list -m github.com/arpedon/mechbase-sdk/go@vX.Y.Z`                      |
+| Swift  | `git ls-remote --tags` shows the bare tag; SwiftPM resolves it             |
+
+> A green `publish-*` workflow run is the authoritative "it released" signal —
+> the registry's own published/search index can lag the workflow by minutes.
+> The freshly-published Maven Central `published?...` API likewise flips to
+> `true` only after repo1 sync, not the instant the workflow finishes.
