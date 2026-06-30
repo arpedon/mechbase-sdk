@@ -45,7 +45,8 @@ class HttpClient:
         params: dict | None = None,
         json: Any = None,
         data: dict | None = None,
-        files: dict | None = None,
+        files: dict | list | None = None,
+        headers: dict | None = None,
     ) -> Any:
         response = self._client.request(
             method,
@@ -54,6 +55,7 @@ class HttpClient:
             json=json,
             data=data,
             files=files,
+            headers=headers,
         )
         return self._handle(response)
 

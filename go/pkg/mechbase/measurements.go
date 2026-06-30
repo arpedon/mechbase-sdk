@@ -25,6 +25,9 @@ type CreateMeasurementInput struct {
 	// File, if non-nil, switches the request to multipart upload.
 	File     io.Reader
 	FileName string
+	// IdempotencyKey, when set, is sent as the X-Idempotency-Key header so the
+	// server dedupes a retried create.
+	IdempotencyKey string
 }
 
 // Create posts a single measurement. When File is nil it sends JSON; when set
@@ -43,8 +46,9 @@ func (m *Measurements) Create(ctx context.Context, in CreateMeasurementInput) (*
 	}
 
 	var out Measurement
+	headers := idempotencyHeaders(in.IdempotencyKey)
 	if in.File == nil {
-		if err := m.client.doJSON(ctx, http.MethodPost, pathf(m.iid, "/measurements/"), nil, payload, &out); err != nil {
+		if err := m.client.doJSONH(ctx, http.MethodPost, pathf(m.iid, "/measurements/"), nil, headers, payload, &out); err != nil {
 			return nil, err
 		}
 		return &out, nil
@@ -60,7 +64,7 @@ func (m *Measurements) Create(ctx context.Context, in CreateMeasurementInput) (*
 	}
 	files := []filePart{{Field: "file", Filename: name, Reader: in.File}}
 	fields := map[string]string{"payload": string(encoded)}
-	if err := m.client.doMultipart(ctx, pathf(m.iid, "/measurements/upload/"), fields, files, &out); err != nil {
+	if err := m.client.doMultipartH(ctx, pathf(m.iid, "/measurements/upload/"), headers, fields, files, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
