@@ -27,17 +27,19 @@ class Execution internal constructor(
         data: Map<String, Any?>,
         notes: String = "",
         photos: List<File> = emptyList(),
+        idempotencyKey: String? = null,
     ): ItemResponse {
         val payload: JsonObject = buildJsonObject {
             put("route_item_uuid", JsonPrimitive(routeItemUUID))
             put("data", data.toJsonObject())
             put("notes", JsonPrimitive(notes))
         }
+        val headers = idempotencyKey?.let { mapOf("X-Idempotency-Key" to it) } ?: emptyMap()
         return if (photos.isEmpty()) {
-            http.postJson(url("/responses"), payload, ItemResponse.serializer())
+            http.postJson(url("/responses"), payload, ItemResponse.serializer(), headers)
         } else {
             val parts = photos.map { f -> MultipartFile("files", f.name, f) }
-            http.postMultipart(url("/responses/upload"), payload, parts, ItemResponse.serializer())
+            http.postMultipart(url("/responses/upload"), payload, parts, ItemResponse.serializer(), headers)
         }
     }
 
