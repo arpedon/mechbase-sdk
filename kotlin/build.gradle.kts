@@ -1,7 +1,10 @@
+import com.vanniktech.maven.publish.JavadocJar
+import com.vanniktech.maven.publish.KotlinJvm
+
 plugins {
     kotlin("jvm") version "1.9.24"
     kotlin("plugin.serialization") version "1.9.24"
-    `maven-publish`
+    id("com.vanniktech.maven.publish") version "0.33.0"
 }
 
 group = "com.arpedon"
@@ -48,17 +51,40 @@ tasks.test {
     }
 }
 
-java {
-    withSourcesJar()
-}
+mavenPublishing {
+    // Uploads to the Sonatype Central Portal (central.sonatype.com) and releases.
+    // Credentials + signing come from env in CI (see .github/workflows/publish-kotlin.yml).
+    publishToMavenCentral()
+    signAllPublications()
 
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            groupId = "com.arpedon"
-            artifactId = "mechbase-sdk"
-            version = "0.2.1"
-            from(components["java"])
+    coordinates(group.toString(), "mechbase-sdk", version.toString())
+
+    // Empty javadoc jar satisfies Central's requirement without pulling in Dokka.
+    // ponytail: swap JavadocJar.Empty() -> JavadocJar.Dokka(...) if real API docs are wanted.
+    configure(KotlinJvm(javadocJar = JavadocJar.Empty(), sourcesJar = true))
+
+    pom {
+        name.set("mechbase-sdk")
+        description.set("Official Kotlin/JVM client for the Mechbase condition-monitoring API")
+        inceptionYear.set("2026")
+        url.set("https://github.com/arpedon/mechbase-sdk")
+        licenses {
+            license {
+                name.set("MIT License")
+                url.set("https://opensource.org/licenses/MIT")
+            }
+        }
+        developers {
+            developer {
+                id.set("arpedon")
+                name.set("Arpedon")
+                url.set("https://github.com/arpedon")
+            }
+        }
+        scm {
+            url.set("https://github.com/arpedon/mechbase-sdk")
+            connection.set("scm:git:git://github.com/arpedon/mechbase-sdk.git")
+            developerConnection.set("scm:git:ssh://git@github.com/arpedon/mechbase-sdk.git")
         }
     }
 }

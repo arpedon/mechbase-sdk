@@ -1,0 +1,30 @@
+name: Release Swift
+
+# Swift has no registry — SwiftPM resolves straight from this repo's bare semver
+# tags (vX.Y.Z). The go/python/kotlin prefixed tags are invisible to SwiftPM.
+# This workflow just validates the tagged commit and publishes a GitHub Release.
+on:
+  push:
+    tags: ["v[0-9]*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build & test
+        run: |
+          swift build
+          swift test
+
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Swift $GITHUB_REF_NAME" \
+            --notes ".package(url: \"https://github.com/arpedon/mechbase-sdk\", from: \"${GITHUB_REF_NAME#v}\")"
