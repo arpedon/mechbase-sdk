@@ -1,5 +1,9 @@
 # mechbase-sdk
 
+[![Kotlin](https://img.shields.io/maven-central/v/com.arpedon/mechbase-sdk?label=Kotlin&logo=kotlin&color=blue)](https://central.sonatype.com/artifact/com.arpedon/mechbase-sdk)
+[![Python](https://img.shields.io/pypi/v/mechbase?label=Python&logo=python&logoColor=white&color=blue)](https://pypi.org/project/mechbase/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 Official client SDKs for the [Mechbase](https://app.mechbase.io) condition-monitoring platform.
 
 The default base URL is `https://app.mechbase.io`. For self-hosted installations, pass your own base URL to the client constructor.
