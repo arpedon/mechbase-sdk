@@ -25,14 +25,18 @@ class Executions(InstallationScoped):
         data: dict,
         notes: str = "",
         photos: list[str | Path | BinaryIO] | None = None,
+        idempotency_key: str | None = None,
     ) -> ItemResponse:
         payload: dict[str, Any] = {
             "route_item_uuid": route_item_uuid,
             "data": data,
             "notes": notes,
         }
+        headers = {"X-Idempotency-Key": idempotency_key} if idempotency_key else None
         if not photos:
-            body = self._http.request("POST", self._url("/responses"), json=payload)
+            body = self._http.request(
+                "POST", self._url("/responses"), json=payload, headers=headers
+            )
             return ItemResponse.from_dict(body)
 
         files = []
@@ -50,6 +54,7 @@ class Executions(InstallationScoped):
                 self._url("/responses/upload"),
                 data={"payload": json.dumps(payload)},
                 files=files,
+                headers=headers,
             )
         finally:
             for fh in opened:

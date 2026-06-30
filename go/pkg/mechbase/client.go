@@ -106,6 +106,11 @@ func pathf(iid int, suffix string) string {
 // doJSON performs an API request with optional JSON body and query params and
 // decodes the JSON response into out (pass nil to discard).
 func (c *Client) doJSON(ctx context.Context, method, path string, query url.Values, body any, out any) error {
+	return c.doJSONH(ctx, method, path, query, nil, body, out)
+}
+
+// doJSONH is doJSON with extra request headers (e.g. X-Idempotency-Key).
+func (c *Client) doJSONH(ctx context.Context, method, path string, query url.Values, headers map[string]string, body any, out any) error {
 	var reader io.Reader
 	if body != nil {
 		buf, err := json.Marshal(body)
@@ -121,6 +126,9 @@ func (c *Client) doJSON(ctx context.Context, method, path string, query url.Valu
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 	return c.do(req, out)
 }
 
@@ -133,6 +141,11 @@ type filePart struct {
 }
 
 func (c *Client) doMultipart(ctx context.Context, path string, fields map[string]string, files []filePart, out any) error {
+	return c.doMultipartH(ctx, path, nil, fields, files, out)
+}
+
+// doMultipartH is doMultipart with extra request headers (e.g. X-Idempotency-Key).
+func (c *Client) doMultipartH(ctx context.Context, path string, headers map[string]string, fields map[string]string, files []filePart, out any) error {
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	for k, v := range fields {
@@ -157,7 +170,19 @@ func (c *Client) doMultipart(ctx context.Context, path string, fields map[string
 		return err
 	}
 	req.Header.Set("Content-Type", mw.FormDataContentType())
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 	return c.do(req, out)
+}
+
+// idempotencyHeaders returns the X-Idempotency-Key header map, or nil when key
+// is empty so the request stays byte-for-byte unchanged.
+func idempotencyHeaders(key string) map[string]string {
+	if key == "" {
+		return nil
+	}
+	return map[string]string{"X-Idempotency-Key": key}
 }
 
 func (c *Client) newRequest(ctx context.Context, method, path string, query url.Values, body io.Reader) (*http.Request, error) {

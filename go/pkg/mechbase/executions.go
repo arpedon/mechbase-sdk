@@ -27,6 +27,9 @@ type RespondInput struct {
 	RouteItemUUID string
 	Data          map[string]any
 	Notes         string
+	// IdempotencyKey, when set, is sent as the X-Idempotency-Key header so the
+	// server dedupes a retried response.
+	IdempotencyKey string
 }
 
 // FieldItemInput is the payload for adding an ad-hoc field item to an execution.
@@ -54,7 +57,7 @@ func (e *Execution) Respond(ctx context.Context, in RespondInput) (*ItemResponse
 		"notes":           in.Notes,
 	}
 	var out ItemResponse
-	if err := e.client.doJSON(ctx, http.MethodPost, e.url("/responses"), nil, payload, &out); err != nil {
+	if err := e.client.doJSONH(ctx, http.MethodPost, e.url("/responses"), nil, idempotencyHeaders(in.IdempotencyKey), payload, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -83,7 +86,7 @@ func (e *Execution) RespondWithPhotos(ctx context.Context, in RespondInput, phot
 		files = append(files, filePart{Field: "files", Filename: name, Reader: p.Reader})
 	}
 	var out ItemResponse
-	if err := e.client.doMultipart(ctx, e.url("/responses/upload"), map[string]string{"payload": string(encoded)}, files, &out); err != nil {
+	if err := e.client.doMultipartH(ctx, e.url("/responses/upload"), idempotencyHeaders(in.IdempotencyKey), map[string]string{"payload": string(encoded)}, files, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
