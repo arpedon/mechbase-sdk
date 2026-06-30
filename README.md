@@ -2,6 +2,8 @@
 
 [![Kotlin](https://img.shields.io/maven-central/v/com.arpedon/mechbase-sdk?label=Kotlin&logo=kotlin&color=blue)](https://central.sonatype.com/artifact/com.arpedon/mechbase-sdk)
 [![Python](https://img.shields.io/pypi/v/mechbase?label=Python&logo=python&logoColor=white&color=blue)](https://pypi.org/project/mechbase/)
+[![Go](https://pkg.go.dev/badge/github.com/arpedon/mechbase-sdk/go.svg)](https://pkg.go.dev/github.com/arpedon/mechbase-sdk/go)
+[![Swift](https://img.shields.io/github/v/tag/arpedon/mechbase-sdk?filter=v*&label=Swift&logo=swift&color=blue)](https://github.com/arpedon/mechbase-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Official client SDKs for the [Mechbase](https://app.mechbase.io) condition-monitoring platform.
