@@ -19,6 +19,7 @@ class Measurements(InstallationScoped):
         session_id: str | None = None,
         timestamp: str | None = None,
         file: str | Path | BinaryIO | None = None,
+        idempotency_key: str | None = None,
     ) -> Measurement:
         payload: dict[str, Any] = {
             "measurement_point_id": point_id,
@@ -30,9 +31,11 @@ class Measurements(InstallationScoped):
         if timestamp:
             payload["timestamp"] = timestamp
 
+        headers = {"X-Idempotency-Key": idempotency_key} if idempotency_key else None
+
         if file is None:
             body = self._http.request(
-                "POST", self._path("/measurements/"), json=payload
+                "POST", self._path("/measurements/"), json=payload, headers=headers
             )
             return Measurement.from_dict(body)
 
@@ -47,6 +50,7 @@ class Measurements(InstallationScoped):
                 self._path("/measurements/upload/"),
                 data={"payload": json.dumps(payload)},
                 files={"file": (Path(getattr(fh, "name", "attachment")).name, fh)},
+                headers=headers,
             )
         finally:
             if opened:
