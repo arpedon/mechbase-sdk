@@ -1,0 +1,36 @@
+name: Publish Python
+
+# Tag the python release as python/vX.Y.Z (must match pyproject version).
+on:
+  push:
+    tags: ["python/v*"]
+
+permissions:
+  contents: read
+  id-token: write # OIDC for PyPI trusted publishing — no API token needed
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Check tag matches pyproject version
+        run: |
+          TAG="${GITHUB_REF_NAME#python/v}"
+          PKG="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
+          [ "$TAG" = "$PKG" ] || { echo "tag $TAG != pyproject $PKG"; exit 1; }
+
+      - name: Build sdist + wheel
+        run: pipx run build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: python/dist

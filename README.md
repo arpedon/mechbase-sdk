@@ -6,12 +6,15 @@ The default base URL is `https://app.mechbase.io`. For self-hosted installations
 
 Four languages, one uniform surface:
 
-| Language | Path        | Package                                   |
-|----------|-------------|-------------------------------------------|
-| Python   | [`python/`](python/) | `mechbase` (PyPI — tbd)                   |
-| Go       | [`go/`](go/)         | `github.com/arpedon/mechbase-sdk/go`      |
-| Swift    | [`swift/`](swift/)   | SwiftPM product `Mechbase`                |
-| Kotlin   | [`kotlin/`](kotlin/) | `com.arpedon:mechbase-sdk` (Maven — tbd)  |
+| Language | Path        | Install                                                              |
+|----------|-------------|---------------------------------------------------------------------|
+| Python   | [`python/`](python/) | `pip install mechbase`                                      |
+| Go       | [`go/`](go/)         | `go get github.com/arpedon/mechbase-sdk/go`                 |
+| Swift    | [`swift/`](swift/)   | `.package(url: "https://github.com/arpedon/mechbase-sdk", from: "0.2.0")` |
+| Kotlin   | [`kotlin/`](kotlin/) | `implementation("com.arpedon:mechbase-sdk:0.2.2")`          |
+
+How each SDK is published (and how to cut a release) is documented in
+[`RELEASING.md`](RELEASING.md).
 
 The canonical API surface is tracked in [`openapi.json`](openapi.json), dumped from the
 live mechbase-web `NinjaAPI`. All clients are hand-written to match it — no codegen in v1.
