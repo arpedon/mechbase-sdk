@@ -48,6 +48,7 @@ class Measurements internal constructor(
         sessionId: String? = null,
         timestamp: String? = null,
         file: File? = null,
+        idempotencyKey: String? = null,
     ): Measurement {
         val payload: JsonObject = buildJsonObject {
             put("measurement_point_id", JsonPrimitive(pointId))
@@ -56,12 +57,14 @@ class Measurements internal constructor(
             if (sessionId != null) put("session_id", JsonPrimitive(sessionId))
             if (timestamp != null) put("timestamp", JsonPrimitive(timestamp))
         }
+        val headers = idempotencyKey?.let { mapOf("X-Idempotency-Key" to it) } ?: emptyMap()
 
         return if (file == null) {
             http.postJson(
                 installationPath(installationId, "/measurements/"),
                 payload,
                 Measurement.serializer(),
+                headers,
             )
         } else {
             http.postMultipart(
@@ -69,6 +72,7 @@ class Measurements internal constructor(
                 payload,
                 listOf(MultipartFile("file", file.name, file)),
                 Measurement.serializer(),
+                headers,
             )
         }
     }

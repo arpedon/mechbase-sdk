@@ -79,10 +79,13 @@ internal class Http(
         path: String,
         payload: JsonElement?,
         serializer: KSerializer<T>,
+        headers: Map<String, String> = emptyMap(),
     ): T = withContext(Dispatchers.IO) {
         val bodyStr = if (payload == null) "" else SDK_JSON.encodeToString(JsonElement.serializer(), payload)
         val rb: RequestBody = bodyStr.toRequestBody(JSON_MEDIA)
-        val request = baseRequest(buildUrl(path, null)).post(rb).build()
+        val builder = baseRequest(buildUrl(path, null)).post(rb)
+        headers.forEach { (k, v) -> builder.header(k, v) }
+        val request = builder.build()
         ok.newCall(request).execute().use { resp ->
             val body = handle(resp)
             if (body.isEmpty()) {
@@ -127,6 +130,7 @@ internal class Http(
         payload: JsonObject,
         files: List<MultipartFile>,
         serializer: KSerializer<T>,
+        headers: Map<String, String> = emptyMap(),
     ): T = withContext(Dispatchers.IO) {
         val payloadStr = SDK_JSON.encodeToString(JsonObject.serializer(), payload)
         val mb = MultipartBody.Builder().setType(MultipartBody.FORM)
@@ -138,7 +142,9 @@ internal class Http(
                 mf.file.asRequestBody(OCTET_MEDIA),
             )
         }
-        val request = baseRequest(buildUrl(path, null)).post(mb.build()).build()
+        val builder = baseRequest(buildUrl(path, null)).post(mb.build())
+        headers.forEach { (k, v) -> builder.header(k, v) }
+        val request = builder.build()
         ok.newCall(request).execute().use { resp ->
             val body = handle(resp)
             SDK_JSON.decodeFromString(serializer, body)
