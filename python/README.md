@@ -19,6 +19,23 @@ assets = inst.assets.list(q="pump", limit=50)
 inst.measurements.create(point_id=42, data={"rms": 2.3}, notes="manual reading")
 ```
 
+## Command line
+
+The package installs a `mechbase` command:
+
+```bash
+pipx install mechbase
+mechbase login                       # once; token stored in ~/.config/mechbase/config.json
+mechbase points --asset 1
+mechbase readings 2                  # latest readings of point 2
+mechbase reading show 2 766          # values, state and top spectrum peaks (electrical lines tagged)
+mechbase reading delete 2 767
+```
+
+Reading numbers are the ones in the web URL (`…/measurementpoints/2/measurements/766/`).
+Add `--json` to any command for scripting; `MECHBASE_TOKEN`, `MECHBASE_URL` and
+`MECHBASE_INSTALLATION` override the stored config.
+
 For edge agents identified by a `node_uuid` rather than a bearer token, use `MaintNode`.
 
 Full docs and the other language SDKs (Go, Swift, Kotlin) live in the

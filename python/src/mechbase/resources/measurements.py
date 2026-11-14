@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any, BinaryIO
 
-from ..models import BatchResult, FileAttachment, Measurement
+from ..models import BatchResult, DeleteResult, FileAttachment, Measurement
 from ._base import InstallationScoped, _paginated
 
 
@@ -66,6 +66,22 @@ class Measurements(InstallationScoped):
                     "created_from": created_from, "created_to": created_to},
             parse=Measurement.from_dict,
         )
+
+    def get(self, point_id: int, point_sequence: int) -> Measurement:
+        """One reading, by the number shown in the web URL (…/measurements/766/)."""
+        return Measurement.from_dict(
+            self._http.request("GET", self._path(f"/measurement-points/{point_id}/measurements/{point_sequence}/"))
+        )
+
+    def delete(self, point_id: int, point_sequence: int) -> DeleteResult:
+        """Delete one reading; the point's state rolls back to its newest surviving reading."""
+        return DeleteResult.from_dict(
+            self._http.request("DELETE", self._path(f"/measurement-points/{point_id}/measurements/{point_sequence}/"))
+        )
+
+    def spectra(self, measurement_uuid: str) -> dict:
+        """FFT arrays: freq_hz, velocity, acceleration, envelope (empty without a waveform)."""
+        return self._http.request("GET", self._path(f"/analytics/measurements/{measurement_uuid}/spectra/"))
 
     def create_batch(self, items: list[dict]) -> BatchResult:
         body = self._http.request(
