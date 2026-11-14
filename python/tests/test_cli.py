@@ -21,6 +21,9 @@ def test_peaks_tags_mains_multiples_only():
     found = peaks(freq, amp, top=5)
     assert found[0] == {"hz": 100.0, "amplitude": 3.0, "note": "2×50 Hz (electrical)"}
     assert found[1]["hz"] == 24.5 and found[1]["note"] == ""
+    # a shaft line one bin off a mains multiple is not electrical
+    amp[103] = 1.0  # 51.5 Hz
+    assert next(p for p in peaks(freq, amp) if p["hz"] == 51.5)["note"] == ""
 
 
 @respx.mock

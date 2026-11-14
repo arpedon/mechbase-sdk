@@ -24,6 +24,10 @@ from . import Mechbase
 from ._http import HttpClient
 from .errors import MechbaseError
 
+STATUS = {1: "good", 2: "elevated", 3: "minor", 4: "major"}
+# Headline values for `readings`; `reading show` prints everything.
+HEADLINE = ("value", "rms", "peak", "vel_10hz", "crest_factor", "kurtosis", "temperature")
+
 CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "mechbase" / "config.json"
 
 
@@ -82,7 +86,8 @@ def peaks(freq: list[float], amp: list[float], *, top: int = 10, line_hz: float 
     out = []
     for f, a in found[:top]:
         k = round(f / line_hz)
-        tag = f"{k}×{line_hz:g} Hz (electrical)" if k and abs(f - k * line_hz) <= df else ""
+        # within half a bin: a mains line lands on k×line_hz, a shaft speed near it doesn't
+        tag = f"{k}×{line_hz:g} Hz (electrical)" if k and abs(f - k * line_hz) <= df / 2 else ""
         out.append({"hz": round(f, 2), "amplitude": round(a, 4), "note": tag})
     return out
 
@@ -124,7 +129,7 @@ def cmd_use(args, cfg):
 
 def cmd_assets(args, cfg):
     inst = _inst(args, cfg, _client(cfg))
-    rows = [{"id": a.asset_id, "name": a.name, "status": a.status} for a in inst.assets.list(q=args.q, limit=args.limit)]
+    rows = [{"id": a.asset_id, "name": a.name, "status": STATUS.get(a.status, a.status)} for a in inst.assets.list(q=args.q, limit=args.limit)]
     _out(args, rows, ["id", "name", "status"])
 
 
@@ -132,12 +137,13 @@ def cmd_points(args, cfg):
     inst = _inst(args, cfg, _client(cfg))
     pts = inst.measurement_points.list(q=args.q, asset_id=args.asset, limit=args.limit)
     rows = [{"id": p.point_id, "asset": p.asset_id, "name": p.name, "type": p.transducer_type,
-             "unit": p.measurement_unit_code, "status": p.status} for p in pts]
+             "unit": p.measurement_unit_code, "status": STATUS.get(p.status, p.status)} for p in pts]
     _out(args, rows, ["id", "asset", "name", "type", "unit", "status"])
 
 
 def _reading_row(m) -> dict:
-    vals = ", ".join(f"{k}={v:.3g}" if isinstance(v, (int, float)) else f"{k}={v}" for k, v in m.data.items())
+    data = {k: m.data[k] for k in HEADLINE if k in m.data} or m.data
+    vals = ", ".join(f"{k}={v:.3g}" if isinstance(v, (int, float)) else f"{k}={v}" for k, v in data.items())
     return {"reading": m.point_sequence, "when": m.created_at[:16].replace("T", " "), "state": m.status, "values": vals}
 
 
@@ -160,10 +166,11 @@ def cmd_reading_show(args, cfg):
         return
     r = _reading_row(m)
     print(f"Point {args.point} · reading {m.point_sequence} · {r['when']} · {m.status.upper()}")
+    width = max(map(len, [*m.data, "file"]))
     for k, v in m.data.items():
-        print(f"  {k:<14} {v}")
+        print(f"  {k:<{width}}  {v}")
     if m.file_url:
-        print(f"  file           {m.file_url}")
+        print(f"  {'file':<{width}}  {m.file_url}")
     if args.peaks:
         if found:
             print(f"\nTop {len(found)} {args.signal} peaks:")
