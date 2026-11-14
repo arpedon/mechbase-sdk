@@ -47,6 +47,11 @@ public struct Routes: Sendable {
         return Execution(scope: scope, execution: exec)
     }
 
+    /// Fetch an execution by UUID (`GET /executions/{uuid}`).
+    public func fetchExecution(uuid: String) async throws -> RouteExecution {
+        try await scope.http.get(scope.path("/executions/\(uuid)"), as: RouteExecution.self)
+    }
+
     /// Re-attach to an existing execution by UUID without making a request.
     public func execution(uuid: String, routeUUID: String = "", sessionId: String = "") -> Execution {
         let exec = RouteExecution(

@@ -165,7 +165,7 @@ actor HTTPClient {
         switch status {
         case 401, 403: throw MechbaseError.auth(message)
         case 404: throw MechbaseError.notFound(message)
-        case 409: throw MechbaseError.conflict(message)
+        case 409: throw MechbaseError.conflict(message, body: data)
         case 413: throw MechbaseError.tooLarge(message)
         case 422: throw MechbaseError.validation(message)
         default: throw MechbaseError.server(status, message)

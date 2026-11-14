@@ -9,6 +9,7 @@ final class RouteStartTests: XCTestCase {
         RouteStartMock.lastBody = nil
         RouteStartMock.lastPath = nil
         RouteStartMock.lastMethod = nil
+        RouteStartMock.reply = nil
         super.tearDown()
     }
 
@@ -39,6 +40,35 @@ final class RouteStartTests: XCTestCase {
         XCTAssertTrue(RouteStartMock.lastPath?.hasSuffix("/routes/route-1/executions") ?? false)
         XCTAssertNil(RouteStartMock.lastBody, "bare start is the legacy empty POST (server mints the uuid)")
     }
+
+    func testStartConflictCarriesRunningExecutionUuid() async throws {
+        RouteStartMock.reply = (409, #"{"detail":"This route already has a running execution.","running_execution_uuid":"exec-running"}"#)
+        do {
+            _ = try await makeClient().forInstallation(id: 2012).routes.start(routeUUID: "route-1", uuid: "exec-1")
+            XCTFail("expected conflict")
+        } catch let e as MechbaseError {
+            guard case .conflict(let msg, _) = e else { return XCTFail("expected .conflict, got \(e)") }
+            XCTAssertTrue(msg.hasPrefix("409 "))
+            XCTAssertEqual(e.runningExecutionUuid, "exec-running")
+        }
+    }
+
+    func testStartConflictWithoutRunningExecutionHasNilUuid() async throws {
+        RouteStartMock.reply = (409, #"{"detail":"An execution with this uuid already exists for a different route.","running_execution_uuid":null}"#)
+        do {
+            _ = try await makeClient().forInstallation(id: 2012).routes.start(routeUUID: "route-1", uuid: "exec-1")
+            XCTFail("expected conflict")
+        } catch let e as MechbaseError {
+            XCTAssertNil(e.runningExecutionUuid)
+        }
+    }
+
+    func testFetchExecutionGetsByUuid() async throws {
+        let exec = try await makeClient().forInstallation(id: 2012).routes.fetchExecution(uuid: "exec-1")
+        XCTAssertEqual(RouteStartMock.lastMethod, "GET")
+        XCTAssertTrue(RouteStartMock.lastPath?.hasSuffix("/installations/2012/executions/exec-1") ?? false)
+        XCTAssertEqual(exec.sessionId, "sess-1")
+    }
 }
 
 /// Captures the outgoing request (method, path, body) and returns a valid
@@ -48,6 +78,8 @@ final class RouteStartMock: URLProtocol {
     nonisolated(unsafe) static var lastBody: Data?
     nonisolated(unsafe) static var lastPath: String?
     nonisolated(unsafe) static var lastMethod: String?
+    /// Override the canned 201 with (status, body).
+    nonisolated(unsafe) static var reply: (Int, String)?
 
     override class func canInit(with r: URLRequest) -> Bool { true }
     override class func canonicalRequest(for r: URLRequest) -> URLRequest { r }
@@ -72,9 +104,10 @@ final class RouteStartMock: URLProtocol {
             RouteStartMock.lastBody = request.httpBody
         }
         let respBody = #"{"uuid":"exec-1","route_uuid":"route-1","status":"in_progress","started_at":"2026-06-22T08:30:00Z","completed_at":null,"session_id":"sess-1"}"#
-        let resp = HTTPURLResponse(url: request.url!, statusCode: 201, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
+        let (status, body) = RouteStartMock.reply ?? (201, respBody)
+        let resp = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
         client?.urlProtocol(self, didReceive: resp, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: Data(respBody.utf8))
+        client?.urlProtocol(self, didLoad: Data(body.utf8))
         client?.urlProtocolDidFinishLoading(self)
     }
 

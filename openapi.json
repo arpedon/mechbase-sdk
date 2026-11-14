@@ -2802,7 +2802,7 @@
             }
           }
         },
-        "description": "Offset paginated by default (limit/offset, includes total). Pass ?cursor= for keyset pagination over long timeframes \u2014 it skips the expensive COUNT and returns next_cursor instead of total. Filter either mode by created_from / created_to (ISO-8601).",
+        "description": "Offset paginated by default (limit/offset, includes total). Pass ?cursor= for keyset pagination over long timeframes \u2014 it skips the expensive COUNT and returns next_cursor instead of total. Filter either mode by created_from / created_to (ISO-8601 with an offset or Z; a value without one is a 422).",
         "tags": [
           "measurements"
         ],
@@ -3228,7 +3228,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorOut"
+                  "$ref": "#/components/schemas/StartConflictOut"
                 }
               }
             }
@@ -3380,6 +3380,85 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "routes"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/executions/{execution_uuid}/cancel": {
+      "post": {
+        "operationId": "api_routes_router_cancel_execution",
+        "summary": "Cancel an empty execution",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "execution_uuid",
+            "schema": {
+              "title": "Execution Uuid",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -4657,7 +4736,7 @@
     "/api/installations/{installation_id}/analytics/measurements/{measurement_uuid}/spectra/": {
       "get": {
         "operationId": "api_analytics_router_measurement_spectra",
-        "summary": "Cached FFT spectra for one measurement",
+        "summary": "FFT spectra for one measurement",
         "parameters": [
           {
             "in": "path",
@@ -4711,7 +4790,7 @@
             }
           }
         },
-        "description": "Returns the cached FFT arrays (freq + velocity/acceleration/envelope) for a measurement \u2014 the by-URL companion to the feed's spectra_url (arrays stay out of the row, #150). Installation-scoped: the measurement must belong to the path installation (no IDOR). Empty arrays when no spectra are cached.",
+        "description": "Returns the FFT arrays (freq + velocity/acceleration/envelope) for a measurement \u2014 the by-URL companion to the feed's spectra_url (arrays stay out of the row, #150). Served from the spectrum cache, else recomputed from the stored .dr waveform. Installation-scoped: the measurement must belong to the path installation (no IDOR). Empty arrays when the measurement has no waveform.",
         "tags": [
           "analytics"
         ],
@@ -4947,6 +5026,470 @@
         "description": "Streams the generated file when the signed URL is valid and unexpired and the job is still available. 403 for a bad/expired signature, 410 when the export is still building, failed, or past its file TTL.",
         "tags": [
           "analytics"
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/findings/": {
+      "get": {
+        "operationId": "api_diagnostics_router_list_findings",
+        "summary": "List analyst findings (cursor + filters + changed-since)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "open",
+                    "acknowledged",
+                    "closed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "asset_id",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Asset Id"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "asset_external_id",
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 255,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Asset External Id"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "point_id",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Point Id"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "point_external_id",
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 255,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Point External Id"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CursorPage_FindingOut_"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "Findings recorded by analysts, with their evidence and work-order state. Browse is newest-first. Pass ?since=<ISO-8601> for a CMMS sync: rows whose updated_at is at or after it, oldest change first, so a status change re-emits the row. The watermark is inclusive: dedupe on uuid. Filter by status (open|acknowledged|closed) and by asset or point, either by id or by external_id. Walk pages via next_cursor.",
+        "tags": [
+          "findings"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/findings/{finding_uuid}/": {
+      "get": {
+        "operationId": "api_diagnostics_router_get_finding",
+        "summary": "Get one finding",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "finding_uuid",
+            "schema": {
+              "format": "uuid",
+              "title": "Finding Uuid",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "findings"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/findings/{finding_uuid}/status/": {
+      "post": {
+        "operationId": "api_diagnostics_router_set_finding_status",
+        "summary": "Acknowledge or close a finding",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "finding_uuid",
+            "schema": {
+              "format": "uuid",
+              "title": "Finding Uuid",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "acknowledged: a work order was raised; work_order_ref is required. closed: the work is done; work_order_ref is optional. A finding moves open -> acknowledged -> closed (open -> closed is allowed) and never back. Re-sending the current status with the same ref is a no-op, so a retried sync is safe; acknowledging again with a new ref replaces it.",
+        "tags": [
+          "findings"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FindingStatusIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/analytics/odata/": {
+      "get": {
+        "operationId": "api_analytics_odata_router_odata_service",
+        "summary": "OData v4 service document",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "Lists the OData entity sets (Measurements, Events, Inspections) a BI connector can pull.",
+        "tags": [
+          "analytics-odata"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/analytics/odata/$metadata": {
+      "get": {
+        "operationId": "api_analytics_odata_router_odata_metadata",
+        "summary": "OData v4 $metadata (EDM)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "Static EDM document (XML) describing the entity types, generated from the feed row schemas.",
+        "tags": [
+          "analytics-odata"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/analytics/odata/{entity_set}": {
+      "get": {
+        "operationId": "api_analytics_odata_router_odata_entity_set",
+        "summary": "OData v4 entity set (Measurements | Events | Inspections)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "entity_set",
+            "schema": {
+              "title": "Entity Set",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "Paged OData entity set over the same selectors + keyset cursor as the feeds. Supports $filter (eq/ge/le/gt/lt joined by 'and' over a per-set field whitelist), $select, $orderby (timestamp/synced_at axes), $top (total row cap), $count=true (\u2192 @odata.count), and $skiptoken (\u2261 our cursor). Results are served in server-driven pages; follow @odata.nextLink until it is absent to extract the full set. Unsupported syntax \u2192 501.",
+        "tags": [
+          "analytics-odata"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
         ]
       }
     }
@@ -6727,6 +7270,32 @@
         "title": "ExecutionOut",
         "type": "object"
       },
+      "StartConflictOut": {
+        "description": "409 body for a refused execution start.\n\n``running_execution_uuid`` is set when the refusal is because the route\nalready has an in-progress execution (a route runs at most once at a time):\nthe client should join that execution and re-point anything it queued\nagainst its own uuid. It is null for the other 409 (a client uuid that\nalready belongs to a different route).",
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "running_execution_uuid": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Running Execution Uuid"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "StartConflictOut",
+        "type": "object"
+      },
       "StartExecutionIn": {
         "description": "Optional body for starting a route execution.\n\nLets offline-first native clients mint the execution `uuid` locally and push\nthe start through their outbox when connectivity returns (item responses and\nmeasurements already work this way). Both fields are optional, and a caller\nthat POSTs no body \u2014 or `{}` \u2014 keeps the original server-minted behavior so\nthe browser/web UI is unaffected. See issue #181.",
         "properties": {
@@ -8247,6 +8816,374 @@
           "created_at"
         ],
         "title": "ExportStatusOut",
+        "type": "object"
+      },
+      "FindingListQuery": {
+        "properties": {
+          "cursor": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cursor"
+          },
+          "limit": {
+            "default": 50,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "open",
+                  "acknowledged",
+                  "closed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "asset_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Id"
+          },
+          "asset_external_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset External Id"
+          },
+          "point_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Point Id"
+          },
+          "point_external_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Point External Id"
+          }
+        },
+        "title": "FindingListQuery",
+        "type": "object"
+      },
+      "CursorPage_FindingOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FindingOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CursorPage[FindingOut]",
+        "type": "object"
+      },
+      "FindingOut": {
+        "description": "One analyst finding, flat for a CMMS: the asset and point carry both\nMechbase's ids and the caller-owned ``external_id`` the sync keys on.",
+        "properties": {
+          "uuid": {
+            "format": "uuid",
+            "title": "Uuid",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "fault_type": {
+            "title": "Fault Type",
+            "type": "string"
+          },
+          "fault_type_display": {
+            "title": "Fault Type Display",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "recommended_action": {
+            "title": "Recommended Action",
+            "type": "string"
+          },
+          "due_by": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due By"
+          },
+          "comment": {
+            "title": "Comment",
+            "type": "string"
+          },
+          "evidence": {
+            "additionalProperties": true,
+            "title": "Evidence",
+            "type": "object"
+          },
+          "work_order_ref": {
+            "title": "Work Order Ref",
+            "type": "string"
+          },
+          "acknowledged_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged At"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "asset_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Id"
+          },
+          "asset_external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset External Id"
+          },
+          "asset_name": {
+            "title": "Asset Name",
+            "type": "string"
+          },
+          "point_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Point Id"
+          },
+          "point_external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Point External Id"
+          },
+          "point_name": {
+            "title": "Point Name",
+            "type": "string"
+          },
+          "point_location": {
+            "title": "Point Location",
+            "type": "string"
+          },
+          "measurement_uuid": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measurement Uuid"
+          },
+          "measurement_external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measurement External Id"
+          },
+          "measurement_timestamp": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measurement Timestamp"
+          },
+          "web_url": {
+            "title": "Web Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "status",
+          "fault_type",
+          "fault_type_display",
+          "severity",
+          "recommended_action",
+          "comment",
+          "evidence",
+          "work_order_ref",
+          "created_at",
+          "updated_at",
+          "asset_name",
+          "point_name",
+          "point_location",
+          "web_url"
+        ],
+        "title": "FindingOut",
+        "type": "object"
+      },
+      "FindingStatusIn": {
+        "description": "Move a finding on: ``acknowledged`` (a work order was raised; the ref is\nrequired) or ``closed`` (the work is done; a ref may be added).",
+        "properties": {
+          "status": {
+            "enum": [
+              "acknowledged",
+              "closed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "work_order_ref": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Order Ref"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "FindingStatusIn",
         "type": "object"
       }
     },
