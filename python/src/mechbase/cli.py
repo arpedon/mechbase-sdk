@@ -251,6 +251,9 @@ def main(argv: list[str] | None = None) -> None:
     try:
         args.fn(args, _load())
     except MechbaseError as e:
+        if isinstance(e.body, str) and "<html" in e.body.lower():
+            # a proxy/error page, not the API: don't dump the HTML
+            sys.exit(f"Error: {e.status} from {_load()['url']} (server unavailable or not a Mechbase API)")
         sys.exit(f"Error: {e}")
     except KeyboardInterrupt:
         sys.exit(130)
