@@ -46,3 +46,19 @@ def test_reading_show_and_delete(monkeypatch, tmp_path, capsys):
 
     main(["reading", "delete", "-i", "2044", "-y", "2", "766"])
     assert delete.called
+
+
+@respx.mock
+def test_html_error_page_is_not_dumped(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("MECHBASE_TOKEN", "tok")
+    monkeypatch.setenv("MECHBASE_URL", "https://example.test")
+    respx.get("https://example.test/api/me/").mock(
+        return_value=httpx.Response(503, text="<!DOCTYPE html><html><body>Service Not Available</body></html>")
+    )
+    try:
+        main(["whoami"])
+    except SystemExit as e:
+        assert str(e.code) == "Error: 503 from https://example.test (server unavailable or not a Mechbase API)"
+    else:
+        raise AssertionError("expected exit")
