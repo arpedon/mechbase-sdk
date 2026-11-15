@@ -83,4 +83,14 @@ final class RegistryTests: XCTestCase {
         }
         XCTAssertEqual(got, ["m-1", "m-2"])
     }
+
+    func testMeasurementPointImageUrlsDecode() throws {
+        let json = #"""
+        {"uuid":"p-1","point_id":1,"name":"DE","asset_id":1,"transducer_type":"VB",
+         "measurement_unit_code":"mm/s","location":"","status":1,
+         "image_urls":["https://app.mechbase.io/media/a.jpg","https://app.mechbase.io/media/b.png"]}
+        """#
+        let p = try JSONDecoder().decode(MeasurementPoint.self, from: Data(json.utf8))
+        XCTAssertEqual(p.imageUrls, ["https://app.mechbase.io/media/a.jpg", "https://app.mechbase.io/media/b.png"])
+    }
 }

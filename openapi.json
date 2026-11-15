@@ -2816,6 +2816,162 @@
         ]
       }
     },
+    "/api/installations/{installation_id}/measurement-points/{point_id}/measurements/{point_sequence}/": {
+      "get": {
+        "operationId": "api_measurements_router_get_measurement",
+        "summary": "Get one reading",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "point_id",
+            "schema": {
+              "title": "Point Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "point_sequence",
+            "schema": {
+              "title": "Point Sequence",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasurementOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "Addressed by point_sequence, the number in the web URL (\u2026/measurementpoints/2/measurements/766/).",
+        "tags": [
+          "measurements"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "api_measurements_router_delete_measurement",
+        "summary": "Delete one reading",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "point_id",
+            "schema": {
+              "title": "Point Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "point_sequence",
+            "schema": {
+              "title": "Point Sequence",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "Deletes the reading and its files; the point's state rolls back to its newest surviving reading.",
+        "tags": [
+          "measurements"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/installations/{installation_id}/measurements/{measurement_uuid}/files/": {
       "post": {
         "operationId": "api_measurements_router_upload_measurement_file",
@@ -6238,6 +6394,14 @@
             "default": "",
             "title": "Instructions",
             "type": "string"
+          },
+          "image_urls": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Image Urls",
+            "type": "array"
           }
         },
         "required": [
@@ -6344,7 +6508,8 @@
                   "EI",
                   "EV",
                   "TC",
-                  "CT"
+                  "CT",
+                  "ST"
                 ],
                 "type": "string"
               },
@@ -6703,12 +6868,58 @@
               }
             ],
             "title": "Hot Clusters"
+          },
+          "tach": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TachIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
           "data"
         ],
         "title": "MeasurementIn",
+        "type": "object"
+      },
+      "TachIn": {
+        "description": "Tachometer pulse positions captured with a vibration waveform.\n\n``edges`` are sample indices into the waveform, ``fs`` its sample rate,\n``ppr`` pulses per revolution and ``lag`` the tach channel's delay (s).\nStored on ``Measurement.meta_data[\"tach\"]``, never in ``data``.",
+        "properties": {
+          "edges": {
+            "items": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "maxItems": 20000,
+            "title": "Edges",
+            "type": "array"
+          },
+          "fs": {
+            "exclusiveMinimum": 0,
+            "title": "Fs",
+            "type": "number"
+          },
+          "ppr": {
+            "default": 1,
+            "minimum": 1,
+            "title": "Ppr",
+            "type": "integer"
+          },
+          "lag": {
+            "default": 0.0,
+            "title": "Lag",
+            "type": "number"
+          }
+        },
+        "required": [
+          "edges",
+          "fs"
+        ],
+        "title": "TachIn",
         "type": "object"
       },
       "MeasurementBatchOut": {
