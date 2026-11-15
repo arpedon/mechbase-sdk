@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "com.arpedon"
-version = "0.2.2"
+version = "0.2.3"
 
 repositories {
     mavenCentral()
@@ -55,7 +55,9 @@ mavenPublishing {
     // Uploads to the Sonatype Central Portal (central.sonatype.com) and releases.
     // Credentials + signing come from env in CI (see .github/workflows/publish-kotlin.yml).
     publishToMavenCentral()
-    signAllPublications()
+    // Sign only when a key is configured (always in CI), so `publishToMavenLocal`
+    // works on a dev machine without one. Central rejects unsigned uploads anyway.
+    if (providers.gradleProperty("signingInMemoryKey").isPresent) signAllPublications()
 
     coordinates(group.toString(), "mechbase-sdk", version.toString())
 

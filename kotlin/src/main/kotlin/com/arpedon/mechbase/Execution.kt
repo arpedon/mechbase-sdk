@@ -78,4 +78,12 @@ class Execution internal constructor(
 
     suspend fun complete(): RouteExecution =
         http.postJson(url("/complete"), null, RouteExecution.serializer())
+
+    /**
+     * Cancel an empty in-progress run (an abandoned start). Idempotent: a retry on a
+     * cancelled run returns 200 again. Throws [ConflictException] when the run is
+     * completed or holds a real answer — only empty starts are cancellable.
+     */
+    suspend fun cancel(): RouteExecution =
+        http.postJson(url("/cancel"), null, RouteExecution.serializer())
 }
