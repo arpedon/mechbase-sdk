@@ -13,6 +13,9 @@ public struct Measurements: Sendable {
         let notes: String
         let session_id: String?
         let timestamp: String?
+        /// Analyst-confirmed thermal hotspots, top-level (the server strips it from
+        /// `data`). nil is omitted → server runs detection; `[]` = analyst cleared.
+        let hot_clusters: JSONValue?
     }
 
     /// Create a new measurement (no file upload).
@@ -22,6 +25,7 @@ public struct Measurements: Sendable {
         notes: String = "",
         sessionId: String? = nil,
         timestamp: String? = nil,
+        hotClusters: JSONValue? = nil,
         idempotencyKey: String? = nil
     ) async throws -> Measurement {
         let body = CreateBody(
@@ -29,7 +33,8 @@ public struct Measurements: Sendable {
             data: data,
             notes: notes,
             session_id: sessionId,
-            timestamp: timestamp
+            timestamp: timestamp,
+            hot_clusters: hotClusters
         )
         return try await scope.http.postJSON(
             scope.path("/measurements/"),
@@ -46,6 +51,7 @@ public struct Measurements: Sendable {
         notes: String = "",
         sessionId: String? = nil,
         timestamp: String? = nil,
+        hotClusters: JSONValue? = nil,
         idempotencyKey: String? = nil
     ) async throws -> Measurement {
         try await create(
@@ -54,6 +60,7 @@ public struct Measurements: Sendable {
             notes: notes,
             sessionId: sessionId,
             timestamp: timestamp,
+            hotClusters: hotClusters,
             idempotencyKey: idempotencyKey
         )
     }
@@ -65,6 +72,7 @@ public struct Measurements: Sendable {
         notes: String = "",
         sessionId: String? = nil,
         timestamp: String? = nil,
+        hotClusters: JSONValue? = nil,
         fileURL: URL,
         mimeType: String = "application/octet-stream",
         idempotencyKey: String? = nil
@@ -74,7 +82,8 @@ public struct Measurements: Sendable {
             data: data,
             notes: notes,
             session_id: sessionId,
-            timestamp: timestamp
+            timestamp: timestamp,
+            hot_clusters: hotClusters
         )
         let payloadJSON = try JSONEncoder().encode(body)
         let payloadStr = String(data: payloadJSON, encoding: .utf8) ?? "{}"

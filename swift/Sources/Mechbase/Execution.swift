@@ -149,4 +149,14 @@ public struct Execution: Sendable {
         let headers = idempotencyKey.map { ["X-Idempotency-Key": $0] } ?? [:]
         return try await scope.http.post(url("/complete"), headers: headers, as: RouteExecution.self)
     }
+
+    // MARK: - cancel
+
+    /// Cancel an empty in-progress run (an abandoned start that already synced).
+    /// Idempotent: a retry on a cancelled run returns 200 again. Throws
+    /// `.conflict` (409) when the run is completed or holds a real answer.
+    @discardableResult
+    public func cancel() async throws -> RouteExecution {
+        try await scope.http.post(url("/cancel"), as: RouteExecution.self)
+    }
 }
