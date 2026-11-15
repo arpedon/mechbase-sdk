@@ -11,7 +11,7 @@ import org.junit.Before
 import org.junit.Test
 import java.io.File
 
-/** `assets.addPhoto` / `measurementPoints.addPhoto` (mechbase-web#405). */
+/** Asset/point photos: `addPhoto` writes, `imageUrls` reads (mechbase-web#405). */
 class PhotoUploadTest {
     private lateinit var server: MockWebServer
     private lateinit var client: MechbaseClient
@@ -48,5 +48,15 @@ class PhotoUploadTest {
         val rec = server.takeRequest()
         assertEquals("/api/installations/2012/measurement-points/44/photos/", rec.path)
         assertFalse(rec.body.readUtf8().contains("name=\"uuid\""))
+    }
+
+    @Test fun image_urls_decode_and_default_empty() {
+        val asset = SDK_JSON.decodeFromString(
+            Asset.serializer(),
+            """{"uuid":"a","name":"Pump","status":1,"image_urls":["https://x/a.jpg"]}""",
+        )
+        val point = SDK_JSON.decodeFromString(MeasurementPoint.serializer(), """{"uuid":"p","name":"DE","status":1}""")
+        assertEquals(listOf("https://x/a.jpg"), asset.imageUrls)
+        assertEquals(emptyList<String>(), point.imageUrls)
     }
 }

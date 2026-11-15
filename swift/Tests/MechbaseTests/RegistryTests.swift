@@ -93,4 +93,11 @@ final class RegistryTests: XCTestCase {
         let p = try JSONDecoder().decode(MeasurementPoint.self, from: Data(json.utf8))
         XCTAssertEqual(p.imageUrls, ["https://app.mechbase.io/media/a.jpg", "https://app.mechbase.io/media/b.png"])
     }
+
+    func testAssetImageUrlsDecodeAndDefaultEmpty() throws {
+        let with = #"{"uuid":"a-1","asset_id":1,"name":"Pump","status":1,"image_urls":["https://x/a.jpg"]}"#
+        let without = #"{"uuid":"a-1","asset_id":1,"name":"Pump","status":1}"#
+        XCTAssertEqual(try JSONDecoder().decode(Asset.self, from: Data(with.utf8)).imageUrls, ["https://x/a.jpg"])
+        XCTAssertEqual(try JSONDecoder().decode(Asset.self, from: Data(without.utf8)).imageUrls, [])
+    }
 }

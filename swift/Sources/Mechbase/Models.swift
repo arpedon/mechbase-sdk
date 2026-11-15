@@ -125,9 +125,12 @@ public struct Asset: Codable, Sendable {
     public let equipmentType: String
     public let status: Int
     public let externalId: String?
+    // Absolute URLs of the asset's photo gallery, oldest first; `[]` on older servers.
+    public let imageUrls: [String]
 
     enum CodingKeys: String, CodingKey {
         case uuid, name, status
+        case imageUrls = "image_urls"
         case assetId = "asset_id"
         case sectionId = "section_id"
         case zoneId = "zone_id"
@@ -147,6 +150,7 @@ public struct Asset: Codable, Sendable {
         self.equipmentType = (try? c.decode(String.self, forKey: .equipmentType)) ?? ""
         self.status = try c.decode(Int.self, forKey: .status)
         self.externalId = try c.decodeIfPresent(String.self, forKey: .externalId)
+        self.imageUrls = (try? c.decode([String].self, forKey: .imageUrls)) ?? []
     }
 }
 

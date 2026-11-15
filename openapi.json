@@ -6444,6 +6444,14 @@
               }
             ],
             "title": "External Id"
+          },
+          "image_urls": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Image Urls",
+            "type": "array"
           }
         },
         "required": [
