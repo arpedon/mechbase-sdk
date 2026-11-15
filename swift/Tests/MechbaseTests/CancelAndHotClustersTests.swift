@@ -19,6 +19,13 @@ final class CancelAndHotClustersTests: XCTestCase {
         XCTAssertTrue(CaptureMock.lastPath?.hasSuffix("/installations/2012/executions/exec-1/cancel") ?? false)
     }
 
+    func testLegacyRedirectsDecodesItems() async throws {
+        CaptureMock.reply = #"{"items":[{"legacy_url":"https://mechbase.arpedon.com/measurementpoint/0b7c6f2e-1d2a-4b4c-9f00-1a2b3c4d5e6f/","mp_uuid":"9a8b7c6d-1d2a-4b4c-9f00-1a2b3c4d5e6f","mp_path":"/2012/assets/3/measurementpoints/5/","installation_id":2012,"asset_id":3,"point_id":5}],"total":1}"#
+        let items = try await client().forInstallation(id: 2012).legacyRedirects()
+        XCTAssertEqual(items.first?.pointId, 5)
+        XCTAssertTrue(CaptureMock.lastPath?.hasSuffix("/installations/2012/legacy-redirects") ?? false)
+    }
+
     func testHotClustersSentTopLevelAndOmittedWhenNil() async throws {
         CaptureMock.reply = #"{"uuid":"m1","measurement_point_id":5,"point_sequence":1,"data":{"value":40},"status":"good","notes":"","created_at":"2026-01-01T00:00:00Z"}"#
         let scope = client().forInstallation(id: 2012)
