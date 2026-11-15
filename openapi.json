@@ -6660,6 +6660,14 @@
             "default": "",
             "title": "Instructions",
             "type": "string"
+          },
+          "image_urls": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Image Urls",
+            "type": "array"
           }
         },
         "required": [
