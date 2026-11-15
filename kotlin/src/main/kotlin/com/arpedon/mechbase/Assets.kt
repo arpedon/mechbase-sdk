@@ -1,5 +1,6 @@
 package com.arpedon.mechbase
 
+import java.io.File
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -77,5 +78,14 @@ class Assets internal constructor(
             null,
             if (cascade) mapOf("cascade" to "true") else null,
             DeleteResult.serializer(),
+        )
+
+    /** Append a photo to the asset's gallery. Pass a client-minted [uuid] so a retry returns the same photo. */
+    suspend fun addPhoto(assetId: Int, file: File, uuid: String? = null): FileAttachment =
+        http.postFile(
+            installationPath(installationId, "/assets/$assetId/photos/"),
+            listOf(MultipartFile("file", file.name, file)),
+            FileAttachment.serializer(),
+            if (uuid != null) mapOf("uuid" to uuid) else emptyMap(),
         )
 }

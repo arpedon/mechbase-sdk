@@ -45,6 +45,8 @@ data class Asset(
     @SerialName("equipment_type") val equipmentType: String = "",
     val status: Int,
     @SerialName("external_id") val externalId: String? = null,
+    /** Absolute URLs of the asset's photo gallery, oldest first; empty on older servers. */
+    @SerialName("image_urls") val imageUrls: List<String> = emptyList(),
 )
 
 @Serializable
@@ -67,6 +69,8 @@ data class MeasurementPoint(
     // transducer-type default) as sanitized HTML; embedded image URLs are
     // absolute. Server always populates it; nullable keeps decode drift-safe.
     val instructions: String? = null,
+    /** Absolute URLs of the point's reference photos, oldest first; empty on older servers. */
+    @SerialName("image_urls") val imageUrls: List<String> = emptyList(),
 )
 
 @Serializable

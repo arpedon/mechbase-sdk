@@ -91,4 +91,15 @@ public struct MeasurementPoints: Sendable {
         let q = cascade ? [URLQueryItem(name: "cascade", value: "true")] : []
         return try await scope.http.delete(scope.path("/measurement-points/\(id)"), query: q, as: DeleteResult.self)
     }
+
+    /// Set the point's reference photo (replaces the previous one). Pass a client-minted `uuid` so a retry returns the same photo.
+    public func addPhoto(pointId: Int, fileURL: URL, mimeType: String = "image/jpeg",
+                         uuid: String? = nil) async throws -> FileAttachment {
+        let data = try Data(contentsOf: fileURL)
+        return try await scope.http.postMultipart(
+            scope.path("/measurement-points/\(pointId)/photos/"),
+            fields: uuid.map { ["uuid": $0] } ?? [:],
+            files: [(name: "file", filename: fileURL.lastPathComponent, mimeType: mimeType, data: data)],
+            as: FileAttachment.self)
+    }
 }

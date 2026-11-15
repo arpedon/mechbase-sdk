@@ -125,9 +125,12 @@ public struct Asset: Codable, Sendable {
     public let equipmentType: String
     public let status: Int
     public let externalId: String?
+    // Absolute URLs of the asset's photo gallery, oldest first; `[]` on older servers.
+    public let imageUrls: [String]
 
     enum CodingKeys: String, CodingKey {
         case uuid, name, status
+        case imageUrls = "image_urls"
         case assetId = "asset_id"
         case sectionId = "section_id"
         case zoneId = "zone_id"
@@ -147,6 +150,7 @@ public struct Asset: Codable, Sendable {
         self.equipmentType = (try? c.decode(String.self, forKey: .equipmentType)) ?? ""
         self.status = try c.decode(Int.self, forKey: .status)
         self.externalId = try c.decodeIfPresent(String.self, forKey: .externalId)
+        self.imageUrls = (try? c.decode([String].self, forKey: .imageUrls)) ?? []
     }
 }
 
@@ -171,9 +175,13 @@ public struct MeasurementPoint: Codable, Sendable {
     // absolute. Server always populates it; the resilient `?? ""` decode keeps
     // it safe against drift.
     public let instructions: String
+    // Absolute URLs of the point's own reference photos, oldest first. Added
+    // after `instructions`; absent on older servers, so it decodes to `[]`.
+    public let imageUrls: [String]
 
     enum CodingKeys: String, CodingKey {
         case uuid, name, location, status, instructions
+        case imageUrls = "image_urls"
         case pointId = "point_id"
         case assetId = "asset_id"
         case transducerType = "transducer_type"
@@ -193,6 +201,7 @@ public struct MeasurementPoint: Codable, Sendable {
         self.status = try c.decode(Int.self, forKey: .status)
         self.externalId = try c.decodeIfPresent(String.self, forKey: .externalId)
         self.instructions = (try? c.decode(String.self, forKey: .instructions)) ?? ""
+        self.imageUrls = (try? c.decode([String].self, forKey: .imageUrls)) ?? []
     }
 }
 

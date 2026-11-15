@@ -121,6 +121,7 @@ final class NullSafetyTests: XCTestCase {
             .measurementPoints.create(PointInput(name: "Drive End", externalId: "P-1-DE"))
         XCTAssertEqual(p.transducerType, "")
         XCTAssertEqual(p.measurementUnitCode, "")
+        XCTAssertEqual(p.imageUrls, [], "older servers omit image_urls")
         XCTAssertEqual(p.location, "")
     }
 

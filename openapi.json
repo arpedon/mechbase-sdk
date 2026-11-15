@@ -2387,6 +2387,272 @@
         ]
       }
     },
+    "/api/installations/{installation_id}/assets/{asset_id}/photos/": {
+      "post": {
+        "operationId": "api_registry_router_add_asset_photo",
+        "summary": "Add a photo to an asset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "asset_id",
+            "schema": {
+              "title": "Asset Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Content Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "Appends to the asset's photo gallery. Pass a client-minted `uuid` to make retries safe.",
+        "tags": [
+          "registry"
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "title": "File",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "anyOf": [
+                      {
+                        "format": "uuid",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Uuid"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "title": "MultiPartBodyParams",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/measurement-points/{point_id}/photos/": {
+      "post": {
+        "operationId": "api_registry_router_add_point_photo",
+        "summary": "Set a measurement point's reference photo",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "point_id",
+            "schema": {
+              "title": "Point Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Content Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "A point keeps one reference photo: this replaces any previous one. Pass a client-minted `uuid` to make retries safe.",
+        "tags": [
+          "registry"
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "title": "File",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "anyOf": [
+                      {
+                        "format": "uuid",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Uuid"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "title": "MultiPartBodyParams",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/installations/{installation_id}/measurements/": {
       "post": {
         "operationId": "api_measurements_router_create_measurement",
@@ -2803,6 +3069,162 @@
           }
         },
         "description": "Offset paginated by default (limit/offset, includes total). Pass ?cursor= for keyset pagination over long timeframes \u2014 it skips the expensive COUNT and returns next_cursor instead of total. Filter either mode by created_from / created_to (ISO-8601 with an offset or Z; a value without one is a 422).",
+        "tags": [
+          "measurements"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/measurement-points/{point_id}/measurements/{point_sequence}/": {
+      "get": {
+        "operationId": "api_measurements_router_get_measurement",
+        "summary": "Get one reading",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "point_id",
+            "schema": {
+              "title": "Point Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "point_sequence",
+            "schema": {
+              "title": "Point Sequence",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasurementOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "Addressed by point_sequence, the number in the web URL (\u2026/measurementpoints/2/measurements/766/).",
+        "tags": [
+          "measurements"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "api_measurements_router_delete_measurement",
+        "summary": "Delete one reading",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "point_id",
+            "schema": {
+              "title": "Point Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "point_sequence",
+            "schema": {
+              "title": "Point Sequence",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "Deletes the reading and its files; the point's state rolls back to its newest surviving reading.",
         "tags": [
           "measurements"
         ],
@@ -6022,6 +6444,14 @@
               }
             ],
             "title": "External Id"
+          },
+          "image_urls": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Image Urls",
+            "type": "array"
           }
         },
         "required": [
@@ -6238,6 +6668,14 @@
             "default": "",
             "title": "Instructions",
             "type": "string"
+          },
+          "image_urls": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Image Urls",
+            "type": "array"
           }
         },
         "required": [
@@ -6344,7 +6782,8 @@
                   "EI",
                   "EV",
                   "TC",
-                  "CT"
+                  "CT",
+                  "ST"
                 ],
                 "type": "string"
               },
@@ -6491,6 +6930,41 @@
           "total"
         ],
         "title": "LegacyRedirectsOut",
+        "type": "object"
+      },
+      "FileOut": {
+        "properties": {
+          "uuid": {
+            "format": "uuid",
+            "title": "Uuid",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "file_url": {
+            "title": "File Url",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "name",
+          "kind",
+          "file_url",
+          "created_at"
+        ],
+        "title": "FileOut",
         "type": "object"
       },
       "MeasurementOut": {
@@ -6703,12 +7177,58 @@
               }
             ],
             "title": "Hot Clusters"
+          },
+          "tach": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TachIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
           "data"
         ],
         "title": "MeasurementIn",
+        "type": "object"
+      },
+      "TachIn": {
+        "description": "Tachometer pulse positions captured with a vibration waveform.\n\n``edges`` are sample indices into the waveform, ``fs`` its sample rate,\n``ppr`` pulses per revolution and ``lag`` the tach channel's delay (s).\nStored on ``Measurement.meta_data[\"tach\"]``, never in ``data``.",
+        "properties": {
+          "edges": {
+            "items": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "maxItems": 20000,
+            "title": "Edges",
+            "type": "array"
+          },
+          "fs": {
+            "exclusiveMinimum": 0,
+            "title": "Fs",
+            "type": "number"
+          },
+          "ppr": {
+            "default": 1,
+            "minimum": 1,
+            "title": "Ppr",
+            "type": "integer"
+          },
+          "lag": {
+            "default": 0.0,
+            "title": "Lag",
+            "type": "number"
+          }
+        },
+        "required": [
+          "edges",
+          "fs"
+        ],
+        "title": "TachIn",
         "type": "object"
       },
       "MeasurementBatchOut": {
@@ -6889,41 +7409,6 @@
           "offset"
         ],
         "title": "Page[MeasurementOut]",
-        "type": "object"
-      },
-      "FileOut": {
-        "properties": {
-          "uuid": {
-            "format": "uuid",
-            "title": "Uuid",
-            "type": "string"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "kind": {
-            "title": "Kind",
-            "type": "string"
-          },
-          "file_url": {
-            "title": "File Url",
-            "type": "string"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "uuid",
-          "name",
-          "kind",
-          "file_url",
-          "created_at"
-        ],
-        "title": "FileOut",
         "type": "object"
       },
       "HotspotsIn": {
