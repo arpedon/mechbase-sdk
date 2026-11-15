@@ -155,8 +155,10 @@ internal class Http(
         path: String,
         files: List<MultipartFile>,
         serializer: KSerializer<T>,
+        fields: Map<String, String> = emptyMap(),
     ): T = withContext(Dispatchers.IO) {
         val mb = MultipartBody.Builder().setType(MultipartBody.FORM)
+        fields.forEach { (k, v) -> mb.addFormDataPart(k, v) }
         files.forEach { mf -> mb.addFormDataPart(mf.fieldName, mf.filename, mf.file.asRequestBody(OCTET_MEDIA)) }
         val request = baseRequest(buildUrl(path, null)).post(mb.build()).build()
         ok.newCall(request).execute().use { resp -> SDK_JSON.decodeFromString(serializer, handle(resp)) }

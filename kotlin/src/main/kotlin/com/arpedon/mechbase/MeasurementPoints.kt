@@ -1,5 +1,6 @@
 package com.arpedon.mechbase
 
+import java.io.File
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -81,5 +82,14 @@ class MeasurementPoints internal constructor(
             null,
             if (cascade) mapOf("cascade" to "true") else null,
             DeleteResult.serializer(),
+        )
+
+    /** Set the point's reference photo (replaces the previous one). Pass a client-minted [uuid] so a retry returns the same photo. */
+    suspend fun addPhoto(pointId: Int, file: File, uuid: String? = null): FileAttachment =
+        http.postFile(
+            installationPath(installationId, "/measurement-points/$pointId/photos/"),
+            listOf(MultipartFile("file", file.name, file)),
+            FileAttachment.serializer(),
+            if (uuid != null) mapOf("uuid" to uuid) else emptyMap(),
         )
 }
