@@ -109,11 +109,50 @@ public struct Me: Codable, Sendable {
     public let installations: [InstallationDTO]
     /// `nil` for a user with no installations (the server sends `null`).
     public let currentInstallationId: Int?
+    /// The user's display-unit choices; `nil` on servers that predate them.
+    public let unitPrefs: UnitPrefs?
 
     enum CodingKeys: String, CodingKey {
         case user, installations
         case currentInstallationId = "current_installation_id"
+        case unitPrefs = "unit_prefs"
     }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.user = try c.decode(User.self, forKey: .user)
+        self.installations = try c.decode([InstallationDTO].self, forKey: .installations)
+        self.currentInstallationId = try c.decodeIfPresent(Int.self, forKey: .currentInstallationId)
+        // A malformed block must not break sign-in: treat it as absent.
+        self.unitPrefs = (try? c.decodeIfPresent(UnitPrefs.self, forKey: .unitPrefs)) ?? nil
+    }
+}
+
+/// Per-quantity display units from `/api/me/` (e.g. `velocity: "mm/s"`).
+public struct UnitPrefs: Codable, Sendable, Equatable {
+    public let acceleration: String
+    public let velocity: String
+    public let temperature: String
+    public let pressure: String
+    public let frequency: String
+}
+
+/// How to show one data key of a point in the viewer's unit:
+/// `display = native * scale + offset`. Storage and entry stay in `native`.
+public struct DisplayUnit: Codable, Sendable, Equatable {
+    public let native: String
+    public let unit: String
+    public let scale: Double
+    public let offset: Double
+
+    public init(native: String, unit: String, scale: Double, offset: Double) {
+        self.native = native
+        self.unit = unit
+        self.scale = scale
+        self.offset = offset
+    }
+
+    public func convert(_ value: Double) -> Double { value * scale + offset }
 }
 
 public struct Asset: Codable, Sendable {
@@ -179,10 +218,14 @@ public struct MeasurementPoint: Codable, Sendable {
     // Absolute URLs of the point's own reference photos, oldest first. Added
     // after `instructions`; absent on older servers, so it decodes to `[]`.
     public let imageUrls: [String]
+    /// Data keys whose display unit differs from native for this viewer;
+    /// `[:]` when none do, and on servers that predate it.
+    public let displayUnits: [String: DisplayUnit]
 
     enum CodingKeys: String, CodingKey {
         case uuid, name, location, status, instructions
         case imageUrls = "image_urls"
+        case displayUnits = "display_units"
         case pointId = "point_id"
         case assetId = "asset_id"
         case transducerType = "transducer_type"
@@ -203,7 +246,51 @@ public struct MeasurementPoint: Codable, Sendable {
         self.externalId = try c.decodeIfPresent(String.self, forKey: .externalId)
         self.instructions = (try? c.decode(String.self, forKey: .instructions)) ?? ""
         self.imageUrls = (try? c.decode([String].self, forKey: .imageUrls)) ?? []
+        self.displayUnits = (try? c.decode([String: DisplayUnit].self, forKey: .displayUnits)) ?? [:]
     }
+}
+
+/// A point's run state, staleness, limits and last 7 days, all in native units
+/// (convert with ``MeasurementPoint/displayUnits``).
+public struct PointContext: Codable, Sendable, Equatable {
+    public let dataKey: String
+    public let unit: String
+    /// `nil` when the point has no run-state reading (most non-vibration points).
+    public let running: Bool?
+    public let runningAt: String?
+    public let staleSince: String?
+    public let limits: PointLimits?
+    /// 6 h bin means, chronological; empty bins are omitted.
+    public let week: [TrendBin]
+
+    enum CodingKeys: String, CodingKey {
+        case unit, running, limits, week
+        case dataKey = "data_key"
+        case runningAt = "running_at"
+        case staleSince = "stale_since"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.dataKey = (try? c.decode(String.self, forKey: .dataKey)) ?? ""
+        self.unit = (try? c.decode(String.self, forKey: .unit)) ?? ""
+        self.running = try c.decodeIfPresent(Bool.self, forKey: .running)
+        self.runningAt = try c.decodeIfPresent(String.self, forKey: .runningAt)
+        self.staleSince = try c.decodeIfPresent(String.self, forKey: .staleSince)
+        self.limits = try c.decodeIfPresent(PointLimits.self, forKey: .limits)
+        self.week = (try? c.decode([TrendBin].self, forKey: .week)) ?? []
+    }
+}
+
+public struct PointLimits: Codable, Sendable, Equatable {
+    public let minor: Double?
+    public let major: Double?
+}
+
+/// One trend bin: `t` is the bin start (ISO 8601, like every other SDK datetime), `v` the mean.
+public struct TrendBin: Codable, Sendable, Equatable {
+    public let t: String
+    public let v: Double
 }
 
 public struct Measurement: Codable, Sendable {

@@ -32,7 +32,51 @@ data class Me(
     val user: User,
     val installations: List<InstallationDto>,
     @SerialName("current_installation_id") val currentInstallationId: Int? = null, // null for a user with no installations
+    /** The user's display-unit choices; null on servers that predate them. */
+    @SerialName("unit_prefs") val unitPrefs: UnitPrefs? = null,
 )
+
+/** Per-quantity display units from `/api/me/` (e.g. `velocity = "mm/s"`). */
+@Serializable
+data class UnitPrefs(
+    val acceleration: String = "",
+    val velocity: String = "",
+    val temperature: String = "",
+    val pressure: String = "",
+    val frequency: String = "",
+)
+
+/** How to show one data key of a point in the viewer's unit: `display = native * scale + offset`. */
+@Serializable
+data class DisplayUnit(
+    val native: String,
+    val unit: String,
+    val scale: Double = 1.0,
+    val offset: Double = 0.0,
+) {
+    fun convert(value: Double): Double = value * scale + offset
+}
+
+/** A point's run state, staleness, limits and last 7 days, all in native units (convert with [MeasurementPoint.displayUnits]). */
+@Serializable
+data class PointContext(
+    @SerialName("data_key") val dataKey: String = "",
+    val unit: String = "",
+    /** Null when the point has no run-state reading (most non-vibration points). */
+    val running: Boolean? = null,
+    @SerialName("running_at") val runningAt: String? = null,
+    @SerialName("stale_since") val staleSince: String? = null,
+    val limits: PointLimits? = null,
+    /** 6 h bin means, chronological; empty bins are omitted. */
+    val week: List<TrendBin> = emptyList(),
+)
+
+@Serializable
+data class PointLimits(val minor: Double? = null, val major: Double? = null)
+
+/** One trend bin: [t] is the bin start (ISO 8601 string, like every other SDK datetime), [v] the mean. */
+@Serializable
+data class TrendBin(val t: String, val v: Double)
 
 @Serializable
 data class Asset(
@@ -71,6 +115,8 @@ data class MeasurementPoint(
     val instructions: String? = null,
     /** Absolute URLs of the point's reference photos, oldest first; empty on older servers. */
     @SerialName("image_urls") val imageUrls: List<String> = emptyList(),
+    /** Data keys whose display unit differs from native for this viewer; empty when none do, and on older servers. */
+    @SerialName("display_units") val displayUnits: Map<String, DisplayUnit> = emptyMap(),
 )
 
 @Serializable

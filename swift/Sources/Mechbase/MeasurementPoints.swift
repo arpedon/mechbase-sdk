@@ -75,6 +75,11 @@ public struct MeasurementPoints: Sendable {
         try await scope.http.get(scope.path("/measurement-points/\(id)"), as: MeasurementPoint.self)
     }
 
+    /// Run state, staleness, limits and the last 7 days for one point.
+    public func context(pointId: Int) async throws -> PointContext {
+        try await scope.http.get(scope.path("/measurement-points/\(pointId)/context"), as: PointContext.self)
+    }
+
     public func create(_ input: PointInput) async throws -> MeasurementPoint {
         try await scope.http.postJSON(scope.path("/measurement-points"), body: input, as: MeasurementPoint.self)
     }

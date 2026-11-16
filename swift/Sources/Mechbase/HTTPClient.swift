@@ -28,7 +28,12 @@ actor HTTPClient {
 
     // MARK: - URL building
 
-    private func url(path: String, query: [URLQueryItem] = [], stripEmpty: Bool = true) -> URL {
+    /// RFC 3986 unreserved characters. `.urlQueryAllowed` lets `+`, `&` and `=`
+    /// through, so an email like `a+b@x.io` would reach the server as `a b@x.io`.
+    private static let queryValueAllowed = CharacterSet(
+        charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+
+    nonisolated func url(path: String, query: [URLQueryItem] = [], stripEmpty: Bool = true) -> URL {
         // Preserve trailing slashes by hand-building the string — URLComponents
         // will silently strip them when round-tripping `path`.
         var base = baseURL.absoluteString
@@ -38,8 +43,8 @@ actor HTTPClient {
         if !filtered.isEmpty {
             var qs: [String] = []
             for item in filtered {
-                let k = item.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? item.name
-                let v = (item.value ?? "").addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                let k = item.name.addingPercentEncoding(withAllowedCharacters: Self.queryValueAllowed) ?? item.name
+                let v = (item.value ?? "").addingPercentEncoding(withAllowedCharacters: Self.queryValueAllowed) ?? ""
                 qs.append("\(k)=\(v)")
             }
             combined += "?" + qs.joined(separator: "&")
@@ -50,8 +55,9 @@ actor HTTPClient {
     private func makeRequest(_ method: String, _ url: URL) -> URLRequest {
         var req = URLRequest(url: url)
         req.httpMethod = method
-        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        req.setValue("mechbase-swift/0.3", forHTTPHeaderField: "User-Agent")
+        // Empty token: the unauthenticated sign-in calls (``MechbaseAuth``).
+        if !token.isEmpty { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        req.setValue("mechbase-swift/0.4", forHTTPHeaderField: "User-Agent")
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         return req
     }
@@ -176,7 +182,7 @@ actor HTTPClient {
         guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return String(data: data, encoding: .utf8)
         }
-        return obj["detail"] as? String
+        return (obj["detail"] ?? obj["error"]) as? String
     }
 }
 
