@@ -51,7 +51,7 @@ actor HTTPClient {
         var req = URLRequest(url: url)
         req.httpMethod = method
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        req.setValue("mechbase-swift/0.2", forHTTPHeaderField: "User-Agent")
+        req.setValue("mechbase-swift/0.3", forHTTPHeaderField: "User-Agent")
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         return req
     }
