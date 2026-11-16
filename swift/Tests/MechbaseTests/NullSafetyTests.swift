@@ -91,6 +91,18 @@ final class NullSafetyTests: XCTestCase {
     /// B: `Measurement.pointSequence` widens to `Int?` — the backing
     /// column is genuinely `null=True` on the server. `decode(Int.self)`
     /// would throw on null; `decodeIfPresent` decodes to nil.
+    /// `current_installation_id` is `null` for a user with no installations.
+    func testMeCurrentInstallationNullDecodes() async throws {
+        MockURLProtocol.handler = { _ in
+            (200, self.json(#"""
+            {"user":{"id":1,"username":"u","full_name":"U","email":"u@u"},
+             "installations":[],"current_installation_id":null}
+            """#))
+        }
+        let me = try await client.me()
+        XCTAssertNil(me.currentInstallationId)
+    }
+
     func testMeasurementPointSequenceNullDecodes() async throws {
         MockURLProtocol.handler = { _ in
             (201, self.json(#"""

@@ -31,7 +31,7 @@ data class InstallationDto(
 data class Me(
     val user: User,
     val installations: List<InstallationDto>,
-    @SerialName("current_installation_id") val currentInstallationId: Int,
+    @SerialName("current_installation_id") val currentInstallationId: Int? = null, // null for a user with no installations
 )
 
 @Serializable

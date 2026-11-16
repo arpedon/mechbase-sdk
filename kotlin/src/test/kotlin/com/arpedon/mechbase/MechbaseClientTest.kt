@@ -29,6 +29,20 @@ class MechbaseClientTest {
     }
 
     @Test
+    fun meWithNoInstallationDecodes() = runBlocking {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody(
+                    """{"user": {"id": 1, "username": "u", "full_name": "U", "email": "u@u"},
+                       "installations": [], "current_installation_id": null}"""
+                )
+        )
+        assertEquals(null, client.me().currentInstallationId)
+    }
+
+    @Test
     fun me() = runBlocking {
         server.enqueue(
             MockResponse()
