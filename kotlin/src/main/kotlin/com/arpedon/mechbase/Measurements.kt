@@ -84,11 +84,13 @@ class Measurements internal constructor(
             BatchResult.serializer(),
         )
 
-    suspend fun addFile(measurementUuid: String, file: File): FileAttachment =
+    /** Attach a file to a measurement (by its server uuid). Pass a client-minted [uuid] so a retry returns the same file. */
+    suspend fun addFile(measurementUuid: String, file: File, uuid: String? = null): FileAttachment =
         http.postFile(
             installationPath(installationId, "/measurements/$measurementUuid/files/"),
             listOf(MultipartFile("file", file.name, file)),
             FileAttachment.serializer(),
+            if (uuid != null) mapOf("uuid" to uuid) else emptyMap(),
         )
 
     suspend fun listForPoint(
