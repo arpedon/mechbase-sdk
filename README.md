@@ -17,7 +17,7 @@ Four languages, one uniform surface:
 | Python   | [`python/`](python/) | `pip install mechbase`                                      |
 | Go       | [`go/`](go/)         | `go get github.com/arpedon/mechbase-sdk/go`                 |
 | Swift    | [`swift/`](swift/)   | `.package(url: "https://github.com/arpedon/mechbase-sdk", from: "0.4.0")` |
-| Kotlin   | [`kotlin/`](kotlin/) | `implementation("com.arpedon:mechbase-sdk:0.2.7")`          |
+| Kotlin   | [`kotlin/`](kotlin/) | `implementation("com.arpedon:mechbase-sdk:0.2.8")`          |
 
 How each SDK is published (and how to cut a release) is documented in
 [`RELEASING.md`](RELEASING.md).
@@ -113,6 +113,9 @@ if await auth.ssoCheck(email: email) {                      // show "Sign in wit
     let client = MechbaseClient(token: token)
 }
 ```
+
+Kotlin: `MechbaseAuth()`, `Pkce.generate()`, `auth.ssoStartUrl(challenge, loginHint = email)` (a String
+for a Custom Tab), `auth.exchangeSsoCode(code, verifier, deviceId)`.
 
 ### Display units and point context (Swift, Kotlin)
 

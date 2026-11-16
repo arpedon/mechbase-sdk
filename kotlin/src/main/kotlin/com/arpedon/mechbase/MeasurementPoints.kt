@@ -50,6 +50,14 @@ class MeasurementPoints internal constructor(
             MeasurementPoint.serializer(),
         )
 
+    /** Run state, staleness, limits and the last 7 days for one point. */
+    suspend fun context(pointId: Int): PointContext =
+        http.getJson(
+            installationPath(installationId, "/measurement-points/$pointId/context"),
+            null,
+            PointContext.serializer(),
+        )
+
     suspend fun create(input: PointInput): MeasurementPoint =
         http.postJson(
             installationPath(installationId, "/measurement-points"),

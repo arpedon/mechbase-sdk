@@ -44,7 +44,7 @@ internal class Http(
 ) {
     private val baseUrl: String = baseUrl.trimEnd('/')
 
-    private fun buildUrl(path: String, params: Map<String, Any?>?, stripEmpty: Boolean = true): okhttp3.HttpUrl {
+    internal fun buildUrl(path: String, params: Map<String, Any?>?, stripEmpty: Boolean = true): okhttp3.HttpUrl {
         val builder = (baseUrl + path).toHttpUrl().newBuilder()
         params?.forEach { (k, v) ->
             if (v == null) return@forEach
@@ -58,7 +58,8 @@ internal class Http(
     private fun baseRequest(url: okhttp3.HttpUrl): Request.Builder =
         Request.Builder()
             .url(url)
-            .header("Authorization", "Bearer $token")
+            // Empty token: the unauthenticated sign-in calls (MechbaseAuth).
+            .apply { if (token.isNotEmpty()) header("Authorization", "Bearer $token") }
             .header("User-Agent", "mechbase-kotlin/0.2")
             .header("Accept", "application/json")
 
@@ -172,7 +173,7 @@ internal class Http(
 
         val detail = runCatching {
             val parsed = SDK_JSON.parseToJsonElement(text)
-            (parsed as? JsonObject)?.get("detail")?.jsonPrimitive?.content
+            (parsed as? JsonObject)?.let { it["detail"] ?: it["error"] }?.jsonPrimitive?.content
         }.getOrNull() ?: text
         val message = "$code $detail"
         throw when (code) {
