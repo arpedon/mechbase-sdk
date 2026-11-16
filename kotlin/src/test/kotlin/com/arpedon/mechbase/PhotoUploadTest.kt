@@ -50,6 +50,16 @@ class PhotoUploadTest {
         assertFalse(rec.body.readUtf8().contains("name=\"uuid\""))
     }
 
+    @Test fun measurement_file_posts_uuid() = runBlocking {
+        enqueueFile()
+        client.forInstallation(2012).measurements.addFile("m-1", jpg(), uuid = "u-2")
+        val rec = server.takeRequest()
+        assertEquals("/api/installations/2012/measurements/m-1/files/", rec.path)
+        val body = rec.body.readUtf8()
+        assertTrue(body.contains("name=\"uuid\""))
+        assertTrue(body.contains("u-2"))
+    }
+
     @Test fun image_urls_decode_and_default_empty() {
         val asset = SDK_JSON.decodeFromString(
             Asset.serializer(),
