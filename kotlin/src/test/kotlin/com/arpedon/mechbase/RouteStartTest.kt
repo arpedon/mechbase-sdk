@@ -83,5 +83,7 @@ class RouteStartTest {
         server.takeRequest()
         assertEquals("/api/installations/2012/executions/run-9", server.takeRequest().path)
         assertEquals(null, ConflictException("x", 409, "not json").runningExecutionUuid)
+        // The other start 409 (uuid already on another route) sends an explicit null.
+        assertEquals(null, ConflictException("x", 409, """{"detail":"d","running_execution_uuid":null}""").runningExecutionUuid)
     }
 }
