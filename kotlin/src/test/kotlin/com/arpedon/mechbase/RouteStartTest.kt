@@ -64,4 +64,26 @@ class RouteStartTest {
         assertEquals("/api/installations/2012/routes/route-1/executions", rec.path)
         assertEquals("bare start is the legacy empty POST (server mints the uuid)", "", rec.body.readUtf8())
     }
+
+    @Test fun conflict_exposes_the_running_execution_and_it_can_be_fetched() = runBlocking {
+        server.enqueue(
+            MockResponse().setResponseCode(409).setHeader("Content-Type", "application/json")
+                .setBody("""{"detail":"Route already running","running_execution_uuid":"run-9"}"""),
+        )
+        server.enqueue(
+            MockResponse().setResponseCode(200).setHeader("Content-Type", "application/json")
+                .setBody(executionBody("run-9", "route-1")),
+        )
+        val routes = client.forInstallation(2012).routes
+        val conflict = runCatching { routes.start("route-1", uuid = "mine") }.exceptionOrNull() as ConflictException
+        assertEquals("run-9", conflict.runningExecutionUuid)
+
+        val running = routes.fetchExecution(conflict.runningExecutionUuid!!)
+        assertEquals("run-9", running.uuid)
+        server.takeRequest()
+        assertEquals("/api/installations/2012/executions/run-9", server.takeRequest().path)
+        assertEquals(null, ConflictException("x", 409, "not json").runningExecutionUuid)
+        // The other start 409 (uuid already on another route) sends an explicit null.
+        assertEquals(null, ConflictException("x", 409, """{"detail":"d","running_execution_uuid":null}""").runningExecutionUuid)
+    }
 }

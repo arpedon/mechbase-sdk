@@ -60,6 +60,10 @@ class Routes internal constructor(
         return Execution.fromExecution(http, installationId, execution)
     }
 
+    /** Fetch one execution (e.g. the running one a 409 start named). Swift `fetchExecution`. */
+    suspend fun fetchExecution(uuid: String): RouteExecution =
+        http.getJson(installationPath(installationId, "/executions/$uuid"), null, RouteExecution.serializer())
+
     fun execution(executionUuid: String): Execution =
         Execution(http, installationId, executionUuid, null)
 }

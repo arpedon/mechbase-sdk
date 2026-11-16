@@ -1,5 +1,9 @@
 package com.arpedon.mechbase
 
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+
 /** Base class for all SDK errors. */
 open class MechbaseException(
     message: String,
@@ -21,7 +25,17 @@ class ValidationException(message: String, status: Int? = null, body: String? = 
 
 /** 409. */
 class ConflictException(message: String, status: Int? = null, body: String? = null) :
-    MechbaseException(message, status, body)
+    MechbaseException(message, status, body) {
+    /**
+     * On a refused route start, the uuid of the execution already running on that
+     * route — join it instead. Null for any other 409 (Swift `runningExecutionUuid`).
+     */
+    val runningExecutionUuid: String?
+        get() = body?.let {
+            runCatching { SDK_JSON.parseToJsonElement(it).jsonObject["running_execution_uuid"]?.jsonPrimitive?.contentOrNull }
+                .getOrNull()
+        }
+}
 
 /** 413. */
 class PayloadTooLargeException(message: String, status: Int? = null, body: String? = null) :
