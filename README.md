@@ -16,7 +16,7 @@ Four languages, one uniform surface:
 |----------|-------------|---------------------------------------------------------------------|
 | Python   | [`python/`](python/) | `pip install mechbase`                                      |
 | Go       | [`go/`](go/)         | `go get github.com/arpedon/mechbase-sdk/go`                 |
-| Swift    | [`swift/`](swift/)   | `.package(url: "https://github.com/arpedon/mechbase-sdk", from: "0.3.0")` |
+| Swift    | [`swift/`](swift/)   | `.package(url: "https://github.com/arpedon/mechbase-sdk", from: "0.4.0")` |
 | Kotlin   | [`kotlin/`](kotlin/) | `implementation("com.arpedon:mechbase-sdk:0.2.7")`          |
 
 How each SDK is published (and how to cut a release) is documented in
@@ -97,6 +97,28 @@ print(f"created={result.created} duplicates={result.duplicates} errors={result.e
 
 Bearer tokens. Create one under Mechbase → Settings → API tokens; each token is scoped to
 a single user + installation.
+
+### Microsoft sign-in from an app (Swift, Kotlin)
+
+The apps get a token without a password: open the web Microsoft flow in a system browser
+session with PKCE, catch the `mechbase://sso?code=…` callback, exchange the code.
+
+```swift
+let auth = MechbaseAuth()                                   // baseURL: for self-hosted
+if await auth.ssoCheck(email: email) {                      // show "Sign in with Microsoft"
+    let pkce = PKCE.generate()
+    let url = auth.ssoStartURL(codeChallenge: pkce.challenge, loginHint: email)
+    // ASWebAuthenticationSession(url:, callbackURLScheme: "mechbase") → code
+    let token = try await auth.exchangeSSOCode(code: code, codeVerifier: pkce.verifier, deviceId: deviceId)
+    let client = MechbaseClient(token: token)
+}
+```
+
+### Display units and point context (Swift, Kotlin)
+
+Values stay in the point's native unit; `point.displayUnits[key]?.convert(v)` gives the
+viewer's unit (`me().unitPrefs` holds their choices). `measurementPoints.context(pointId:)`
+returns run state, staleness, limits and a 7-day trend, all native.
 
 ## Updating `openapi.json`
 
