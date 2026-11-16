@@ -161,13 +161,15 @@ public extension Measurements {
                                       body: BatchBody(items: items), as: BatchResult.self)
     }
 
-    /// Attach a file to an existing measurement (multipart).
+    /// Attach a file to an existing measurement (multipart). Pass a client-minted
+    /// `uuid` so a retry after a lost reply returns the same file instead of a duplicate.
     func addFile(measurementUUID: String, fileURL: URL,
-                 mimeType: String = "application/octet-stream") async throws -> FileAttachment {
+                 mimeType: String = "application/octet-stream",
+                 uuid: String? = nil) async throws -> FileAttachment {
         let data = try Data(contentsOf: fileURL)
         return try await scope.http.postMultipart(
             scope.path("/measurements/\(measurementUUID)/files/"),
-            fields: [:],
+            fields: uuid.map { ["uuid": $0] } ?? [:],
             files: [(name: "file", filename: fileURL.lastPathComponent, mimeType: mimeType, data: data)],
             as: FileAttachment.self)
     }

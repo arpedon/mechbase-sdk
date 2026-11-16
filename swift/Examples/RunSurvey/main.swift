@@ -14,7 +14,10 @@ struct RunSurvey {
         let client = MechbaseClient(token: token, baseURL: baseURL)
         do {
             let me = try await client.me()
-            let installation = client.forInstallation(id: me.currentInstallationId)
+            guard let installationId = me.currentInstallationId else {
+                print("This user has no installation."); return
+            }
+            let installation = client.forInstallation(id: installationId)
             let execution = try await installation.routes.start(routeUUID: routeUUID)
             print("started execution \(execution.uuid)")
 

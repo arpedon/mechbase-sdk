@@ -12,7 +12,7 @@ fun main() = runBlocking {
 
     val client = MechbaseClient(token = token, baseUrl = baseUrl)
     val me = client.me()
-    val installation = client.forInstallation(me.currentInstallationId)
+    val installation = client.forInstallation(me.currentInstallationId ?: error("This user has no installation"))
 
     val execution = installation.routes.start(routeUUID = routeUuid)
     @Suppress("ForbiddenMethodCall")

@@ -8,7 +8,7 @@ import okhttp3.OkHttpClient
  * ```kotlin
  * val client = MechbaseClient(token = "...")  // defaults to https://app.mechbase.io
  * val me = client.me()
- * val installation = client.forInstallation(me.currentInstallationId)
+ * val installation = client.forInstallation(me.currentInstallationId ?: error("This user has no installation"))
  * ```
  *
  * For self-hosted installations pass an explicit `baseUrl`.

@@ -5,7 +5,8 @@ import Foundation
 /// ```swift
 /// let client = MechbaseClient(token: "...")  // defaults to https://app.mechbase.io
 /// let me = try await client.me()
-/// let installation = client.forInstallation(id: me.currentInstallationId)
+/// guard let id = me.currentInstallationId else { return }  // nil: no installations
+/// let installation = client.forInstallation(id: id)
 /// ```
 ///
 /// For self-hosted installations, pass an explicit `baseURL`.

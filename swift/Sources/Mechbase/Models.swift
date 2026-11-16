@@ -107,7 +107,8 @@ public struct InstallationDTO: Codable, Sendable {
 public struct Me: Codable, Sendable {
     public let user: User
     public let installations: [InstallationDTO]
-    public let currentInstallationId: Int
+    /// `nil` for a user with no installations (the server sends `null`).
+    public let currentInstallationId: Int?
 
     enum CodingKeys: String, CodingKey {
         case user, installations
