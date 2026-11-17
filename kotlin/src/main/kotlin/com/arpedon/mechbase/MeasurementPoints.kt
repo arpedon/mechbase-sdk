@@ -102,8 +102,9 @@ class MeasurementPoints internal constructor(
             if (uuid != null) mapOf("uuid" to uuid) else emptyMap(),
         )
 
-    /** Delete a gallery photo by its [Photo.uuid]. A photo that's already gone throws [NotFoundException]. */
+    /** Delete a gallery photo by its [Photo.uuid]. A photo that's already gone throws [NotFoundException]; a non-UUID [uuid] throws [ValidationException] without a request. */
     suspend fun deletePhoto(pointId: Int, uuid: String) {
+        requirePhotoUuid(uuid)
         http.sendJson("DELETE", installationPath(installationId, "/measurement-points/$pointId/photos/$uuid"), null, null, Unit.serializer())
     }
 }

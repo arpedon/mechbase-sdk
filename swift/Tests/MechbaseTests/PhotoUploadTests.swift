@@ -66,21 +66,31 @@ final class PhotoDeleteTests: XCTestCase {
     func testDeletePhotoHitsDeleteOnPhotoPath() async throws {
         nonisolated(unsafe) var seen: [String] = []
         reply(204) { seen.append("\($0.httpMethod!) \($0.url!.path)") }
-        try await client().forInstallation(id: 2012).assets.deletePhoto(assetId: 10, uuid: "f1")
-        try await client().forInstallation(id: 2012).measurementPoints.deletePhoto(pointId: 44, uuid: "f2")
+        try await client().forInstallation(id: 2012).assets.deletePhoto(assetId: 10, uuid: "6f1c0000-0000-4000-8000-000000000001")
+        try await client().forInstallation(id: 2012).measurementPoints.deletePhoto(pointId: 44, uuid: "6f1c0000-0000-4000-8000-000000000002")
         XCTAssertEqual(seen, [
-            "DELETE /api/installations/2012/assets/10/photos/f1",
-            "DELETE /api/installations/2012/measurement-points/44/photos/f2",
+            "DELETE /api/installations/2012/assets/10/photos/6f1c0000-0000-4000-8000-000000000001",
+            "DELETE /api/installations/2012/measurement-points/44/photos/6f1c0000-0000-4000-8000-000000000002",
         ])
     }
 
     func testDeletePhoto404IsNotFound() async throws {
         reply(404, #"{"detail":"Not Found"}"#)
         for call in [
-            { try await self.client().forInstallation(id: 1).assets.deletePhoto(assetId: 10, uuid: "gone") },
-            { try await self.client().forInstallation(id: 1).measurementPoints.deletePhoto(pointId: 44, uuid: "gone") },
+            { try await self.client().forInstallation(id: 1).assets.deletePhoto(assetId: 10, uuid: "6f1c0000-0000-4000-8000-000000000001") },
+            { try await self.client().forInstallation(id: 1).measurementPoints.deletePhoto(pointId: 44, uuid: "6f1c0000-0000-4000-8000-000000000001") },
         ] as [() async throws -> Void] {
             do { try await call(); XCTFail("expected notFound") } catch MechbaseError.notFound {}
         }
+    }
+
+    func testDeletePhotoRejectsNonUUIDWithoutRequest() async throws {
+        nonisolated(unsafe) var sent = 0
+        reply(204) { _ in sent += 1 }
+        for bad in ["../../10", "a?b", "f1"] {
+            do { try await client().forInstallation(id: 1).assets.deletePhoto(assetId: 10, uuid: bad); XCTFail(bad) }
+            catch MechbaseError.validation {}
+        }
+        XCTAssertEqual(sent, 0)
     }
 }

@@ -85,8 +85,10 @@ public struct Assets: Sendable {
             as: FileAttachment.self)
     }
 
-    /// Delete a gallery photo by its ``Photo/uuid``. A photo that's already gone throws ``MechbaseError/notFound(_:)``.
+    /// Delete a gallery photo by its ``Photo/uuid``. A photo that's already gone throws ``MechbaseError/notFound(_:)``; a non-UUID `uuid` throws ``MechbaseError/validation(_:)`` without a request.
     public func deletePhoto(assetId: Int, uuid: String) async throws {
+        // Interpolated into the path: anything but a UUID could reroute or truncate it.
+        guard UUID(uuidString: uuid) != nil else { throw MechbaseError.validation("invalid photo uuid: \(uuid)") }
         _ = try await scope.http.delete(scope.path("/assets/\(assetId)/photos/\(uuid)"), as: EmptyResponse.self)
     }
 }

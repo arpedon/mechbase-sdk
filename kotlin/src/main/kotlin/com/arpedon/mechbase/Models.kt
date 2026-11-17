@@ -82,6 +82,12 @@ data class TrendBin(val t: String, val v: Double)
 @Serializable
 data class Photo(val uuid: String, val url: String)
 
+/** `uuid` goes into the path, so anything but a canonical UUID (e.g. `../10`) could reroute the DELETE. */
+internal fun requirePhotoUuid(uuid: String) {
+    if (runCatching { java.util.UUID.fromString(uuid).toString() == uuid }.getOrDefault(false)) return
+    throw ValidationException("invalid photo uuid: $uuid")
+}
+
 @Serializable
 data class Asset(
     val uuid: String,
