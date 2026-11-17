@@ -3,6 +3,7 @@ package com.arpedon.mechbase
 import java.io.File
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.serializer
 
 @Serializable
 data class AssetInput(
@@ -88,4 +89,10 @@ class Assets internal constructor(
             FileAttachment.serializer(),
             if (uuid != null) mapOf("uuid" to uuid) else emptyMap(),
         )
+
+    /** Delete a gallery photo by its [Photo.uuid]. A photo that's already gone throws [NotFoundException]; a non-UUID [uuid] throws [ValidationException] without a request. */
+    suspend fun deletePhoto(assetId: Int, uuid: String) {
+        requirePhotoUuid(uuid)
+        http.sendJson("DELETE", installationPath(installationId, "/assets/$assetId/photos/$uuid"), null, null, Unit.serializer())
+    }
 }

@@ -6,6 +6,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -68,5 +69,41 @@ class PhotoUploadTest {
         val point = SDK_JSON.decodeFromString(MeasurementPoint.serializer(), """{"uuid":"p","name":"DE","status":1}""")
         assertEquals(listOf("https://x/a.jpg"), asset.imageUrls)
         assertEquals(emptyList<String>(), point.imageUrls)
+    }
+
+    @Test fun photos_decode_and_default_empty() {
+        val asset = SDK_JSON.decodeFromString(
+            Asset.serializer(),
+            """{"uuid":"a","name":"Pump","status":1,"image_urls":["https://x/a.jpg"],"photos":[{"uuid":"f1","url":"https://x/a.jpg"}]}""",
+        )
+        val point = SDK_JSON.decodeFromString(MeasurementPoint.serializer(), """{"uuid":"p","name":"DE","status":1}""")
+        assertEquals(listOf(Photo("f1", "https://x/a.jpg")), asset.photos)
+        assertEquals(emptyList<Photo>(), point.photos)
+    }
+
+    @Test fun delete_photo_hits_delete_on_photo_path() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(204))
+        server.enqueue(MockResponse().setResponseCode(204))
+        client.forInstallation(2012).assets.deletePhoto(10, "6f1c0000-0000-4000-8000-000000000001")
+        client.forInstallation(2012).measurementPoints.deletePhoto(44, "6F1C0000-0000-4000-8000-000000000002")
+        val a = server.takeRequest()
+        val p = server.takeRequest()
+        assertEquals("DELETE /api/installations/2012/assets/10/photos/6f1c0000-0000-4000-8000-000000000001", "${a.method} ${a.path}")
+        assertEquals("DELETE /api/installations/2012/measurement-points/44/photos/6F1C0000-0000-4000-8000-000000000002", "${p.method} ${p.path}")
+    }
+
+    @Test fun delete_photo_404_is_not_found() {
+        repeat(2) { server.enqueue(MockResponse().setResponseCode(404).setBody("""{"detail":"Not Found"}""")) }
+        val inst = client.forInstallation(1)
+        assertThrows(NotFoundException::class.java) { runBlocking { inst.assets.deletePhoto(10, "6f1c0000-0000-4000-8000-000000000001") } }
+        assertThrows(NotFoundException::class.java) { runBlocking { inst.measurementPoints.deletePhoto(44, "6f1c0000-0000-4000-8000-000000000001") } }
+    }
+
+    @Test fun delete_photo_rejects_non_uuid_without_request() {
+        val inst = client.forInstallation(1)
+        for (bad in listOf("../../10", "a?b", "f1", "1-1-1-1-1")) {
+            assertThrows(bad, ValidationException::class.java) { runBlocking { inst.assets.deletePhoto(10, bad) } }
+        }
+        assertEquals(0, server.requestCount)
     }
 }
