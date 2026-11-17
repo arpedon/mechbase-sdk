@@ -159,6 +159,11 @@ public struct DisplayUnit: Codable, Sendable, Equatable {
 public struct Photo: Codable, Sendable, Equatable {
     public let uuid: String
     public let url: String
+
+    public init(uuid: String, url: String) {
+        self.uuid = uuid
+        self.url = url
+    }
 }
 
 public struct Asset: Codable, Sendable {
