@@ -67,10 +67,10 @@ final class PhotoDeleteTests: XCTestCase {
         nonisolated(unsafe) var seen: [String] = []
         reply(204) { seen.append("\($0.httpMethod!) \($0.url!.path)") }
         try await client().forInstallation(id: 2012).assets.deletePhoto(assetId: 10, uuid: "6f1c0000-0000-4000-8000-000000000001")
-        try await client().forInstallation(id: 2012).measurementPoints.deletePhoto(pointId: 44, uuid: "6f1c0000-0000-4000-8000-000000000002")
+        try await client().forInstallation(id: 2012).measurementPoints.deletePhoto(pointId: 44, uuid: "6F1C0000-0000-4000-8000-000000000002")
         XCTAssertEqual(seen, [
             "DELETE /api/installations/2012/assets/10/photos/6f1c0000-0000-4000-8000-000000000001",
-            "DELETE /api/installations/2012/measurement-points/44/photos/6f1c0000-0000-4000-8000-000000000002",
+            "DELETE /api/installations/2012/measurement-points/44/photos/6F1C0000-0000-4000-8000-000000000002",
         ])
     }
 

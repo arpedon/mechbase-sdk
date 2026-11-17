@@ -85,11 +85,11 @@ class PhotoUploadTest {
         server.enqueue(MockResponse().setResponseCode(204))
         server.enqueue(MockResponse().setResponseCode(204))
         client.forInstallation(2012).assets.deletePhoto(10, "6f1c0000-0000-4000-8000-000000000001")
-        client.forInstallation(2012).measurementPoints.deletePhoto(44, "6f1c0000-0000-4000-8000-000000000002")
+        client.forInstallation(2012).measurementPoints.deletePhoto(44, "6F1C0000-0000-4000-8000-000000000002")
         val a = server.takeRequest()
         val p = server.takeRequest()
         assertEquals("DELETE /api/installations/2012/assets/10/photos/6f1c0000-0000-4000-8000-000000000001", "${a.method} ${a.path}")
-        assertEquals("DELETE /api/installations/2012/measurement-points/44/photos/6f1c0000-0000-4000-8000-000000000002", "${p.method} ${p.path}")
+        assertEquals("DELETE /api/installations/2012/measurement-points/44/photos/6F1C0000-0000-4000-8000-000000000002", "${p.method} ${p.path}")
     }
 
     @Test fun delete_photo_404_is_not_found() {
