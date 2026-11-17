@@ -78,6 +78,10 @@ data class PointLimits(val minor: Double? = null, val major: Double? = null)
 @Serializable
 data class TrendBin(val t: String, val v: Double)
 
+/** A gallery photo: the server `File` uuid (what `deletePhoto` takes) and its absolute URL. */
+@Serializable
+data class Photo(val uuid: String, val url: String)
+
 @Serializable
 data class Asset(
     val uuid: String,
@@ -91,6 +95,8 @@ data class Asset(
     @SerialName("external_id") val externalId: String? = null,
     /** Absolute URLs of the asset's photo gallery, oldest first; empty on older servers. */
     @SerialName("image_urls") val imageUrls: List<String> = emptyList(),
+    /** Same photos as [imageUrls], with their uuids; empty on older servers. */
+    val photos: List<Photo> = emptyList(),
 )
 
 @Serializable
@@ -117,6 +123,8 @@ data class MeasurementPoint(
     @SerialName("image_urls") val imageUrls: List<String> = emptyList(),
     /** Data keys whose display unit differs from native for this viewer; empty when none do, and on older servers. */
     @SerialName("display_units") val displayUnits: Map<String, DisplayUnit> = emptyMap(),
+    /** Same photos as [imageUrls], with their uuids; empty on older servers. */
+    val photos: List<Photo> = emptyList(),
 )
 
 @Serializable
