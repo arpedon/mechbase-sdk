@@ -84,4 +84,9 @@ public struct Assets: Sendable {
             files: [(name: "file", filename: fileURL.lastPathComponent, mimeType: mimeType, data: data)],
             as: FileAttachment.self)
     }
+
+    /// Delete a gallery photo by its ``Photo/uuid``. A photo that's already gone throws ``MechbaseError/notFound(_:)``.
+    public func deletePhoto(assetId: Int, uuid: String) async throws {
+        _ = try await scope.http.delete(scope.path("/assets/\(assetId)/photos/\(uuid)"), as: EmptyResponse.self)
+    }
 }

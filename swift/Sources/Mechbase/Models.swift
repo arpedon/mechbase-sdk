@@ -155,6 +155,12 @@ public struct DisplayUnit: Codable, Sendable, Equatable {
     public func convert(_ value: Double) -> Double { value * scale + offset }
 }
 
+/// A gallery photo: the server `File` uuid (what ``Assets/deletePhoto(assetId:uuid:)`` takes) and its absolute URL.
+public struct Photo: Codable, Sendable, Equatable {
+    public let uuid: String
+    public let url: String
+}
+
 public struct Asset: Codable, Sendable {
     public let uuid: String
     public let assetId: Int?
@@ -167,9 +173,11 @@ public struct Asset: Codable, Sendable {
     public let externalId: String?
     // Absolute URLs of the asset's photo gallery, oldest first; `[]` on older servers.
     public let imageUrls: [String]
+    /// Same photos as `imageUrls`, with their uuids; `[]` on older servers.
+    public let photos: [Photo]
 
     enum CodingKeys: String, CodingKey {
-        case uuid, name, status
+        case uuid, name, status, photos
         case imageUrls = "image_urls"
         case assetId = "asset_id"
         case sectionId = "section_id"
@@ -191,6 +199,7 @@ public struct Asset: Codable, Sendable {
         self.status = try c.decode(Int.self, forKey: .status)
         self.externalId = try c.decodeIfPresent(String.self, forKey: .externalId)
         self.imageUrls = (try? c.decode([String].self, forKey: .imageUrls)) ?? []
+        self.photos = (try? c.decode([Photo].self, forKey: .photos)) ?? []
     }
 }
 
@@ -221,9 +230,11 @@ public struct MeasurementPoint: Codable, Sendable {
     /// Data keys whose display unit differs from native for this viewer;
     /// `[:]` when none do, and on servers that predate it.
     public let displayUnits: [String: DisplayUnit]
+    /// Same photos as `imageUrls`, with their uuids; `[]` on older servers.
+    public let photos: [Photo]
 
     enum CodingKeys: String, CodingKey {
-        case uuid, name, location, status, instructions
+        case uuid, name, location, status, instructions, photos
         case imageUrls = "image_urls"
         case displayUnits = "display_units"
         case pointId = "point_id"
@@ -247,6 +258,7 @@ public struct MeasurementPoint: Codable, Sendable {
         self.instructions = (try? c.decode(String.self, forKey: .instructions)) ?? ""
         self.imageUrls = (try? c.decode([String].self, forKey: .imageUrls)) ?? []
         self.displayUnits = (try? c.decode([String: DisplayUnit].self, forKey: .displayUnits)) ?? [:]
+        self.photos = (try? c.decode([Photo].self, forKey: .photos)) ?? []
     }
 }
 

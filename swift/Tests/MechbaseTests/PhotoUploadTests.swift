@@ -40,3 +40,47 @@ final class PhotoMock: URLProtocol {
     }
     override func stopLoading() {}
 }
+
+/// `photos` on assets/points and `deletePhoto` (photo-delete contract §3).
+final class PhotoDeleteTests: XCTestCase {
+    private func client() -> MechbaseClient {
+        let cfg = URLSessionConfiguration.ephemeral
+        cfg.protocolClasses = [MockURLProtocol.self]
+        return MechbaseClient(token: "t", baseURL: URL(string: "https://x.test")!, session: URLSession(configuration: cfg))
+    }
+    override func tearDown() { MockURLProtocol.handler = nil; super.tearDown() }
+
+    private func reply(_ status: Int, _ body: String = "", seen: @escaping @Sendable (URLRequest) -> Void = { _ in }) {
+        MockURLProtocol.handler = { req in seen(req); return (status, Data(body.utf8)) }
+    }
+
+    func testPhotosDecodeAndDefaultEmpty() async throws {
+        reply(200, #"{"uuid":"a","name":"Pump","status":1,"image_urls":["https://x/a.jpg"],"photos":[{"uuid":"f1","url":"https://x/a.jpg"}]}"#)
+        let asset = try await client().forInstallation(id: 1).assets.get(id: 10)
+        XCTAssertEqual(asset.photos, [Photo(uuid: "f1", url: "https://x/a.jpg")])
+        reply(200, #"{"uuid":"p","name":"DE","status":1}"#)
+        let point = try await client().forInstallation(id: 1).measurementPoints.get(id: 44)
+        XCTAssertEqual(point.photos, [])
+    }
+
+    func testDeletePhotoHitsDeleteOnPhotoPath() async throws {
+        nonisolated(unsafe) var seen: [String] = []
+        reply(204) { seen.append("\($0.httpMethod!) \($0.url!.path)") }
+        try await client().forInstallation(id: 2012).assets.deletePhoto(assetId: 10, uuid: "f1")
+        try await client().forInstallation(id: 2012).measurementPoints.deletePhoto(pointId: 44, uuid: "f2")
+        XCTAssertEqual(seen, [
+            "DELETE /api/installations/2012/assets/10/photos/f1",
+            "DELETE /api/installations/2012/measurement-points/44/photos/f2",
+        ])
+    }
+
+    func testDeletePhoto404IsNotFound() async throws {
+        reply(404, #"{"detail":"Not Found"}"#)
+        for call in [
+            { try await self.client().forInstallation(id: 1).assets.deletePhoto(assetId: 10, uuid: "gone") },
+            { try await self.client().forInstallation(id: 1).measurementPoints.deletePhoto(pointId: 44, uuid: "gone") },
+        ] as [() async throws -> Void] {
+            do { try await call(); XCTFail("expected notFound") } catch MechbaseError.notFound {}
+        }
+    }
+}
