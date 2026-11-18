@@ -40,7 +40,17 @@ class PhotoUploadTest {
         assertTrue(body.contains("name=\"uuid\""))
         assertTrue(body.contains("u-1"))
         assertTrue(body.contains("name=\"file\""))
+        assertFalse(body.contains("keep_reference"))
         assertEquals("f1", out.uuid)
+    }
+
+    /** Point uploads append: `keep_reference=true` stops the server promoting the new photo (old apps omit it and get "Replace"). */
+    @Test fun point_photo_sends_keep_reference() = runBlocking {
+        enqueueFile()
+        client.forInstallation(2012).measurementPoints.addPhoto(44, jpg(), uuid = "u-1")
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue(body, Regex("name=\"keep_reference\"\r\n(?:[^\r\n]+\r\n)*\r\ntrue\r\n").containsMatchIn(body))
+        assertTrue(body.contains("name=\"uuid\""))
     }
 
     @Test fun point_photo_without_uuid_sends_no_uuid_part() = runBlocking {

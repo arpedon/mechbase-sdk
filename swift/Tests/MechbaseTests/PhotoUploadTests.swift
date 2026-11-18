@@ -19,20 +19,37 @@ final class PhotoUploadTests: XCTestCase {
         let out = try await client().forInstallation(id: 2012).assets.addPhoto(assetId: 10, fileURL: jpg(), uuid: "u-1")
         XCTAssertTrue(PhotoMock.lastPath?.hasSuffix("/api/installations/2012/assets/10/photos/") ?? false)
         XCTAssertEqual(out.uuid, "f1")
+        XCTAssertFalse(PhotoMock.lastBody.contains("keep_reference"))
     }
 
     func testPointPhotoPath() async throws {
         _ = try await client().forInstallation(id: 2012).measurementPoints.addPhoto(pointId: 44, fileURL: jpg())
         XCTAssertTrue(PhotoMock.lastPath?.hasSuffix("/api/installations/2012/measurement-points/44/photos/") ?? false)
     }
+
+    /// Point uploads append: `keep_reference=true` stops the server promoting the new photo (old apps omit it and get "Replace").
+    func testPointPhotoSendsKeepReference() async throws {
+        _ = try await client().forInstallation(id: 2012).measurementPoints.addPhoto(pointId: 44, fileURL: jpg(), uuid: "u-1")
+        XCTAssertTrue(PhotoMock.lastBody.contains("name=\"keep_reference\"\r\n\r\ntrue\r\n"), PhotoMock.lastBody)
+        XCTAssertTrue(PhotoMock.lastBody.contains("name=\"uuid\"\r\n\r\nu-1\r\n"), PhotoMock.lastBody)
+    }
 }
 
 final class PhotoMock: URLProtocol {
     nonisolated(unsafe) static var lastPath: String?
+    /// Multipart body as text (the jpg bytes are 0x01 0x02, so it decodes).
+    nonisolated(unsafe) static var lastBody = ""
     override class func canInit(with r: URLRequest) -> Bool { true }
     override class func canonicalRequest(for r: URLRequest) -> URLRequest { r }
     override func startLoading() {
         PhotoMock.lastPath = request.url?.absoluteString
+        var data = request.httpBody ?? Data()
+        if let s = request.httpBodyStream {
+            s.open(); defer { s.close() }
+            var buf = [UInt8](repeating: 0, count: 4096)
+            while s.hasBytesAvailable { let n = s.read(&buf, maxLength: buf.count); if n <= 0 { break }; data.append(buf, count: n) }
+        }
+        PhotoMock.lastBody = String(decoding: data, as: UTF8.self)
         let body = #"{"uuid":"f1","name":"p.jpg","kind":"attachment","file_url":"https://x/p.jpg","created_at":"2026-01-01T00:00:00Z"}"#
         let resp = HTTPURLResponse(url: request.url!, statusCode: 201, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
         client?.urlProtocol(self, didReceive: resp, cacheStoragePolicy: .notAllowed)

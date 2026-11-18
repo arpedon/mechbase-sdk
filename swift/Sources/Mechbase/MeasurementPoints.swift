@@ -97,13 +97,13 @@ public struct MeasurementPoints: Sendable {
         return try await scope.http.delete(scope.path("/measurement-points/\(id)"), query: q, as: DeleteResult.self)
     }
 
-    /// Add a photo to the point's gallery; it never changes the reference photo (see ``setReferencePhoto(pointId:uuid:)``; a point with none falls back to its first photo). Pass a client-minted `uuid` so a retry returns the same photo.
+    /// Add a photo to the point's gallery; sends `keep_reference=true`, so it never changes the reference photo (see ``setReferencePhoto(pointId:uuid:)``; a point with none falls back to its first photo). Without that field the server makes the new photo the reference, which is what older app versions rely on. Pass a client-minted `uuid` so a retry returns the same photo.
     public func addPhoto(pointId: Int, fileURL: URL, mimeType: String = "image/jpeg",
                          uuid: String? = nil) async throws -> FileAttachment {
         let data = try Data(contentsOf: fileURL)
         return try await scope.http.postMultipart(
             scope.path("/measurement-points/\(pointId)/photos/"),
-            fields: uuid.map { ["uuid": $0] } ?? [:],
+            fields: ["keep_reference": "true"].merging(uuid.map { ["uuid": $0] } ?? [:]) { a, _ in a },
             files: [(name: "file", filename: fileURL.lastPathComponent, mimeType: mimeType, data: data)],
             as: FileAttachment.self)
     }
