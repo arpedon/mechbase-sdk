@@ -131,6 +131,8 @@ data class MeasurementPoint(
     @SerialName("display_units") val displayUnits: Map<String, DisplayUnit> = emptyMap(),
     /** Same photos as [imageUrls], with their uuids; empty on older servers. */
     val photos: List<Photo> = emptyList(),
+    /** Uuid of the point's reference photo (one of [photos]); null when unset, and on older servers. */
+    @SerialName("reference_photo_uuid") val referencePhotoUuid: String? = null,
 )
 
 @Serializable

@@ -114,4 +114,11 @@ public struct MeasurementPoints: Sendable {
         guard UUID(uuidString: uuid) != nil else { throw MechbaseError.validation("invalid photo uuid: \(uuid)") }
         _ = try await scope.http.delete(scope.path("/measurement-points/\(pointId)/photos/\(uuid)"), as: EmptyResponse.self)
     }
+
+    /// Make the gallery photo `uuid` (a ``Photo/uuid``) the point's reference photo; returns the updated point. A photo or point that's gone throws ``MechbaseError/notFound(_:)``; a non-UUID `uuid` throws ``MechbaseError/validation(_:)`` without a request.
+    public func setReferencePhoto(pointId: Int, uuid: String) async throws -> MeasurementPoint {
+        guard UUID(uuidString: uuid) != nil else { throw MechbaseError.validation("invalid photo uuid: \(uuid)") }
+        return try await scope.http.putJSON(scope.path("/measurement-points/\(pointId)/reference-photo"),
+                                            body: ["uuid": uuid], as: MeasurementPoint.self)
+    }
 }

@@ -4,6 +4,8 @@ import java.io.File
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 @Serializable
 data class PointInput(
@@ -106,5 +108,17 @@ class MeasurementPoints internal constructor(
     suspend fun deletePhoto(pointId: Int, uuid: String) {
         requirePhotoUuid(uuid)
         http.sendJson("DELETE", installationPath(installationId, "/measurement-points/$pointId/photos/$uuid"), null, null, Unit.serializer())
+    }
+
+    /** Make the gallery photo [uuid] (a [Photo.uuid]) the point's reference photo; returns the updated point. A photo or point that's gone throws [NotFoundException]; a non-UUID [uuid] throws [ValidationException] without a request. */
+    suspend fun setReferencePhoto(pointId: Int, uuid: String): MeasurementPoint {
+        requirePhotoUuid(uuid)
+        return http.sendJson(
+            "PUT",
+            installationPath(installationId, "/measurement-points/$pointId/reference-photo"),
+            buildJsonObject { put("uuid", uuid) },
+            null,
+            MeasurementPoint.serializer(),
+        )
     }
 }
