@@ -4,6 +4,8 @@ import java.io.File
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 @Serializable
 data class PointInput(
@@ -93,18 +95,30 @@ class MeasurementPoints internal constructor(
             DeleteResult.serializer(),
         )
 
-    /** Set the point's reference photo (replaces the previous one). Pass a client-minted [uuid] so a retry returns the same photo. */
+    /** Add a photo to the point's gallery; sends `keep_reference=true`, so it never changes the reference photo (see [setReferencePhoto]; a point with none falls back to its first photo). Without that field the server makes the new photo the reference, which is what older app versions rely on. Pass a client-minted [uuid] so a retry returns the same photo. */
     suspend fun addPhoto(pointId: Int, file: File, uuid: String? = null): FileAttachment =
         http.postFile(
             installationPath(installationId, "/measurement-points/$pointId/photos/"),
             listOf(MultipartFile("file", file.name, file)),
             FileAttachment.serializer(),
-            if (uuid != null) mapOf("uuid" to uuid) else emptyMap(),
+            mapOf("keep_reference" to "true") + (if (uuid != null) mapOf("uuid" to uuid) else emptyMap()),
         )
 
     /** Delete a gallery photo by its [Photo.uuid]. A photo that's already gone throws [NotFoundException]; a non-UUID [uuid] throws [ValidationException] without a request. */
     suspend fun deletePhoto(pointId: Int, uuid: String) {
         requirePhotoUuid(uuid)
         http.sendJson("DELETE", installationPath(installationId, "/measurement-points/$pointId/photos/$uuid"), null, null, Unit.serializer())
+    }
+
+    /** Make the gallery photo [uuid] (a [Photo.uuid]) the point's reference photo; returns the updated point. A photo or point that's gone throws [NotFoundException]; a non-UUID [uuid] throws [ValidationException] without a request. */
+    suspend fun setReferencePhoto(pointId: Int, uuid: String): MeasurementPoint {
+        requirePhotoUuid(uuid)
+        return http.sendJson(
+            "PUT",
+            installationPath(installationId, "/measurement-points/$pointId/reference-photo"),
+            buildJsonObject { put("uuid", uuid) },
+            null,
+            MeasurementPoint.serializer(),
+        )
     }
 }

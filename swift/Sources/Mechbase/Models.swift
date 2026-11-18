@@ -229,19 +229,22 @@ public struct MeasurementPoint: Codable, Sendable {
     // absolute. Server always populates it; the resilient `?? ""` decode keeps
     // it safe against drift.
     public let instructions: String
-    // Absolute URLs of the point's own reference photos, oldest first. Added
-    // after `instructions`; absent on older servers, so it decodes to `[]`.
+    // `[reference photo URL]`, or `[]` when the point has no photos; the full gallery is `photos`.
+    // Absent on older servers, so it decodes to `[]`.
     public let imageUrls: [String]
     /// Data keys whose display unit differs from native for this viewer;
     /// `[:]` when none do, and on servers that predate it.
     public let displayUnits: [String: DisplayUnit]
-    /// Same photos as `imageUrls`, with their uuids; `[]` on older servers.
+    /// All of the point's gallery photos with their uuids (`imageUrls` is the reference photo only); `[]` on older servers.
     public let photos: [Photo]
+    /// Uuid of the point's reference photo (one of `photos`); `nil` when unset, and on older servers.
+    public let referencePhotoUuid: String?
 
     enum CodingKeys: String, CodingKey {
         case uuid, name, location, status, instructions, photos
         case imageUrls = "image_urls"
         case displayUnits = "display_units"
+        case referencePhotoUuid = "reference_photo_uuid"
         case pointId = "point_id"
         case assetId = "asset_id"
         case transducerType = "transducer_type"
@@ -264,6 +267,7 @@ public struct MeasurementPoint: Codable, Sendable {
         self.imageUrls = (try? c.decode([String].self, forKey: .imageUrls)) ?? []
         self.displayUnits = (try? c.decode([String: DisplayUnit].self, forKey: .displayUnits)) ?? [:]
         self.photos = (try? c.decode([Photo].self, forKey: .photos)) ?? []
+        self.referencePhotoUuid = try c.decodeIfPresent(String.self, forKey: .referencePhotoUuid)
     }
 }
 

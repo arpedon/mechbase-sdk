@@ -97,13 +97,13 @@ public struct MeasurementPoints: Sendable {
         return try await scope.http.delete(scope.path("/measurement-points/\(id)"), query: q, as: DeleteResult.self)
     }
 
-    /// Set the point's reference photo (replaces the previous one). Pass a client-minted `uuid` so a retry returns the same photo.
+    /// Add a photo to the point's gallery; sends `keep_reference=true`, so it never changes the reference photo (see ``setReferencePhoto(pointId:uuid:)``; a point with none falls back to its first photo). Without that field the server makes the new photo the reference, which is what older app versions rely on. Pass a client-minted `uuid` so a retry returns the same photo.
     public func addPhoto(pointId: Int, fileURL: URL, mimeType: String = "image/jpeg",
                          uuid: String? = nil) async throws -> FileAttachment {
         let data = try Data(contentsOf: fileURL)
         return try await scope.http.postMultipart(
             scope.path("/measurement-points/\(pointId)/photos/"),
-            fields: uuid.map { ["uuid": $0] } ?? [:],
+            fields: ["keep_reference": "true"].merging(uuid.map { ["uuid": $0] } ?? [:]) { a, _ in a },
             files: [(name: "file", filename: fileURL.lastPathComponent, mimeType: mimeType, data: data)],
             as: FileAttachment.self)
     }
@@ -113,5 +113,12 @@ public struct MeasurementPoints: Sendable {
         // Interpolated into the path: anything but a UUID could reroute or truncate it.
         guard UUID(uuidString: uuid) != nil else { throw MechbaseError.validation("invalid photo uuid: \(uuid)") }
         _ = try await scope.http.delete(scope.path("/measurement-points/\(pointId)/photos/\(uuid)"), as: EmptyResponse.self)
+    }
+
+    /// Make the gallery photo `uuid` (a ``Photo/uuid``) the point's reference photo; returns the updated point. A photo or point that's gone throws ``MechbaseError/notFound(_:)``; a non-UUID `uuid` throws ``MechbaseError/validation(_:)`` without a request.
+    public func setReferencePhoto(pointId: Int, uuid: String) async throws -> MeasurementPoint {
+        guard UUID(uuidString: uuid) != nil else { throw MechbaseError.validation("invalid photo uuid: \(uuid)") }
+        return try await scope.http.putJSON(scope.path("/measurement-points/\(pointId)/reference-photo"),
+                                            body: ["uuid": uuid], as: MeasurementPoint.self)
     }
 }

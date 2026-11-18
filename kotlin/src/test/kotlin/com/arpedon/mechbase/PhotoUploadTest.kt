@@ -40,7 +40,17 @@ class PhotoUploadTest {
         assertTrue(body.contains("name=\"uuid\""))
         assertTrue(body.contains("u-1"))
         assertTrue(body.contains("name=\"file\""))
+        assertFalse(body.contains("keep_reference"))
         assertEquals("f1", out.uuid)
+    }
+
+    /** Point uploads append: `keep_reference=true` stops the server promoting the new photo (old apps omit it and get "Replace"). */
+    @Test fun point_photo_sends_keep_reference() = runBlocking {
+        enqueueFile()
+        client.forInstallation(2012).measurementPoints.addPhoto(44, jpg(), uuid = "u-1")
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue(body, Regex("name=\"keep_reference\"\r\n(?:[^\r\n]+\r\n)*\r\ntrue\r\n").containsMatchIn(body))
+        assertTrue(body.contains("name=\"uuid\""))
     }
 
     @Test fun point_photo_without_uuid_sends_no_uuid_part() = runBlocking {
@@ -103,6 +113,43 @@ class PhotoUploadTest {
         val inst = client.forInstallation(1)
         for (bad in listOf("../../10", "a?b", "f1", "1-1-1-1-1")) {
             assertThrows(bad, ValidationException::class.java) { runBlocking { inst.assets.deletePhoto(10, bad) } }
+        }
+        assertEquals(0, server.requestCount)
+    }
+
+    private val photoUuid = "6f1c0000-0000-4000-8000-000000000001"
+
+    @Test fun reference_photo_uuid_present_absent_null() {
+        fun decode(extra: String) = SDK_JSON.decodeFromString(
+            MeasurementPoint.serializer(), """{"uuid":"p","name":"DE","status":1$extra}""",
+        ).referencePhotoUuid
+        assertEquals("f1", decode(""","reference_photo_uuid":"f1""""))
+        assertEquals(null, decode(""))
+        assertEquals(null, decode(""","reference_photo_uuid":null"""))
+    }
+
+    @Test fun set_reference_photo_puts_uuid_and_returns_point() = runBlocking {
+        server.enqueue(
+            MockResponse().setResponseCode(200).setHeader("Content-Type", "application/json")
+                .setBody("""{"uuid":"p","name":"DE","status":1,"reference_photo_uuid":"$photoUuid"}"""),
+        )
+        val point = client.forInstallation(2012).measurementPoints.setReferencePhoto(44, photoUuid)
+        val rec = server.takeRequest()
+        assertEquals("PUT /api/installations/2012/measurement-points/44/reference-photo", "${rec.method} ${rec.path}")
+        assertEquals("""{"uuid":"$photoUuid"}""", rec.body.readUtf8())
+        assertEquals(photoUuid, point.referencePhotoUuid)
+    }
+
+    @Test fun set_reference_photo_404_is_not_found() {
+        server.enqueue(MockResponse().setResponseCode(404).setBody("""{"detail":"Not Found"}"""))
+        val points = client.forInstallation(1).measurementPoints
+        assertThrows(NotFoundException::class.java) { runBlocking { points.setReferencePhoto(44, photoUuid) } }
+    }
+
+    @Test fun set_reference_photo_rejects_non_uuid_without_request() {
+        val points = client.forInstallation(1).measurementPoints
+        for (bad in listOf("../../10", "a?b", "f1", "1-1-1-1-1")) {
+            assertThrows(bad, ValidationException::class.java) { runBlocking { points.setReferencePhoto(44, bad) } }
         }
         assertEquals(0, server.requestCount)
     }
