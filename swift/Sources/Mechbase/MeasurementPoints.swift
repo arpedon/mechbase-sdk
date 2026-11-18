@@ -97,7 +97,7 @@ public struct MeasurementPoints: Sendable {
         return try await scope.http.delete(scope.path("/measurement-points/\(id)"), query: q, as: DeleteResult.self)
     }
 
-    /// Set the point's reference photo (replaces the previous one). Pass a client-minted `uuid` so a retry returns the same photo.
+    /// Add a photo to the point's gallery; it never changes the reference photo (see ``setReferencePhoto(pointId:uuid:)``; a point with none falls back to its first photo). Pass a client-minted `uuid` so a retry returns the same photo.
     public func addPhoto(pointId: Int, fileURL: URL, mimeType: String = "image/jpeg",
                          uuid: String? = nil) async throws -> FileAttachment {
         let data = try Data(contentsOf: fileURL)

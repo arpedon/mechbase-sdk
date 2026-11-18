@@ -95,7 +95,7 @@ class MeasurementPoints internal constructor(
             DeleteResult.serializer(),
         )
 
-    /** Set the point's reference photo (replaces the previous one). Pass a client-minted [uuid] so a retry returns the same photo. */
+    /** Add a photo to the point's gallery; it never changes the reference photo (see [setReferencePhoto]; a point with none falls back to its first photo). Pass a client-minted [uuid] so a retry returns the same photo. */
     suspend fun addPhoto(pointId: Int, file: File, uuid: String? = null): FileAttachment =
         http.postFile(
             installationPath(installationId, "/measurement-points/$pointId/photos/"),

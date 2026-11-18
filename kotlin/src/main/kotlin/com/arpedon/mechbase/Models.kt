@@ -125,11 +125,11 @@ data class MeasurementPoint(
     // transducer-type default) as sanitized HTML; embedded image URLs are
     // absolute. Server always populates it; nullable keeps decode drift-safe.
     val instructions: String? = null,
-    /** Absolute URLs of the point's reference photos, oldest first; empty on older servers. */
+    /** `[reference photo URL]`, or empty when the point has no photos (and on older servers); the full gallery is [photos]. */
     @SerialName("image_urls") val imageUrls: List<String> = emptyList(),
     /** Data keys whose display unit differs from native for this viewer; empty when none do, and on older servers. */
     @SerialName("display_units") val displayUnits: Map<String, DisplayUnit> = emptyMap(),
-    /** Same photos as [imageUrls], with their uuids; empty on older servers. */
+    /** All of the point's gallery photos with their uuids ([imageUrls] is the reference photo only); empty on older servers. */
     val photos: List<Photo> = emptyList(),
     /** Uuid of the point's reference photo (one of [photos]); null when unset, and on older servers. */
     @SerialName("reference_photo_uuid") val referencePhotoUuid: String? = null,
