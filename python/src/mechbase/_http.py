@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import time
 from typing import Any
 
@@ -16,6 +17,24 @@ from .errors import (
 
 MAX_ATTEMPTS = 6
 MAX_WAIT = 30.0
+
+
+def _seekable(f) -> bool:
+    try:
+        return bool(f.seekable())
+    except Exception:
+        return False
+
+
+def _streams(files) -> list:
+    """File-like objects in a httpx `files` arg (a retry must rewind them)."""
+    items = files.values() if isinstance(files, dict) else [v for _, v in files or []]
+    out = []
+    for v in items:
+        v = v[1] if isinstance(v, tuple) else v
+        if hasattr(v, "read"):
+            out.append(v)
+    return out
 
 
 class HttpClient:
@@ -54,6 +73,9 @@ class HttpClient:
         headers: dict | None = None,
         raw: bool = False,
     ) -> Any:
+        streams = _streams(files)
+        starts = [f.tell() for f in streams if _seekable(f)]
+        retryable = len(starts) == len(streams)
         for attempt in range(MAX_ATTEMPTS):
             response = self._client.request(
                 method,
@@ -64,15 +86,20 @@ class HttpClient:
                 files=files,
                 headers=headers,
             )
-            if response.status_code != 429 or attempt == MAX_ATTEMPTS - 1:
+            if response.status_code != 429 or not retryable or attempt == MAX_ATTEMPTS - 1:
                 break
             # The server throttles before doing any work, so a retry is safe for every method.
             # django-ninja sends no Retry-After today; honour it if it ever does.
             try:
                 wait = float(response.headers["Retry-After"])
+                if not math.isfinite(wait):
+                    raise ValueError
+                wait = max(0.0, wait)
             except (KeyError, ValueError):
                 wait = 2.0**attempt
             self._sleep(min(wait, MAX_WAIT))
+            for f, pos in zip(streams, starts):
+                f.seek(pos)
         if raw and 200 <= response.status_code < 300:
             return response.content
         return self._handle(response)

@@ -84,6 +84,11 @@ def test_zone_guest_all_asset_type_cli(monkeypatch, tmp_path, capsys):
     main(["zone", "guest", "on", "--all"])
     assert gv.call_count == 1 and json.loads(gv.calls.last.request.content) == {"enabled": True}
     assert "2 zone(s)" in capsys.readouterr().out
+    main(["zone", "guest", "off", "--all", "--json"])
+    assert json.loads(capsys.readouterr().out) == {"zones": None, "updated": 2, "guest_view": False}
+    main(["zone", "guest", "on", "1", "2", "--json"])
+    assert json.loads(capsys.readouterr().out)["zones"] == [1, 2]
+    assert json.loads(gv.calls.last.request.content) == {"enabled": True, "zone_ids": [1, 2]}
 
     (tmp_path / "list.json").write_text('[{"title": "Oil", "item_type": "pass_fail"}]')
     main(["asset-type", "checklist", "QB-STD", "list.json"])

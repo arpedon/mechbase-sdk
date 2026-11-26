@@ -251,3 +251,66 @@ def test_asset_type_on_create_and_upsert(client):
     assert json.loads(put.calls.last.request.content)["asset_type"] == "QB"
     assets.create(name="P")
     assert "asset_type" not in json.loads(post.calls.last.request.content)
+
+
+@respx.mock
+def test_429_retry_resends_full_upload_body():
+    import io
+    c = Mechbase(token="tok", base_url=BASE)
+    c._http._sleep = lambda s: None
+    bodies = []
+
+    def reply(request):
+        bodies.append(request.content)
+        return httpx.Response(429 if len(bodies) == 1 else 200, json={"ok": 1})
+
+    respx.post(f"{BASE}/up").mock(side_effect=reply)
+    c._http.request("POST", "/up", files={"file": ("a.txt", io.BytesIO(b"hello-bytes"))})
+    assert len(bodies) == 2 and b"hello-bytes" in bodies[0] and b"hello-bytes" in bodies[1]
+
+
+@respx.mock
+def test_429_no_retry_for_nonseekable_upload():
+    import io
+
+    class Raw(io.RawIOBase):
+        def __init__(self):
+            self.data = io.BytesIO(b"xyz")
+
+        def readable(self):
+            return True
+
+        def seekable(self):
+            return False
+
+        def readinto(self, b):
+            return self.data.readinto(b)
+
+    c = Mechbase(token="tok", base_url=BASE)
+    c._http._sleep = lambda s: pytest.fail("slept")
+    route = respx.post(f"{BASE}/up").mock(return_value=httpx.Response(429, json={"detail": "x"}))
+    with pytest.raises(MechbaseError):
+        c._http.request("POST", "/up", files={"file": ("a.txt", Raw())})
+    assert route.call_count == 1
+
+
+@respx.mock
+@pytest.mark.parametrize("header,expected", [("-5", 0.0), ("nan", 1.0), ("inf", 1.0)])
+def test_retry_after_clamped(header, expected):
+    waits = []
+    c = Mechbase(token="tok", base_url=BASE)
+    c._http._sleep = waits.append
+    respx.get(f"{BASE}/x").mock(side_effect=[
+        httpx.Response(429, headers={"Retry-After": header}), httpx.Response(200, json={"ok": 1})])
+    c._http.request("GET", "/x")
+    assert waits == [expected]
+
+
+@respx.mock
+def test_500_not_retried():
+    c = Mechbase(token="tok", base_url=BASE)
+    c._http._sleep = lambda s: pytest.fail("slept")
+    route = respx.get(f"{BASE}/x").mock(return_value=httpx.Response(500, json={"detail": "boom"}))
+    with pytest.raises(MechbaseError):
+        c._http.request("GET", "/x")
+    assert route.call_count == 1
