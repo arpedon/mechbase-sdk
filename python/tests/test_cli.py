@@ -62,3 +62,37 @@ def test_html_error_page_is_not_dumped(monkeypatch, tmp_path):
         assert str(e.code) == "Error: 503 from https://example.test (server unavailable or not a Mechbase API)"
     else:
         raise AssertionError("expected exit")
+
+
+@respx.mock
+def test_zone_guest_all_asset_type_cli(monkeypatch, tmp_path, capsys):
+    import json
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("MECHBASE_TOKEN", "tok")
+    monkeypatch.setenv("MECHBASE_URL", "https://example.test")
+    monkeypatch.setenv("MECHBASE_INSTALLATION", "7")
+    monkeypatch.chdir(tmp_path)
+    base = "https://example.test/api/installations/7"
+    atype = {"uuid": "t", "code": "QB-STD", "name": "QB", "manufacturer": "", "checklist": [{"title": "Oil"}],
+             "asset_count": 0, "document_count": 0}
+    respx.get(f"{base}/zones").mock(return_value=httpx.Response(200, json={"items": [
+        {"uuid": "a", "zone_id": 1, "name": "A"}, {"uuid": "b", "zone_id": 2, "name": "B"}]}))
+    z1 = respx.patch(f"{base}/zones/1").mock(return_value=httpx.Response(200, json={"uuid": "a", "zone_id": 1, "name": "A"}))
+    z2 = respx.patch(f"{base}/zones/2").mock(return_value=httpx.Response(200, json={"uuid": "b", "zone_id": 2, "name": "B"}))
+    put = respx.put(f"{base}/asset-types").mock(return_value=httpx.Response(200, json=atype))
+    asset = respx.patch(f"{base}/assets/5").mock(return_value=httpx.Response(200, json={
+        "uuid": "x", "asset_id": 5, "name": "P", "status": 1}))
+
+    main(["zone", "guest", "on", "--all"])
+    assert json.loads(z1.calls.last.request.content) == {"guest_view": True} and z2.called
+    assert "2 zone(s)" in capsys.readouterr().out
+
+    (tmp_path / "list.json").write_text('[{"title": "Oil", "item_type": "pass_fail"}]')
+    main(["asset-type", "checklist", "QB-STD", "list.json"])
+    assert json.loads(put.calls.last.request.content) == {"code": "QB-STD", "checklist": [{"title": "Oil", "item_type": "pass_fail"}]}
+
+    main(["asset", "set-type", "QB-STD", "5"])
+    assert json.loads(asset.calls.last.request.content) == {"asset_type": "QB-STD"}
+    main(["asset", "set-type", "--clear", "5"])
+    assert json.loads(asset.calls.last.request.content) == {"asset_type": None}

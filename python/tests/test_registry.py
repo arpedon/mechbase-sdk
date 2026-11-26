@@ -139,3 +139,52 @@ def test_iter_for_point_cursor(client):
     got = list(client.for_installation(2012).measurements.iter_for_point(42, page_size=1))
     assert [m.uuid for m in got] == ["m-1", "m-2"]
     assert respx.calls[1].request.url.params["cursor"] == "CUR2"
+
+
+I = f"{BASE}/api/installations/2012"
+ATYPE = {"uuid": "t-1", "code": "QB-STD", "name": "QB", "manufacturer": "ACME", "checklist": [{"title": "Oil"}],
+         "external_id": None, "asset_count": 2, "document_count": 1}
+ASSET = {"uuid": "a", "asset_id": 1, "name": "P", "status": 1, "asset_type": "QB-STD"}
+
+
+@respx.mock
+def test_asset_types_paths_verbs_bodies(client):
+    at = client.for_installation(2012).asset_types
+    respx.get(f"{I}/asset-types").mock(return_value=httpx.Response(200, json=[ATYPE]))
+    respx.get(f"{I}/asset-types/QB-STD").mock(return_value=httpx.Response(200, json=ATYPE))
+    put = respx.put(f"{I}/asset-types").mock(return_value=httpx.Response(200, json=ATYPE))
+    patch = respx.patch(f"{I}/asset-types/QB-STD").mock(return_value=httpx.Response(200, json=ATYPE))
+    respx.delete(f"{I}/asset-types/QB-STD").mock(return_value=httpx.Response(200, json={"deleted": True, "uuid": "t-1"}))
+    docs = respx.get(f"{I}/asset-types/QB-STD/documents").mock(return_value=httpx.Response(200, json=[{"uuid": "d"}]))
+    up = respx.post(f"{I}/asset-types/QB-STD/documents").mock(return_value=httpx.Response(201, json={"uuid": "d", "kind": "manual"}))
+    rm = respx.delete(f"{I}/asset-types/QB-STD/documents/d").mock(return_value=httpx.Response(204))
+
+    assert at.list()[0].asset_count == 2 and at.get("QB-STD").checklist == [{"title": "Oil"}]
+    at.upsert("QB-STD", name="QB", checklist=[{"title": "Oil"}])
+    assert json.loads(put.calls.last.request.content) == {"code": "QB-STD", "name": "QB", "checklist": [{"title": "Oil"}]}
+    at.update("QB-STD", manufacturer="ACME")
+    assert json.loads(patch.calls.last.request.content) == {"manufacturer": "ACME"}
+    assert at.delete("QB-STD").deleted
+    assert at.documents("QB-STD") == [{"uuid": "d"}]
+    at.add_document("QB-STD", b"%PDF", kind="manual", uuid="d")
+    body = up.calls.last.request.content
+    assert b'name="kind"\r\n\r\nmanual' in body and b'name="uuid"\r\n\r\nd' in body
+    assert at.delete_document("QB-STD", "d") is None and rm.called and docs.called
+
+
+@respx.mock
+def test_zone_guest_view_asset_type_omitted_vs_null_checklist(client):
+    inst = client.for_installation(2012)
+    z = respx.patch(f"{I}/zones/3").mock(return_value=httpx.Response(200, json={"uuid": "z", "zone_id": 3, "name": "Z", "guest_view": True}))
+    a = respx.patch(f"{I}/assets/1").mock(return_value=httpx.Response(200, json=ASSET))
+    cl = respx.post(f"{I}/assets/1/checklist").mock(return_value=httpx.Response(200, json={"route_uuid": "r", "created": True}))
+
+    assert inst.zones.update(3, guest_view=True).guest_view is True
+    assert json.loads(z.calls.last.request.content) == {"guest_view": True}
+    assert inst.assets.update(1, name="P").asset_type == "QB-STD"
+    assert json.loads(a.calls.last.request.content) == {"name": "P"}
+    inst.assets.update(1, asset_type=None)
+    assert json.loads(a.calls.last.request.content) == {"asset_type": None}
+    inst.assets.update(1, asset_type="QB-STD")
+    assert json.loads(a.calls.last.request.content) == {"asset_type": "QB-STD"}
+    assert inst.assets.ensure_checklist(1) == {"route_uuid": "r", "created": True} and cl.called

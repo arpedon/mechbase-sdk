@@ -41,6 +41,12 @@ mechbase comments 1                  # an asset's thread
 mechbase comment add 1 "Bearing noise after restart" --point 2 --reading 766
 mechbase docs 1                      # an asset's documents
 mechbase doc add 1 manual.pdf --kind manual
+mechbase zone guest on --all                       # QR guest view for zones (or give zone ids)
+mechbase asset-type list
+mechbase asset-type set QB-STD --name "QB pump"
+mechbase asset-type checklist QB-STD list.json     # replaces the type's checklist
+mechbase asset-type doc add QB-STD manual.pdf --kind manual
+mechbase asset set-type QB-STD 1 2 3               # or: asset set-type --clear 1 2 3
 mechbase alarms 2                    # a point's limits: its own, then the installation default
 mechbase alarm set 2 --minor 2.8 --major 7.1
 mechbase alarm clear 2               # back to the installation default

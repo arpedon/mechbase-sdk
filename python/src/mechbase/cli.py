@@ -13,6 +13,9 @@
     mechbase comment add 1 "Bearing noise after restart" --point 2
     mechbase doc add 1 manual.pdf --kind manual
     mechbase alarm set 2 --minor 2.8 --major 7.1
+    mechbase zone guest on --all        # QR guest view on every zone
+    mechbase asset-type set QB-STD --name "QB pump" ; mechbase asset-type checklist QB-STD list.json
+    mechbase asset set-type QB-STD 1 2 3
 
 Every command takes --json for scripting. MECHBASE_TOKEN / MECHBASE_URL /
 MECHBASE_INSTALLATION override the stored config.
@@ -366,6 +369,60 @@ def cmd_doc_delete(args, cfg):
     print(f"Deleted document {args.document}.")
 
 
+def cmd_zone_guest(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    if args.all == bool(args.zones):
+        sys.exit("Give zone ids or --all.")
+    ids = [z.zone_id for z in inst.zones.list(limit=1000)] if args.all else args.zones
+    on = args.state == "on"
+    for zid in ids:
+        inst.zones.update(zid, guest_view=on)
+    print(json.dumps({"zones": ids, "guest_view": on}) if args.json else f"Guest view {args.state} for {len(ids)} zone(s).")
+
+
+def cmd_asset_types(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    rows = [{"code": t.code, "name": t.name, "manufacturer": t.manufacturer, "checks": len(t.checklist),
+             "assets": t.asset_count, "docs": t.document_count} for t in inst.asset_types.list()]
+    _out(args, rows, ["code", "name", "manufacturer", "checks", "assets", "docs"])
+
+
+def cmd_asset_type_set(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    t = inst.asset_types.upsert(args.code, name=args.name, manufacturer=args.manufacturer)
+    print(json.dumps(dataclasses.asdict(t), indent=2) if args.json else f"Saved asset type {t.code} ({t.name}).")
+
+
+def cmd_asset_type_checklist(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    items = json.loads(Path(args.file).read_text())
+    if not isinstance(items, list):
+        sys.exit("The checklist file must hold a JSON list.")
+    t = inst.asset_types.upsert(args.code, checklist=items)
+    print(json.dumps(dataclasses.asdict(t), indent=2) if args.json else f"Asset type {t.code}: {len(t.checklist)} checks.")
+
+
+def cmd_asset_type_doc_add(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    d = inst.asset_types.add_document(args.code, args.file, kind=args.kind)
+    print(json.dumps(d, indent=2) if args.json else f"Added {d['kind']} {d['name']} ({d['uuid']}) to type {args.code}.")
+
+
+def cmd_asset_set_type(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    code = None if args.clear else args.targets[0]
+    try:
+        ids = [int(i) for i in (args.targets if args.clear else args.targets[1:])]
+    except ValueError:
+        sys.exit("Asset ids must be numbers.")
+    if not ids:
+        sys.exit("Give a type code and at least one asset id (or --clear and ids).")
+    for aid in ids:
+        inst.assets.update(aid, asset_type=code)
+    print(json.dumps({"assets": ids, "asset_type": code}) if args.json else
+          f"{'Cleared the type of' if code is None else f'Set type {code} on'} {len(ids)} asset(s).")
+
+
 def cmd_alarms(args, cfg):
     inst = _inst(args, cfg, _client(cfg))
     rules = inst.alarm_rules.list(args.point)
@@ -542,6 +599,38 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("document", help="document uuid (from `mechbase docs`)")
     s.add_argument("-y", "--yes", action="store_true", help="skip the confirmation")
     s.set_defaults(fn=cmd_doc_delete)
+
+    zone = sub.add_parser("zone", help="zone settings").add_subparsers(dest="action", required=True)
+    s = zone.add_parser("guest", parents=[common], help="turn the QR guest view on or off for zones")
+    s.add_argument("state", choices=["on", "off"])
+    s.add_argument("zones", type=int, nargs="*", help="zone ids")
+    s.add_argument("--all", action="store_true", help="every zone")
+    s.set_defaults(fn=cmd_zone_guest)
+
+    at = sub.add_parser("asset-type", help="asset types (templates)").add_subparsers(dest="action", required=True)
+    s = at.add_parser("list", parents=[common], help="list asset types")
+    s.set_defaults(fn=cmd_asset_types)
+    s = at.add_parser("set", parents=[common], help="create or update a type by code")
+    s.add_argument("code")
+    s.add_argument("--name")
+    s.add_argument("--manufacturer")
+    s.set_defaults(fn=cmd_asset_type_set)
+    s = at.add_parser("checklist", parents=[common], help="replace a type's checklist from a JSON file")
+    s.add_argument("code")
+    s.add_argument("file", help="JSON list of checklist items")
+    s.set_defaults(fn=cmd_asset_type_checklist)
+    atdoc = at.add_parser("doc", help="type documents").add_subparsers(dest="doc_action", required=True)
+    s = atdoc.add_parser("add", parents=[common], help="upload a document to a type")
+    s.add_argument("code")
+    s.add_argument("file")
+    s.add_argument("--kind", default="attachment", choices=["attachment", "drawing", "datasheet", "manual", "check_sheet", "test_report"])
+    s.set_defaults(fn=cmd_asset_type_doc_add)
+
+    asset = sub.add_parser("asset", help="asset settings").add_subparsers(dest="action", required=True)
+    s = asset.add_parser("set-type", parents=[common], help="set (or --clear) the type of assets")
+    s.add_argument("--clear", action="store_true", help="remove the type; then every argument is an asset id")
+    s.add_argument("targets", nargs="+", metavar="code_and_asset_ids", help="<code> <asset_id …> (only ids with --clear)")
+    s.set_defaults(fn=cmd_asset_set_type)
 
     s = sub.add_parser("alarms", parents=[common], help="a point's alarm limits")
     s.add_argument("point", type=int)
