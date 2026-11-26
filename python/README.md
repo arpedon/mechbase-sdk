@@ -17,7 +17,12 @@ inst = client.for_installation(me.current_installation_id)
 
 assets = inst.assets.list(q="pump", limit=50)
 inst.measurements.create(point_id=42, data={"rms": 2.3}, notes="manual reading")
+inst.assets.create(name="Box 12", asset_type="QB-STD")   # type by code, one request
+inst.zones.set_guest_view(True, zone_ids=[1, 2])         # or section_id=..., or no filter = every zone
 ```
+
+Throttled requests (HTTP 429) are retried up to 6 attempts in total, waiting `Retry-After`
+(when sent) or 1, 2, 4... seconds (max 30 s), before raising `MechbaseError`.
 
 ## Command line
 

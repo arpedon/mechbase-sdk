@@ -7,7 +7,7 @@ import httpx
 import pytest
 import respx
 
-from mechbase import ConflictError, Mechbase, PayloadTooLargeError
+from mechbase import ConflictError, Mechbase, MechbaseError, PayloadTooLargeError
 
 BASE = "https://example.test"
 
@@ -188,3 +188,66 @@ def test_zone_guest_view_asset_type_omitted_vs_null_checklist(client):
     inst.assets.update(1, asset_type="QB-STD")
     assert json.loads(a.calls.last.request.content) == {"asset_type": "QB-STD"}
     assert inst.assets.ensure_checklist(1) == {"route_uuid": "r", "created": True} and cl.called
+
+
+@respx.mock
+def test_429_retry_after_header():
+    waits = []
+    c = Mechbase(token="tok", base_url=BASE)
+    c._http._sleep = waits.append
+    route = respx.get(f"{BASE}/api/me/").mock(side_effect=[
+        httpx.Response(429, headers={"Retry-After": "2"}, json={"detail": "Too many requests."}),
+        httpx.Response(200, json={"ok": 1}),
+    ])
+    c._http.request("GET", "/api/me/")
+    assert route.call_count == 2 and waits == [2.0]
+
+
+@respx.mock
+def test_429_backoff_then_gives_up():
+    waits = []
+    c = Mechbase(token="tok", base_url=BASE)
+    c._http._sleep = waits.append
+    route = respx.get(f"{BASE}/api/me/").mock(return_value=httpx.Response(429, json={"detail": "Too many requests."}))
+    with pytest.raises(MechbaseError) as e:
+        c._http.request("GET", "/api/me/")
+    assert e.value.status == 429 and route.call_count == 6
+    assert waits == [1.0, 2.0, 4.0, 8.0, 16.0]
+
+
+@respx.mock
+def test_429_wait_capped():
+    waits = []
+    c = Mechbase(token="tok", base_url=BASE)
+    c._http._sleep = waits.append
+    respx.get(f"{BASE}/api/me/").mock(side_effect=[
+        httpx.Response(429, headers={"Retry-After": "120"}), httpx.Response(200, json={"ok": 1})])
+    c._http.request("GET", "/api/me/")
+    assert waits == [30.0]
+
+
+@respx.mock
+def test_set_guest_view_bodies(client):
+    route = respx.post(f"{BASE}/api/installations/7/zones/guest-view").mock(
+        return_value=httpx.Response(200, json={"updated": 3}))
+    zones = client.for_installation(7).zones
+    assert zones.set_guest_view(True) == 3
+    assert json.loads(route.calls.last.request.content) == {"enabled": True}
+    zones.set_guest_view(False, zone_ids=[1, 2])
+    assert json.loads(route.calls.last.request.content) == {"enabled": False, "zone_ids": [1, 2]}
+    zones.set_guest_view(True, section_id=9)
+    assert json.loads(route.calls.last.request.content) == {"enabled": True, "section_id": 9}
+
+
+@respx.mock
+def test_asset_type_on_create_and_upsert(client):
+    a = {"uuid": "x", "asset_id": 5, "name": "P", "status": 1}
+    post = respx.post(f"{BASE}/api/installations/7/assets").mock(return_value=httpx.Response(200, json=a))
+    put = respx.put(f"{BASE}/api/installations/7/assets").mock(return_value=httpx.Response(200, json=a))
+    assets = client.for_installation(7).assets
+    assets.create(name="P", asset_type="QB")
+    assets.upsert(name="P", external_id="e", asset_type="QB")
+    assert json.loads(post.calls.last.request.content) == {"name": "P", "asset_type": "QB"}
+    assert json.loads(put.calls.last.request.content)["asset_type"] == "QB"
+    assets.create(name="P")
+    assert "asset_type" not in json.loads(post.calls.last.request.content)

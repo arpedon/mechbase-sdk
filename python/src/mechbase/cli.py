@@ -373,11 +373,9 @@ def cmd_zone_guest(args, cfg):
     inst = _inst(args, cfg, _client(cfg))
     if args.all == bool(args.zones):
         sys.exit("Give zone ids or --all.")
-    ids = [z.zone_id for z in inst.zones.list(limit=1000)] if args.all else args.zones
     on = args.state == "on"
-    for zid in ids:
-        inst.zones.update(zid, guest_view=on)
-    print(json.dumps({"zones": ids, "guest_view": on}) if args.json else f"Guest view {args.state} for {len(ids)} zone(s).")
+    n = inst.zones.set_guest_view(on, zone_ids=args.zones or None)
+    print(json.dumps({"zones": args.zones, "updated": n, "guest_view": on}) if args.json else f"Guest view {args.state} for {n} zone(s).")
 
 
 def cmd_asset_types(args, cfg):

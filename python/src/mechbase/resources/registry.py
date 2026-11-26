@@ -22,13 +22,15 @@ class Assets(InstallationScoped):
     def create(self, *, name: str | None = None, external_id: str | None = None,
                section_id: int | None = None, section_external_id: str | None = None,
                zone_id: int | None = None, zone_external_id: str | None = None,
-               equipment_type: str | None = None, machine_class: str | None = None) -> Asset:
+               equipment_type: str | None = None, machine_class: str | None = None,
+               asset_type: str | None = None) -> Asset:
         return Asset.from_dict(self._http.request("POST", self._path("/assets"), json=_clean(locals_no_self(locals()))))
 
     def upsert(self, *, name: str | None = None, external_id: str | None = None,
                section_id: int | None = None, section_external_id: str | None = None,
                zone_id: int | None = None, zone_external_id: str | None = None,
-               equipment_type: str | None = None, machine_class: str | None = None) -> Asset:
+               equipment_type: str | None = None, machine_class: str | None = None,
+               asset_type: str | None = None) -> Asset:
         return Asset.from_dict(self._http.request("PUT", self._path("/assets"), json=_clean(locals_no_self(locals()))))
 
     def update(self, asset_id: int, *, name: str | None = None, external_id: str | None = None,
@@ -163,6 +165,13 @@ class Zones(InstallationScoped):
                guest_view: bool | None = None) -> Zone:
         body = _clean({k: v for k, v in locals().items() if k not in ("self", "zone_id")})
         return Zone.from_dict(self._http.request("PATCH", self._path(f"/zones/{zone_id}"), json=body))
+
+    def set_guest_view(self, enabled: bool, *, zone_ids: list[int] | None = None,
+                       section_id: int | None = None) -> int:
+        """Turn the QR guest view on/off in one call: for zone_ids, a section, or (no filter) every zone.
+        Returns the number of zones updated."""
+        body = _clean({"enabled": enabled, "zone_ids": zone_ids, "section_id": section_id})
+        return self._http.request("POST", self._path("/zones/guest-view"), json=body)["updated"]
 
     def delete(self, zone_id: int, *, cascade: bool = False) -> DeleteResult:
         params = {"cascade": "true"} if cascade else None
