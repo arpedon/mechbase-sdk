@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.parse import parse_qs, urlsplit
+
 from ..errors import MechbaseError
 from ._base import InstallationScoped
 
@@ -18,7 +20,10 @@ class Exports(InstallationScoped):
 
     def download(self, job_uuid: str) -> bytes:
         """The finished file's bytes (follows the signed download_url)."""
-        url = self.status(job_uuid).get("download_url")
-        if not url:
-            raise MechbaseError(f"Export {job_uuid} has no file yet", status=None, body=None)
-        return self._http.request("GET", url, raw=True)
+        st = self.status(job_uuid)
+        if not st.get("download_url"):
+            raise MechbaseError(f"Export {job_uuid} has no file yet ({st.get('state')})", status=410)
+        # Keep only the signature; the path resolves against the client's base URL.
+        sig = parse_qs(urlsplit(st["download_url"]).query).get("sig", [""])[0]
+        return self._http.request("GET", self._path(f"/analytics/exports/{job_uuid}/download/"),
+                                  params={"sig": sig}, raw=True)

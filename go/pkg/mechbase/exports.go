@@ -56,18 +56,30 @@ func (e *Exports) Status(ctx context.Context, jobUUID string) (*ExportStatus, er
 }
 
 // Download streams a finished export's bytes to w and returns the byte count.
-// sig is the optional signature query from ExportStatus.DownloadURL.
-func (e *Exports) Download(ctx context.Context, jobUUID, sig string, w io.Writer) (int64, error) {
-	q := url.Values{}
-	if sig != "" {
-		q.Set("sig", sig)
+// It reads the job's signed download link from Status, so the job must be done.
+// The client's timeout does not apply here (large files); bound it with ctx.
+func (e *Exports) Download(ctx context.Context, jobUUID string, w io.Writer) (int64, error) {
+	st, err := e.Status(ctx, jobUUID)
+	if err != nil {
+		return 0, err
 	}
+	if st.DownloadURL == nil || *st.DownloadURL == "" {
+		return 0, fmt.Errorf("mechbase: export %s has no file yet (state %s)", jobUUID, st.State)
+	}
+	link, err := url.Parse(*st.DownloadURL)
+	if err != nil {
+		return 0, fmt.Errorf("mechbase: bad download url: %w", err)
+	}
+	// Keep only the signature; the path resolves against the client's base URL.
+	q := url.Values{"sig": {link.Query().Get("sig")}}
 	req, err := e.client.newRequest(ctx, http.MethodGet, pathf(e.iid, fmt.Sprintf("/analytics/exports/%s/download/", jobUUID)), q, nil)
 	if err != nil {
 		return 0, err
 	}
 	req.Header.Set("Accept", "*/*")
-	resp, err := e.client.http.Do(req)
+	noTimeout := *e.client.http
+	noTimeout.Timeout = 0
+	resp, err := noTimeout.Do(req)
 	if err != nil {
 		return 0, fmt.Errorf("mechbase: http do: %w", err)
 	}

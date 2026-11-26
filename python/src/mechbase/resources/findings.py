@@ -8,14 +8,33 @@ class Findings(InstallationScoped):
     def list(self, *, status: str | None = None, asset_id: int | None = None,
              asset_external_id: str | None = None, point_id: int | None = None,
              point_external_id: str | None = None, since: str | None = None,
-             limit: int = 50, cursor: str | None = None) -> list[Finding]:
-        """One page of findings, newest first. `status`: open, acknowledged or closed."""
-        body = self._http.request("GET", self._path("/findings/"), params=_clean({
-            "status": status, "asset_id": asset_id, "asset_external_id": asset_external_id,
-            "point_id": point_id, "point_external_id": point_external_id,
-            "since": since, "limit": limit, "cursor": cursor,
-        }))
-        return [Finding.from_dict(i) for i in body["items"]]
+             limit: int = 50) -> list[Finding]:
+        """Up to `limit` findings, following pages. `status`: open, acknowledged or closed.
+        `since` (ISO datetime) returns findings changed after it, for CMMS sync."""
+        out: list[Finding] = []
+        for f in self.iter(status=status, asset_id=asset_id, asset_external_id=asset_external_id,
+                           point_id=point_id, point_external_id=point_external_id, since=since,
+                           page_size=min(limit, 100)):
+            out.append(f)
+            if len(out) >= limit:
+                break
+        return out
+
+    def iter(self, *, status: str | None = None, asset_id: int | None = None,
+             asset_external_id: str | None = None, point_id: int | None = None,
+             point_external_id: str | None = None, since: str | None = None, page_size: int = 100):
+        """Yield every matching finding, following cursor pages."""
+        cursor = None
+        while True:
+            body = self._http.request("GET", self._path("/findings/"), params=_clean({
+                "status": status, "asset_id": asset_id, "asset_external_id": asset_external_id,
+                "point_id": point_id, "point_external_id": point_external_id,
+                "since": since, "limit": page_size, "cursor": cursor,
+            }))
+            yield from (Finding.from_dict(i) for i in body["items"])
+            cursor = body.get("next_cursor")
+            if not cursor:
+                return
 
     def get(self, finding_uuid: str) -> Finding:
         return Finding.from_dict(self._http.request("GET", self._path(f"/findings/{finding_uuid}/")))

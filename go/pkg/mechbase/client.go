@@ -110,7 +110,7 @@ func (c *Client) RevokeToken(ctx context.Context) error {
 // addPhoto posts a multipart photo (field "file", optional "uuid") to path.
 func (c *Client) addPhoto(ctx context.Context, path, filename string, file io.Reader, photoUUID string, extra map[string]string) (*FileAttachment, error) {
 	if filename == "" {
-		filename = "photo"
+		filename = "photo.jpg"
 	}
 	fields := map[string]string{}
 	for k, v := range extra {

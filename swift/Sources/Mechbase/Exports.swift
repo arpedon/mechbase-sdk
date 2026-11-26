@@ -97,9 +97,13 @@ public final class Exports: Sendable {
         try await scope.http.get(scope.path("/analytics/exports/\(jobUuid)/"), as: ExportStatus.self)
     }
 
-    /// The finished file's raw bytes. Pass the `sig` query value if the status `downloadUrl` carries one.
-    public func download(jobUuid: String, sig: String? = nil) async throws -> Data {
-        try await scope.http.getData(scope.path("/analytics/exports/\(jobUuid)/download/"),
-                                     query: [URLQueryItem(name: "sig", value: sig)])
+    /// The finished file's raw bytes. Reads the signed link from ``status(jobUuid:)``, so the job must be done.
+    public func download(jobUuid: String) async throws -> Data {
+        let st = try await status(jobUuid: jobUuid)
+        guard let link = st.downloadUrl else { throw MechbaseError.server(410, "Export \(jobUuid) has no file yet (\(st.state))") }
+        // Keep only the signature; the path resolves against the client's base URL.
+        let sig = URLComponents(string: link)?.queryItems?.first { $0.name == "sig" }?.value
+        return try await scope.http.getData(scope.path("/analytics/exports/\(jobUuid)/download/"),
+                                            query: [URLQueryItem(name: "sig", value: sig)])
     }
 }

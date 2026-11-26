@@ -45,12 +45,15 @@ def cli_env(monkeypatch, tmp_path):
 
 @respx.mock
 def test_findings_list_and_acknowledge(inst):
-    lst = respx.get(f"{I}/findings/").mock(return_value=httpx.Response(200, json={"items": [FINDING], "next_cursor": None}))
+    lst = respx.get(f"{I}/findings/").mock(side_effect=[
+        httpx.Response(200, json={"items": [FINDING], "next_cursor": "c2"}),
+        httpx.Response(200, json={"items": [{**FINDING, "uuid": "f-2"}], "next_cursor": None}),
+    ])
     ack = respx.post(f"{I}/findings/f-1/status/").mock(
         return_value=httpx.Response(200, json={**FINDING, "status": "acknowledged", "work_order_ref": "WO-9"}))
-    [f] = inst.findings.list(status="open", asset_id=1)
-    assert f.fault_type_display == "Misalignment" and f.extra["evidence"] == {}
-    assert dict(lst.calls.last.request.url.params) == {"status": "open", "asset_id": "1", "limit": "50"}
+    f, f2 = inst.findings.list(status="open", asset_id=1)
+    assert f.fault_type_display == "Misalignment" and f.extra["evidence"] == {} and f2.uuid == "f-2"
+    assert dict(lst.calls.last.request.url.params) == {"status": "open", "asset_id": "1", "limit": "50", "cursor": "c2"}
     f = inst.findings.acknowledge("f-1", work_order_ref="WO-9")
     assert json.loads(ack.calls.last.request.content) == {"status": "acknowledged", "work_order_ref": "WO-9"}
     assert f.status == "acknowledged"
@@ -93,12 +96,16 @@ def test_cancel_conflict_hotspots_redirects_revoke(inst):
 
 @respx.mock
 def test_cli_export_polls_then_writes_file(cli_env, capsys):
-    respx.post(f"{I}/analytics/exports/").mock(return_value=httpx.Response(202, json={"job_uuid": "j", "state": "pending", "status_url": "/s"}))
     done = {"job_uuid": "j", "dataset": "measurements", "file_format": "csv", "state": "done", "row_count": 3,
-            "download_url": f"{I}/analytics/exports/j/download/?sig=abc", "created_at": "t"}
+            "download_url": "http://internal-host/api/x/download/?sig=abc", "created_at": "t"}
+    create = respx.post(f"{I}/analytics/exports/").mock(return_value=httpx.Response(202, json={"job_uuid": "j", "state": "pending", "status_url": "/s"}))
     respx.get(f"{I}/analytics/exports/j/").mock(return_value=httpx.Response(200, json=done))
-    respx.get(f"{I}/analytics/exports/j/download/").mock(return_value=httpx.Response(200, content=b"a,b\n1,2\n"))
-    main(["export", "measurements", "--point", "2", "-o", "out.csv"])
+    dl = respx.get(f"{I}/analytics/exports/j/download/", params={"sig": "abc"}).mock(return_value=httpx.Response(200, content=b"a,b\n1,2\n"))
+    main(["export", "measurements", "--point", "2", "--since", "2026-01-01T00:00:00+00:00", "-o", "out.csv"])
+    assert dl.called
+    assert json.loads(create.calls.last.request.content)["filters"] == {"point_id": 2, "created_from": "2026-01-01T00:00:00+00:00"}
+    with pytest.raises(SystemExit, match="only filter the measurements"):
+        main(["export", "events", "--point", "2"])
     assert (cli_env / "out.csv").read_bytes() == b"a,b\n1,2\n"
     assert "Wrote 3 rows" in capsys.readouterr().out
 
@@ -118,4 +125,6 @@ def test_cli_findings_point_show_logout(cli_env, capsys):
     out = capsys.readouterr().out
     assert "running" in out and "minor 2.8 · major 7.1" in out and "last 2.5" in out
     main(["logout"])
-    assert rv.called
+    assert rv.called and "Signed out." in capsys.readouterr().out
+    main(["point", "show", "--json", "2"])
+    assert json.loads(capsys.readouterr().out)["photos"] == [{"uuid": "ph-1", "url": "https://x/1.jpg"}]

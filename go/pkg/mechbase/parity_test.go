@@ -227,12 +227,16 @@ func TestExportStatus(t *testing.T) {
 
 func TestExportDownload(t *testing.T) {
 	c, stop := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == iid+"/analytics/exports/j1/" {
+			_, _ = w.Write([]byte(`{"job_uuid":"j1","dataset":"measurements","file_format":"csv","state":"done","download_url":"https://elsewhere.test/d?sig=abc","created_at":"2026-01-01T00:00:00Z"}`))
+			return
+		}
 		expect(t, r, "GET", iid+"/analytics/exports/j1/download/", "sig=abc")
 		_, _ = w.Write([]byte("a,b\n1,2\n"))
 	})
 	defer stop()
 	var buf bytes.Buffer
-	n, err := inst(c).Exports.Download(context.Background(), "j1", "abc", &buf)
+	n, err := inst(c).Exports.Download(context.Background(), "j1", &buf)
 	if err != nil || n != 8 || buf.String() != "a,b\n1,2\n" {
 		t.Fatalf("%v %d %q", err, n, buf.String())
 	}
@@ -240,11 +244,15 @@ func TestExportDownload(t *testing.T) {
 
 func TestExportDownloadGone(t *testing.T) {
 	c, stop := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == iid+"/analytics/exports/j1/" {
+			_, _ = w.Write([]byte(`{"job_uuid":"j1","dataset":"measurements","file_format":"csv","state":"done","download_url":"/d?sig=x","created_at":"2026-01-01T00:00:00Z"}`))
+			return
+		}
 		w.WriteHeader(410)
 		_, _ = w.Write([]byte(`{"detail":"expired"}`))
 	})
 	defer stop()
-	_, err := inst(c).Exports.Download(context.Background(), "j1", "", io.Discard)
+	_, err := inst(c).Exports.Download(context.Background(), "j1", io.Discard)
 	var ae *APIError
 	if !errors.As(err, &ae) || ae.Status != 410 || ae.Detail != "expired" {
 		t.Fatalf("err = %v", err)

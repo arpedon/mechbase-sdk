@@ -78,11 +78,14 @@ class FindingsExportsTest {
     }
 
     @Test fun exports_download_returns_raw_bytes_with_sig() = runBlocking {
+        server.enqueue(json("""{"job_uuid":"j-1","dataset":"measurements","file_format":"csv","state":"done",""" +
+            """"download_url":"https://elsewhere.test/d?sig=z%2B1","created_at":"2026-11-01T00:00:00Z"}"""))
         server.enqueue(MockResponse().setResponseCode(200).setHeader("Content-Type", "text/csv").setBody("a,b\n1,2\n"))
-        val bytes = client.forInstallation(2012).exports.download("j-1", sig = "z")
+        val bytes = client.forInstallation(2012).exports.download("j-1")
+        server.takeRequest() // status
         val rec = server.takeRequest()
         assertEquals("GET", rec.method)
-        assertEquals("/api/installations/2012/analytics/exports/j-1/download/?sig=z", rec.path)
+        assertEquals("/api/installations/2012/analytics/exports/j-1/download/?sig=z%2B1", rec.path)
         assertArrayEquals("a,b\n1,2\n".toByteArray(), bytes)
     }
 

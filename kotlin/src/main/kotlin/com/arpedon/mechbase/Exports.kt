@@ -59,7 +59,14 @@ class Exports internal constructor(
     suspend fun status(jobUuid: String): ExportStatus =
         http.getJson(installationPath(installationId, "/analytics/exports/$jobUuid/"), null, ExportStatus.serializer())
 
-    /** The finished file's raw bytes. Pass the `sig` query value if the status [ExportStatus.downloadUrl] carries one. */
-    suspend fun download(jobUuid: String, sig: String? = null): ByteArray =
-        http.getBytes(installationPath(installationId, "/analytics/exports/$jobUuid/download/"), mapOf("sig" to sig))
+    /** The finished file's raw bytes. Reads the signed link from [status], so the job must be done. */
+    suspend fun download(jobUuid: String): ByteArray {
+        val st = status(jobUuid)
+        val link = st.downloadUrl ?: throw MechbaseException("Export $jobUuid has no file yet (${st.state})", status = 410)
+        // Keep only the signature; the path resolves against the client's base URL.
+        val sig = java.net.URI(link).rawQuery.orEmpty().split("&")
+            .firstOrNull { it.startsWith("sig=") }?.removePrefix("sig=")
+            ?.let { java.net.URLDecoder.decode(it, "UTF-8") }
+        return http.getBytes(installationPath(installationId, "/analytics/exports/$jobUuid/download/"), mapOf("sig" to sig))
+    }
 }

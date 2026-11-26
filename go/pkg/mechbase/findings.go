@@ -65,7 +65,7 @@ func (f *Findings) Get(ctx context.Context, findingUUID string) (*Finding, error
 }
 
 // SetStatus acknowledges or closes a finding. status is "acknowledged" or
-// "closed"; workOrderRef is optional.
+// "closed". workOrderRef is required to acknowledge, optional to close.
 func (f *Findings) SetStatus(ctx context.Context, findingUUID, status, workOrderRef string) (*Finding, error) {
 	body := map[string]any{"status": status}
 	if workOrderRef != "" {

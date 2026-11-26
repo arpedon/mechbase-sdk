@@ -57,8 +57,9 @@ final class FindingsExportsTests: XCTestCase {
     }
 
     func testExportDownloadReturnsRawBytesWithSig() async throws {
+        CaptureMock.queue = [#"{"job_uuid":"j-1","dataset":"measurements","file_format":"csv","state":"done","download_url":"https://elsewhere.test/d?sig=z","created_at":"2026-11-01T00:00:00Z"}"#]
         CaptureMock.reply = "a,b\n1,2\n"
-        let data = try await client().forInstallation(id: 2012).exports.download(jobUuid: "j-1", sig: "z")
+        let data = try await client().forInstallation(id: 2012).exports.download(jobUuid: "j-1")
         XCTAssertEqual(CaptureMock.lastMethod, "GET")
         XCTAssertEqual(CaptureMock.lastPath, "https://x.test/api/installations/2012/analytics/exports/j-1/download/?sig=z")
         XCTAssertEqual(data, Data("a,b\n1,2\n".utf8))

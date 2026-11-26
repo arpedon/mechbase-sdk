@@ -18,13 +18,17 @@ MECHBASE_INSTALLATION override the stored config.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import getpass
 import json
 import os
 import platform
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
+
+import httpx
 
 from . import Mechbase
 from ._http import HttpClient
@@ -63,7 +67,20 @@ def _client(cfg: dict) -> Mechbase:
 
 def _inst(args, cfg, client):
     iid = args.installation or cfg.get("installation") or client.me().current_installation_id
+    if iid is None:
+        sys.exit("No installation selected. Run: mechbase use <id>")
     return client.for_installation(int(iid))
+
+
+def _aware(s: str | None) -> str | None:
+    """ISO date/time as the API wants it: with an offset (local time when none is given)."""
+    if s is None:
+        return None
+    try:
+        dt = datetime.fromisoformat(s)
+    except ValueError:
+        sys.exit(f"Not an ISO date/time: {s}")
+    return (dt if dt.tzinfo else dt.astimezone()).isoformat()
 
 
 def _out(args, rows: list[dict], cols: list[str]) -> None:
@@ -119,7 +136,7 @@ def cmd_login(args, cfg):
 
 def cmd_whoami(args, cfg):
     me = _client(cfg).me()
-    current = int(cfg.get("installation") or me.current_installation_id)
+    current = int(cfg.get("installation") or me.current_installation_id or 0)
     rows = [{"id": i.installation_id, "name": i.name, "current": "*" if i.installation_id == current else ""}
             for i in me.installations]
     if not args.json:
@@ -200,7 +217,7 @@ def cmd_logout(args, cfg):
     if cfg.get("token"):
         try:
             _client(cfg).revoke_token()
-        except MechbaseError:
+        except (MechbaseError, httpx.HTTPError):
             pass  # already revoked or server gone: forget it locally anyway
     cfg.pop("token", None)
     _save(cfg)
@@ -212,7 +229,7 @@ def cmd_point_show(args, cfg):
     p = inst.measurement_points.get(args.point)
     ctx = inst.measurement_points.context(args.point)
     if args.json:
-        print(json.dumps({**p.__dict__, "context": ctx}, indent=2, default=str))
+        print(json.dumps({**dataclasses.asdict(p), "context": ctx}, indent=2, default=str))
         return
     print(f"Point {p.point_id} · {p.name} · {p.transducer_type} · {STATUS.get(p.status, p.status).upper()}")
     running = {True: "running", False: "stopped", None: "unknown"}[ctx.get("running")]
@@ -234,7 +251,7 @@ def cmd_findings(args, cfg):
     inst = _inst(args, cfg, _client(cfg))
     fs = inst.findings.list(status=args.status, asset_id=args.asset, point_id=args.point, limit=args.limit)
     if args.json:
-        print(json.dumps([f.__dict__ for f in fs], indent=2, default=str))
+        print(json.dumps([dataclasses.asdict(f) for f in fs], indent=2, default=str))
         return
     rows = [{"finding": f.uuid, "when": f.created_at[:10], "status": f.status, "severity": f.severity,
              "asset": f.asset_name, "point": f.point_name, "fault": f.fault_type_display or f.fault_type,
@@ -249,15 +266,18 @@ def cmd_finding_set(args, cfg):
     else:
         f = inst.findings.close(args.finding, work_order_ref=args.wo)
     if args.json:
-        print(json.dumps(f.__dict__, indent=2, default=str))
+        print(json.dumps(dataclasses.asdict(f), indent=2, default=str))
         return
     print(f"{f.asset_name} · {f.fault_type_display or f.fault_type}: {f.status}" + (f" ({f.work_order_ref})" if f.work_order_ref else ""))
 
 
 def cmd_export(args, cfg):
+    if args.dataset != "measurements" and (args.asset or args.point):
+        sys.exit("--asset and --point only filter the measurements export.")
     inst = _inst(args, cfg, _client(cfg))
     filters = {k: v for k, v in {"asset_id": args.asset, "point_id": args.point,
-                                 "created_from": args.since, "created_to": args.until}.items() if v is not None}
+                                 "created_from": _aware(args.since), "created_to": _aware(args.until)}.items()
+               if v is not None}
     job = inst.exports.create(args.dataset, format=args.format, filters=filters)
     out = Path(args.output or f"{args.dataset}.{args.format}")
     # ponytail: fixed 2 s poll, no timeout; exports finish in seconds to minutes
@@ -370,10 +390,10 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("export", parents=[common], help="export a dataset to a file")
     s.add_argument("dataset", choices=["measurements", "events", "inspections"])
     s.add_argument("--format", choices=["csv", "parquet"], default="csv")
-    s.add_argument("--asset", type=int)
-    s.add_argument("--point", type=int)
-    s.add_argument("--since", help="ISO date/time")
-    s.add_argument("--until", help="ISO date/time")
+    s.add_argument("--asset", type=int, help="measurements only")
+    s.add_argument("--point", type=int, help="measurements only")
+    s.add_argument("--since", help="ISO date or date/time (local time unless it has an offset)")
+    s.add_argument("--until", help="ISO date or date/time (local time unless it has an offset)")
     s.add_argument("-o", "--output", help="file (default <dataset>.<format>)")
     s.set_defaults(fn=cmd_export)
 
