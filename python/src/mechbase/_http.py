@@ -89,7 +89,6 @@ class HttpClient:
             if response.status_code != 429 or not retryable or attempt == MAX_ATTEMPTS - 1:
                 break
             # The server throttles before doing any work, so a retry is safe for every method.
-            # django-ninja sends no Retry-After today; honour it if it ever does.
             try:
                 wait = float(response.headers["Retry-After"])
                 if not math.isfinite(wait):
@@ -97,7 +96,12 @@ class HttpClient:
                 wait = max(0.0, wait)
             except (KeyError, ValueError):
                 wait = 2.0**attempt
-            self._sleep(min(wait, MAX_WAIT))
+            if wait > MAX_WAIT:
+                # Fail fast rather than stall for minutes; the caller decides whether to wait.
+                return self._handle(
+                    response, note=f" (the server asked to wait {wait:g} s, over the {MAX_WAIT:g} s retry cap)"
+                )
+            self._sleep(wait)
             for f, pos in zip(streams, starts):
                 f.seek(pos)
         if raw and 200 <= response.status_code < 300:
@@ -105,7 +109,7 @@ class HttpClient:
         return self._handle(response)
 
     @staticmethod
-    def _handle(response: httpx.Response) -> Any:
+    def _handle(response: httpx.Response, note: str = "") -> Any:
         if response.status_code == 204:
             return None
         try:
@@ -117,7 +121,7 @@ class HttpClient:
             return body
 
         detail = body.get("detail") if isinstance(body, dict) else str(body)
-        message = f"{response.status_code} {detail}"
+        message = f"{response.status_code} {detail}{note}"
         if response.status_code in (401, 403):
             raise AuthError(message, status=response.status_code, body=body)
         if response.status_code == 404:

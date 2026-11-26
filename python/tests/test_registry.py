@@ -216,12 +216,25 @@ def test_429_backoff_then_gives_up():
 
 
 @respx.mock
-def test_429_wait_capped():
+def test_429_retry_after_over_cap_fails_fast():
+    c = Mechbase(token="tok", base_url=BASE)
+    c._http._sleep = lambda s: pytest.fail("slept")
+    route = respx.get(f"{BASE}/api/me/").mock(side_effect=[
+        httpx.Response(429, headers={"Retry-After": "120"}, json={"detail": "Too many requests."}),
+        httpx.Response(200, json={"ok": 1})])
+    with pytest.raises(MechbaseError) as e:
+        c._http.request("GET", "/api/me/")
+    assert e.value.status == 429 and route.call_count == 1
+    assert "120" in str(e.value) and "Too many requests." in str(e.value)
+
+
+@respx.mock
+def test_429_retry_after_at_cap_waits():
     waits = []
     c = Mechbase(token="tok", base_url=BASE)
     c._http._sleep = waits.append
     respx.get(f"{BASE}/api/me/").mock(side_effect=[
-        httpx.Response(429, headers={"Retry-After": "120"}), httpx.Response(200, json={"ok": 1})])
+        httpx.Response(429, headers={"Retry-After": "30"}), httpx.Response(200, json={"ok": 1})])
     c._http.request("GET", "/api/me/")
     assert waits == [30.0]
 
