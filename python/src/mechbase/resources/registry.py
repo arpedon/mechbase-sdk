@@ -167,10 +167,12 @@ class Zones(InstallationScoped):
         return Zone.from_dict(self._http.request("PATCH", self._path(f"/zones/{zone_id}"), json=body))
 
     def set_guest_view(self, enabled: bool, *, zone_ids: list[int] | None = None,
-                       section_id: int | None = None) -> int:
-        """Turn the QR guest view on/off in one call: for zone_ids, a section, or (no filter) every zone.
-        Returns the number of zones updated."""
-        body = _clean({"enabled": enabled, "zone_ids": zone_ids, "section_id": section_id})
+                       section_id: int | None = None, all: bool = False) -> int:
+        """Turn the QR guest view on/off in one call for exactly one target: zone_ids, a section,
+        or all=True for every zone. Returns the number of zones updated."""
+        if (zone_ids is not None) + (section_id is not None) + all != 1:
+            raise ValueError("Name one of zone_ids, section_id, or all=True.")
+        body = _clean({"enabled": enabled, "zone_ids": zone_ids, "section_id": section_id, "all": all or None})
         return self._http.request("POST", self._path("/zones/guest-view"), json=body)["updated"]
 
     def delete(self, zone_id: int, *, cascade: bool = False) -> DeleteResult:

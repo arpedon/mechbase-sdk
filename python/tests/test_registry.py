@@ -220,12 +220,12 @@ def test_429_retry_after_over_cap_fails_fast():
     c = Mechbase(token="tok", base_url=BASE)
     c._http._sleep = lambda s: pytest.fail("slept")
     route = respx.get(f"{BASE}/api/me/").mock(side_effect=[
-        httpx.Response(429, headers={"Retry-After": "120"}, json={"detail": "Too many requests."}),
+        httpx.Response(429, headers={"Retry-After": "61"}, json={"detail": "Too many requests."}),
         httpx.Response(200, json={"ok": 1})])
     with pytest.raises(MechbaseError) as e:
         c._http.request("GET", "/api/me/")
     assert e.value.status == 429 and route.call_count == 1
-    assert "120" in str(e.value) and "Too many requests." in str(e.value)
+    assert "61 s" in str(e.value) and "60 s retry cap" in str(e.value) and "Too many requests." in str(e.value)
 
 
 @respx.mock
@@ -234,9 +234,9 @@ def test_429_retry_after_at_cap_waits():
     c = Mechbase(token="tok", base_url=BASE)
     c._http._sleep = waits.append
     respx.get(f"{BASE}/api/me/").mock(side_effect=[
-        httpx.Response(429, headers={"Retry-After": "30"}), httpx.Response(200, json={"ok": 1})])
+        httpx.Response(429, headers={"Retry-After": "60"}), httpx.Response(200, json={"ok": 1})])
     c._http.request("GET", "/api/me/")
-    assert waits == [30.0]
+    assert waits == [60.0]  # the API's 60/min burst window; 52 s seen on a PR preview
 
 
 @respx.mock
@@ -244,12 +244,17 @@ def test_set_guest_view_bodies(client):
     route = respx.post(f"{BASE}/api/installations/7/zones/guest-view").mock(
         return_value=httpx.Response(200, json={"updated": 3}))
     zones = client.for_installation(7).zones
-    assert zones.set_guest_view(True) == 3
-    assert json.loads(route.calls.last.request.content) == {"enabled": True}
+    assert zones.set_guest_view(True, all=True) == 3
+    assert json.loads(route.calls.last.request.content) == {"enabled": True, "all": True}
     zones.set_guest_view(False, zone_ids=[1, 2])
     assert json.loads(route.calls.last.request.content) == {"enabled": False, "zone_ids": [1, 2]}
     zones.set_guest_view(True, section_id=9)
     assert json.loads(route.calls.last.request.content) == {"enabled": True, "section_id": 9}
+    calls = route.call_count
+    for targets in ({}, {"zone_ids": [1], "all": True}, {"zone_ids": [1], "section_id": 9}):
+        with pytest.raises(ValueError):
+            zones.set_guest_view(True, **targets)
+    assert route.call_count == calls  # nothing sent
 
 
 @respx.mock

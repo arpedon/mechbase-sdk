@@ -16,7 +16,9 @@ from .errors import (
 )
 
 MAX_ATTEMPTS = 6
-MAX_WAIT = 30.0
+# The API allows 60 requests a minute: a 429 asks for up to ~60 s, so a bulk job waits it out;
+# a longer wait (the hourly window) fails fast with the server's message.
+MAX_WAIT = 60.0
 
 
 def _seekable(f) -> bool:

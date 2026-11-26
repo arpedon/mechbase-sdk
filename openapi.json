@@ -1096,7 +1096,7 @@
             }
           }
         },
-        "description": "One request, one UPDATE. Targets `zone_ids`, or every zone of `section_id`, or (neither) every zone of the installation. Passing both is a 422; a zone id outside this installation is a 422 and nothing changes.",
+        "description": "One request, one UPDATE. Name exactly one target: `zone_ids`, every zone of `section_id`, or `all: true` for every zone of the installation. No target, more than one, or an unknown field is a 422; a zone id outside this installation is a 422 and nothing changes.",
         "tags": [
           "registry"
         ],
@@ -8651,6 +8651,7 @@
         "type": "object"
       },
       "ZoneGuestViewIn": {
+        "additionalProperties": false,
         "properties": {
           "enabled": {
             "title": "Enabled",
@@ -8680,6 +8681,11 @@
               }
             ],
             "title": "Section Id"
+          },
+          "all": {
+            "default": false,
+            "title": "All",
+            "type": "boolean"
           }
         },
         "required": [

@@ -374,7 +374,7 @@ def cmd_zone_guest(args, cfg):
     if args.all == bool(args.zones):
         sys.exit("Give zone ids or --all.")
     on = args.state == "on"
-    n = inst.zones.set_guest_view(on, zone_ids=args.zones or None)
+    n = inst.zones.set_guest_view(on, zone_ids=args.zones or None, all=args.all)
     print(json.dumps({"zones": args.zones or None, "updated": n, "guest_view": on}) if args.json else f"Guest view {args.state} for {n} zone(s).")
 
 

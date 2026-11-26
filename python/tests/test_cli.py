@@ -82,7 +82,7 @@ def test_zone_guest_all_asset_type_cli(monkeypatch, tmp_path, capsys):
         "uuid": "x", "asset_id": 5, "name": "P", "status": 1}))
 
     main(["zone", "guest", "on", "--all"])
-    assert gv.call_count == 1 and json.loads(gv.calls.last.request.content) == {"enabled": True}
+    assert gv.call_count == 1 and json.loads(gv.calls.last.request.content) == {"enabled": True, "all": True}
     assert "2 zone(s)" in capsys.readouterr().out
     main(["zone", "guest", "off", "--all", "--json"])
     assert json.loads(capsys.readouterr().out) == {"zones": None, "updated": 2, "guest_view": False}
