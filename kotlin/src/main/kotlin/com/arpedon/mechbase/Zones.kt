@@ -9,6 +9,7 @@ data class ZoneInput(
     @SerialName("external_id") val externalId: String? = null,
     @SerialName("section_id") val sectionId: Int? = null,
     @SerialName("section_external_id") val sectionExternalId: String? = null,
+    @SerialName("guest_view") val guestView: Boolean? = null,
 )
 
 class Zones internal constructor(

@@ -103,6 +103,8 @@ data class Asset(
     @SerialName("image_urls") val imageUrls: List<String> = emptyList(),
     /** Same photos as [imageUrls], with their uuids; empty on older servers. */
     val photos: List<Photo> = emptyList(),
+    /** Asset type code, if the asset has one. */
+    @SerialName("asset_type") val assetType: String? = null,
 )
 
 @Serializable
@@ -277,7 +279,26 @@ data class Zone(
     val name: String,
     @SerialName("section_id") val sectionId: Int? = null,
     @SerialName("external_id") val externalId: String? = null,
+    /** Public guest page enabled; false on older servers. */
+    @SerialName("guest_view") val guestView: Boolean = false,
 )
+
+/** Asset type (template), addressed by [code]. */
+@Serializable
+data class AssetType(
+    val uuid: String,
+    val code: String,
+    val name: String,
+    val manufacturer: String = "",
+    val checklist: List<kotlinx.serialization.json.JsonElement> = emptyList(),
+    @SerialName("external_id") val externalId: String? = null,
+    @SerialName("asset_count") val assetCount: Int = 0,
+    @SerialName("document_count") val documentCount: Int = 0,
+)
+
+/** Result of [Assets.ensureChecklist]. */
+@Serializable
+data class ChecklistResult(@SerialName("route_uuid") val routeUuid: String, val created: Boolean)
 
 @Serializable
 data class DeleteResult(val deleted: Boolean, val uuid: String)

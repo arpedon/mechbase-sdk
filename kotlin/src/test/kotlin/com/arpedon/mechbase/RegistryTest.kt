@@ -127,4 +127,62 @@ class RegistryTest {
         val req2 = server.takeRequest()
         assertTrue("second request path should contain cursor=CUR2: ${req2.path}", req2.path!!.contains("cursor=CUR2"))
     }
+
+    private fun ok(body: String, code: Int = 200) =
+        MockResponse().setResponseCode(code).setHeader("Content-Type", "application/json").setBody(body)
+
+    @Test fun assetTypeOmittedNullCode() = runBlocking {
+        val assets = client.forInstallation(2012).assets
+        val a = """{"uuid":"a","asset_id":1,"name":"P","status":1,"asset_type":"QB-STD"}"""
+        repeat(3) { server.enqueue(ok(a)) }
+        assertEquals("QB-STD", assets.update(1, AssetInput(name = "P")).assetType)
+        assets.update(1, AssetInput(clearAssetType = true))
+        assets.update(1, AssetInput(assetType = "QB-STD"))
+        assertEquals("""{"name":"P"}""", server.takeRequest().body.readUtf8())
+        assertEquals("""{"asset_type":null}""", server.takeRequest().body.readUtf8())
+        assertEquals("""{"asset_type":"QB-STD"}""", server.takeRequest().body.readUtf8())
+    }
+
+    @Test fun zoneGuestViewAndEnsureChecklist() = runBlocking {
+        server.enqueue(ok("""{"uuid":"z","zone_id":3,"name":"Z","guest_view":true}"""))
+        server.enqueue(ok("""{"uuid":"z","name":"Z"}"""))
+        server.enqueue(ok("""{"route_uuid":"r","created":true}"""))
+        val inst = client.forInstallation(2012)
+        assertTrue(inst.zones.update(3, ZoneInput(guestView = true)).guestView)
+        val z = server.takeRequest()
+        assertEquals("PATCH", z.method)
+        assertEquals("""{"guest_view":true}""", z.body.readUtf8())
+        assertEquals(false, inst.zones.get(3).guestView)
+        server.takeRequest()
+        val c = inst.assets.ensureChecklist(1)
+        assertEquals("r", c.routeUuid)
+        assertTrue(c.created)
+        val r = server.takeRequest()
+        assertEquals("POST", r.method)
+        assertEquals("/api/installations/2012/assets/1/checklist", r.path)
+    }
+
+    @Test fun assetTypesPaths() = runBlocking {
+        val t = """{"uuid":"t","code":"QB-STD","name":"QB","checklist":[{"label":"x"}],"asset_count":2,"document_count":1}"""
+        val d = """{"uuid":"d","name":"m.pdf","kind":"manual","url":"u","created_at":"c"}"""
+        server.enqueue(ok("[$t]")); server.enqueue(ok(t)); server.enqueue(ok(t)); server.enqueue(ok(t))
+        server.enqueue(ok("""{"deleted":true,"uuid":"t"}""")); server.enqueue(ok("[$d]")); server.enqueue(ok(d, 201))
+        server.enqueue(MockResponse().setResponseCode(204))
+        val at = client.forInstallation(2012).assetTypes
+        val list = at.list()
+        assertEquals(1, list[0].documentCount); assertEquals(1, list[0].checklist.size)
+        at.get("QB-STD")
+        at.upsert(AssetTypeInput(code = "QB-STD", name = "QB"))
+        at.update("QB-STD", AssetTypeInput(manufacturer = "ACME"))
+        assertTrue(at.delete("QB-STD").deleted)
+        assertEquals(1, at.documents("QB-STD").size)
+        val f = java.io.File.createTempFile("doc", ".pdf").apply { writeText("%PDF"); deleteOnExit() }
+        at.addDocument("QB-STD", f, kind = "manual")
+        at.deleteDocument("QB-STD", "11111111-1111-1111-1111-111111111111")
+        val base = "/api/installations/2012/asset-types"
+        val got = (1..8).map { server.takeRequest().let { r -> "${r.method} ${r.path}" } }
+        assertEquals(listOf("GET $base", "GET $base/QB-STD", "PUT $base", "PATCH $base/QB-STD", "DELETE $base/QB-STD",
+            "GET $base/QB-STD/documents", "POST $base/QB-STD/documents",
+            "DELETE $base/QB-STD/documents/11111111-1111-1111-1111-111111111111"), got)
+    }
 }

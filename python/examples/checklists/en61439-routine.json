@@ -1,0 +1,102 @@
+[
+  {
+    "label": "Marking and identification",
+    "item_type": "multi_check",
+    "config": {
+      "checks": [
+        {
+          "label": "Rating plate present and legible"
+        },
+        {
+          "label": "Circuit and device identification present"
+        }
+      ]
+    }
+  },
+  {
+    "label": "As-built matches drawing and BOM",
+    "item_type": "pass_fail",
+    "config": {}
+  },
+  {
+    "label": "Enclosure degree of protection (IP)",
+    "item_type": "pass_fail",
+    "config": {}
+  },
+  {
+    "label": "Clearances and creepage distances",
+    "item_type": "pass_fail",
+    "config": {}
+  },
+  {
+    "label": "Protection against electric shock (IPXXB)",
+    "item_type": "pass_fail",
+    "config": {}
+  },
+  {
+    "label": "Protective earth (PE) continuity",
+    "item_type": "numerical",
+    "config": {
+      "unit": "Ω"
+    }
+  },
+  {
+    "label": "Internal connections",
+    "item_type": "multi_check",
+    "config": {
+      "checks": [
+        {
+          "label": "Torque"
+        },
+        {
+          "label": "Cross-sections"
+        },
+        {
+          "label": "Colours"
+        },
+        {
+          "label": "Ferrules"
+        },
+        {
+          "label": "Markers"
+        }
+      ]
+    }
+  },
+  {
+    "label": "Field terminals",
+    "item_type": "pass_fail",
+    "config": {}
+  },
+  {
+    "label": "Mechanical operation",
+    "item_type": "pass_fail",
+    "config": {}
+  },
+  {
+    "label": "Insulation resistance at 500 V DC (electronics disconnected)",
+    "item_type": "numerical",
+    "config": {
+      "unit": "MΩ",
+      "min": 1
+    }
+  },
+  {
+    "label": "Functional test per circuit",
+    "item_type": "multi_check",
+    "config": {
+      "checks": [
+        {
+          "label": "Circuit functions as specified"
+        }
+      ]
+    }
+  },
+  {
+    "label": "RCD trip time at IΔn (only if the panel holds an RCD)",
+    "item_type": "numerical",
+    "config": {
+      "unit": "ms"
+    }
+  }
+]

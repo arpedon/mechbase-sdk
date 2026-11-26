@@ -88,7 +88,7 @@ private data class AlarmRulePatch(
     @SerialName("major_threshold") val majorThreshold: Double? = null,
 )
 
-private fun requireUuid(uuid: String) {
+internal fun requireUuid(uuid: String) {
     if (runCatching { java.util.UUID.fromString(uuid).toString() == uuid.lowercase() }.getOrDefault(false)) return
     throw ValidationException("invalid uuid: $uuid")
 }

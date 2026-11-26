@@ -11,10 +11,13 @@ public struct AssetInput: Encodable, Sendable {
     public var zoneExternalId: String?
     public var equipmentType: String?
     public var machineClass: String?
+    /// Type code. nil omits the field (leaves it untouched); `.some(nil)` sends explicit null (clears it).
+    public var assetType: String??
 
     public init(name: String? = nil, externalId: String? = nil, sectionId: Int? = nil,
                 sectionExternalId: String? = nil, zoneId: Int? = nil, zoneExternalId: String? = nil,
-                equipmentType: String? = nil, machineClass: String? = nil) {
+                equipmentType: String? = nil, machineClass: String? = nil, assetType: String?? = nil) {
+        self.assetType = assetType
         self.name = name
         self.externalId = externalId
         self.sectionId = sectionId
@@ -34,6 +37,7 @@ public struct AssetInput: Encodable, Sendable {
         case zoneExternalId = "zone_external_id"
         case equipmentType = "equipment_type"
         case machineClass = "machine_class"
+        case assetType = "asset_type"
     }
 }
 
@@ -72,6 +76,11 @@ public struct Assets: Sendable {
     public func delete(id: Int, cascade: Bool = false) async throws -> DeleteResult {
         let q = cascade ? [URLQueryItem(name: "cascade", value: "true")] : []
         return try await scope.http.delete(scope.path("/assets/\(id)"), query: q, as: DeleteResult.self)
+    }
+
+    /// Create (or find) the asset's checklist route from its type. 422 if the asset has no type or the type's checklist is empty.
+    public func ensureChecklist(assetId: Int) async throws -> ChecklistResult {
+        try await scope.http.post(scope.path("/assets/\(assetId)/checklist"), as: ChecklistResult.self)
     }
 
     /// Append a photo to the asset's gallery. Pass a client-minted `uuid` so a retry returns the same photo.

@@ -15,7 +15,16 @@ data class AssetInput(
     @SerialName("zone_external_id") val zoneExternalId: String? = null,
     @SerialName("equipment_type") val equipmentType: String? = null,
     @SerialName("machine_class") val machineClass: String? = null,
+    /** Type code. null omits the field (leaves it untouched); see [clearAssetType] to send explicit null. */
+    @SerialName("asset_type") val assetType: String? = null,
+    /** Send `"asset_type": null` (clears the type) when [assetType] is null. */
+    @kotlinx.serialization.Transient val clearAssetType: Boolean = false,
 )
+
+private fun AssetInput.toJson(): kotlinx.serialization.json.JsonElement {
+    val o = SDK_JSON.encodeToJsonElement(AssetInput.serializer(), this) as kotlinx.serialization.json.JsonObject
+    return if (clearAssetType && assetType == null) kotlinx.serialization.json.JsonObject(o + ("asset_type" to kotlinx.serialization.json.JsonNull)) else o
+}
 
 class Assets internal constructor(
     private val http: Http,
@@ -50,7 +59,7 @@ class Assets internal constructor(
     suspend fun create(input: AssetInput): Asset =
         http.postJson(
             installationPath(installationId, "/assets"),
-            SDK_JSON.encodeToJsonElement(AssetInput.serializer(), input),
+            input.toJson(),
             Asset.serializer(),
         )
 
@@ -58,7 +67,7 @@ class Assets internal constructor(
         http.sendJson(
             "PUT",
             installationPath(installationId, "/assets"),
-            SDK_JSON.encodeToJsonElement(AssetInput.serializer(), input),
+            input.toJson(),
             null,
             Asset.serializer(),
         )
@@ -67,7 +76,7 @@ class Assets internal constructor(
         http.sendJson(
             "PATCH",
             installationPath(installationId, "/assets/$assetId"),
-            SDK_JSON.encodeToJsonElement(AssetInput.serializer(), input),
+            input.toJson(),
             null,
             Asset.serializer(),
         )
@@ -80,6 +89,10 @@ class Assets internal constructor(
             if (cascade) mapOf("cascade" to "true") else null,
             DeleteResult.serializer(),
         )
+
+    /** Create (or find) the asset's checklist route from its type. 422 if the asset has no type or the type's checklist is empty. */
+    suspend fun ensureChecklist(assetId: Int): ChecklistResult =
+        http.postJson(installationPath(installationId, "/assets/$assetId/checklist"), null, ChecklistResult.serializer())
 
     /** Append a photo to the asset's gallery. Pass a client-minted [uuid] so a retry returns the same photo. */
     suspend fun addPhoto(assetId: Int, file: File, uuid: String? = null): FileAttachment =
