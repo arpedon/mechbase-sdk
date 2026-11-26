@@ -84,7 +84,7 @@ class CommentsDocumentsAlarmsTest {
         assertTrue(r.getHeader("Content-Type")!!.startsWith("multipart/form-data"))
         val b = r.body.readUtf8()
         assertTrue(b, b.contains("""name="kind"""") && b.contains("manual") && b.contains("""name="uuid"""") && b.contains("d1"))
-        assertTrue(b, b.contains("""filename="document.pdf"""") && b.contains("PDF"))
+        assertTrue(b, b.contains("filename=\"${f.name}\"") && b.contains("PDF"))
         assertEquals("d1", d.uuid)
     }
 

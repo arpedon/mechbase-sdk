@@ -328,6 +328,8 @@ def cmd_comments(args, cfg):
 
 def cmd_comment_add(args, cfg):
     inst = _inst(args, cfg, _client(cfg))
+    if args.reading and not args.point:
+        sys.exit("--reading needs --point.")
     refs = [{"point_id": args.point, "point_sequence": args.reading}] if args.point else None
     c = inst.comments.create(args.asset, f"<div>{html.escape(args.text)}</div>", references=refs)
     print(json.dumps(c, indent=2) if args.json else f"Posted comment #{c['id']} on asset {args.asset}.")
@@ -387,6 +389,9 @@ def cmd_alarm_set(args, cfg):
         r = inst.alarm_rules.update(args.point, own["uuid"], minor_threshold=args.minor, major_threshold=args.major,
                                     data_key=args.key, direction=args.direction)
     else:
+        if args.minor is None or args.major is None:
+            # a point rule replaces the default whole: a missing limit would switch that alarm off
+            sys.exit(f"Point {args.point} has no threshold of its own yet: give both --minor and --major.")
         r = inst.alarm_rules.create(args.point, minor_threshold=args.minor, major_threshold=args.major,
                                     data_key=args.key or "", direction=args.direction or "high")
     if args.json:
@@ -398,10 +403,10 @@ def cmd_alarm_set(args, cfg):
 def cmd_alarm_clear(args, cfg):
     inst = _inst(args, cfg, _client(cfg))
     own = _own_threshold(inst, args.point)
-    if not own:
+    if not own or own.get("source") == "iso_10816":  # the ISO default is inherited, not an override
         sys.exit(f"Point {args.point} has no threshold of its own.")
     inst.alarm_rules.delete(args.point, own["uuid"])
-    print(f"Point {args.point} now uses the installation default.")
+    print(f"Point {args.point} is back on its default limits.")
 
 
 # --- wiring -----------------------------------------------------------------

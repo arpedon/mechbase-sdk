@@ -59,7 +59,7 @@ class AlarmRules(InstallationScoped):
         direction, minor_threshold, major_threshold, threshold_mode, source."""
         return self._http.request("GET", self._path(f"/measurement-points/{point_id}/alarm-rules"))
 
-    def create(self, point_id: int, *, minor_threshold: float | None = None, major_threshold: float | None = None,
+    def create(self, point_id: int, *, minor_threshold: float, major_threshold: float,
                data_key: str = "", direction: str = "high") -> dict:
         """The point's threshold override (409 if it already has one: update it)."""
         body = _clean({"method": "threshold", "data_key": data_key, "direction": direction,

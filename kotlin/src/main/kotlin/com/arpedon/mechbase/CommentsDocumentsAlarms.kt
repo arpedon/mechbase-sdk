@@ -139,7 +139,7 @@ class Documents internal constructor(private val http: Http, private val install
     ): Document =
         http.postFile(
             installationPath(installationId, "/assets/$assetId/documents"),
-            listOf(MultipartFile("file", filename.ifEmpty { "document.pdf" }, file)),
+            listOf(MultipartFile("file", filename.ifEmpty { file.name }, file)),
             Document.serializer(),
             buildMap { put("kind", kind.ifEmpty { "attachment" }); uuid?.let { put("uuid", it) } },
         )

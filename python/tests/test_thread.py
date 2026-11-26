@@ -91,3 +91,17 @@ def test_cli_comment_escapes_and_alarm_set_updates_own_rule(cli_env, capsys):
 
     main(["alarms", "2"])
     assert "iso_10816" in capsys.readouterr().out
+
+
+@respx.mock
+def test_cli_alarm_guards(cli_env):
+    respx.get(f"{I}/measurement-points/2/alarm-rules").mock(return_value=httpx.Response(200, json=[{**RULE, "source": "iso_10816"}]))
+    with pytest.raises(SystemExit, match="no threshold of its own"):
+        main(["alarm", "clear", "2"])
+    respx.get(f"{I}/measurement-points/3/alarm-rules").mock(return_value=httpx.Response(200, json=[DEFAULT]))
+    post = respx.post(f"{I}/measurement-points/3/alarm-rules")
+    with pytest.raises(SystemExit, match="both --minor and --major"):
+        main(["alarm", "set", "3", "--minor", "2.8"])
+    assert not post.called
+    with pytest.raises(SystemExit, match="--reading needs --point"):
+        main(["comment", "add", "1", "x", "--reading", "766"])
