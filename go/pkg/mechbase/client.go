@@ -77,6 +77,7 @@ func (c *Client) ForInstallation(id int) *Installation_ {
 		Exports:           &Exports{client: c, iid: id},
 		Comments:          &Comments{client: c, iid: id},
 		Documents:         &Documents{client: c, iid: id},
+		AssetTypes:        &AssetTypes{client: c, iid: id},
 		AlarmRules:        &AlarmRules{client: c, iid: id},
 	}
 }
@@ -96,6 +97,7 @@ type Installation_ struct {
 	Exports           *Exports
 	Comments          *Comments
 	Documents         *Documents
+	AssetTypes        *AssetTypes
 	AlarmRules        *AlarmRules
 }
 

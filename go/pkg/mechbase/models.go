@@ -61,6 +61,7 @@ type Asset struct {
 	ExternalID    *string    `json:"external_id"`
 	ImageURLs     []string   `json:"image_urls"`
 	Photos        []PhotoRef `json:"photos"`
+	AssetType     *string    `json:"asset_type"` // type code
 }
 
 // MeasurementPoint is a measurement location on an asset.
@@ -150,6 +151,25 @@ type Zone struct {
 	Name       string  `json:"name"`
 	SectionID  *int    `json:"section_id"`
 	ExternalID *string `json:"external_id"`
+	GuestView  bool    `json:"guest_view"`
+}
+
+// AssetType is an asset template addressed by Code: checklist and documents.
+type AssetType struct {
+	UUID          string           `json:"uuid"`
+	Code          string           `json:"code"`
+	Name          string           `json:"name"`
+	Manufacturer  string           `json:"manufacturer"`
+	Checklist     []map[string]any `json:"checklist"`
+	ExternalID    *string          `json:"external_id"`
+	AssetCount    int              `json:"asset_count"`
+	DocumentCount int              `json:"document_count"`
+}
+
+// Checklist is the result of Assets.EnsureChecklist.
+type Checklist struct {
+	RouteUUID string `json:"route_uuid"`
+	Created   bool   `json:"created"`
 }
 
 // DeleteResult is returned by DELETE endpoints.

@@ -19,6 +19,7 @@ type ZoneInput struct {
 	ExternalID        *string `json:"external_id,omitempty"`
 	SectionID         *int    `json:"section_id,omitempty"`
 	SectionExternalID *string `json:"section_external_id,omitempty"`
+	GuestView         *bool   `json:"guest_view,omitempty"`
 }
 
 // ListZonesOptions filters Zones.List. Zero values are omitted.
