@@ -1039,6 +1039,87 @@
         ]
       }
     },
+    "/api/installations/{installation_id}/zones/guest-view": {
+      "post": {
+        "operationId": "api_registry_router_bulk_guest_view",
+        "summary": "Switch guest view on or off for many zones",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZoneGuestViewOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "One request, one UPDATE. Targets `zone_ids`, or every zone of `section_id`, or (neither) every zone of the installation. Passing both is a 422; a zone id outside this installation is a 422 and nothing changes.",
+        "tags": [
+          "registry"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ZoneGuestViewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/installations/{installation_id}/zones/{zone_id}": {
       "get": {
         "operationId": "api_registry_router_get_zone",
@@ -8554,6 +8635,57 @@
           }
         },
         "title": "ZoneIn",
+        "type": "object"
+      },
+      "ZoneGuestViewOut": {
+        "properties": {
+          "updated": {
+            "title": "Updated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "updated"
+        ],
+        "title": "ZoneGuestViewOut",
+        "type": "object"
+      },
+      "ZoneGuestViewIn": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "zone_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zone Ids"
+          },
+          "section_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Id"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "ZoneGuestViewIn",
         "type": "object"
       },
       "AssetOut": {
