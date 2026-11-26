@@ -37,6 +37,13 @@ mechbase finding close <uuid>
 mechbase export measurements --point 2 -o readings.csv   # also events, inspections; --format parquet
 mechbase photo add point 2 pump.jpg  # or: photo add asset 1 …, photo delete point 2 <uuid>
 mechbase logout                      # revokes the stored token
+mechbase comments 1                  # an asset's thread
+mechbase comment add 1 "Bearing noise after restart" --point 2 --reading 766
+mechbase docs 1                      # an asset's documents
+mechbase doc add 1 manual.pdf --kind manual
+mechbase alarms 2                    # a point's limits: its own, then the installation default
+mechbase alarm set 2 --minor 2.8 --major 7.1
+mechbase alarm clear 2               # back to the installation default
 ```
 
 Reading numbers are the ones in the web URL (`…/measurementpoints/2/measurements/766/`).

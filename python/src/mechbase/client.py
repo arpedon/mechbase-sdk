@@ -7,6 +7,7 @@ from .resources.findings import Findings
 from .resources.measurements import Measurements
 from .resources.registry import Assets, MeasurementPoints, Sections, Zones
 from .resources.routes import Routes
+from .resources.thread import AlarmRules, Comments, Documents
 
 
 class InstallationHandle:
@@ -15,7 +16,10 @@ class InstallationHandle:
     def __init__(self, http: HttpClient, installation_id: int):
         self._http = http
         self.installation_id = installation_id
+        self.alarm_rules = AlarmRules(http, installation_id)
         self.assets = Assets(http, installation_id)
+        self.comments = Comments(http, installation_id)
+        self.documents = Documents(http, installation_id)
         self.exports = Exports(http, installation_id)
         self.findings = Findings(http, installation_id)
         self.measurement_points = MeasurementPoints(http, installation_id)

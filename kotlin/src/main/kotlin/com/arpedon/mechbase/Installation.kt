@@ -16,6 +16,9 @@ class Installation internal constructor(
     val zones: Zones = Zones(http, installationId)
     val findings: Findings = Findings(http, installationId)
     val exports: Exports = Exports(http, installationId)
+    val comments: Comments = Comments(http, installationId)
+    val documents: Documents = Documents(http, installationId)
+    val alarmRules: AlarmRules = AlarmRules(http, installationId)
 
     /** The legacy v1 QR URL → v2 measurement point map, for resolving old QR tags offline. Fetch once per sync and cache it. */
     suspend fun legacyRedirects(): List<LegacyRedirect> =

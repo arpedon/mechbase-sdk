@@ -11,6 +11,9 @@ public final class Installation: Sendable {
     public let zones: Zones
     public let findings: Findings
     public let exports: Exports
+    public let comments: Comments
+    public let documents: Documents
+    public let alarmRules: AlarmRules
     private let scope: InstallationScope
 
     init(http: HTTPClient, installationId: Int) {
@@ -24,6 +27,9 @@ public final class Installation: Sendable {
         self.zones = Zones(http: http, installationId: installationId)
         self.findings = Findings(http: http, installationId: installationId)
         self.exports = Exports(http: http, installationId: installationId)
+        self.comments = Comments(http: http, installationId: installationId)
+        self.documents = Documents(http: http, installationId: installationId)
+        self.alarmRules = AlarmRules(http: http, installationId: installationId)
     }
 
     private struct LegacyRedirectsPage: Decodable { let items: [LegacyRedirect] }

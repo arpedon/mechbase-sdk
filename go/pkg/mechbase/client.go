@@ -75,6 +75,9 @@ func (c *Client) ForInstallation(id int) *Installation_ {
 		Zones:             &Zones{client: c, iid: id},
 		Findings:          &Findings{client: c, iid: id},
 		Exports:           &Exports{client: c, iid: id},
+		Comments:          &Comments{client: c, iid: id},
+		Documents:         &Documents{client: c, iid: id},
+		AlarmRules:        &AlarmRules{client: c, iid: id},
 	}
 }
 
@@ -91,6 +94,9 @@ type Installation_ struct {
 	Zones             *Zones
 	Findings          *Findings
 	Exports           *Exports
+	Comments          *Comments
+	Documents         *Documents
+	AlarmRules        *AlarmRules
 }
 
 // LegacyRedirects lists legacy-URL to measurement-point redirects.
