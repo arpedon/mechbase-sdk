@@ -16,8 +16,8 @@ Four languages, one uniform surface:
 |----------|-------------|---------------------------------------------------------------------|
 | Python   | [`python/`](python/) | `pip install mechbase`                                      |
 | Go       | [`go/`](go/)         | `go get github.com/arpedon/mechbase-sdk/go`                 |
-| Swift    | [`swift/`](swift/)   | `.package(url: "https://github.com/arpedon/mechbase-sdk", from: "0.4.3")` |
-| Kotlin   | [`kotlin/`](kotlin/) | `implementation("com.arpedon:mechbase-sdk:0.2.11")`          |
+| Swift    | [`swift/`](swift/)   | `.package(url: "https://github.com/arpedon/mechbase-sdk", from: "0.4.4")` |
+| Kotlin   | [`kotlin/`](kotlin/) | `implementation("com.arpedon:mechbase-sdk:0.2.12")`          |
 
 How each SDK is published (and how to cut a release) is documented in
 [`RELEASING.md`](RELEASING.md).
@@ -39,6 +39,9 @@ live mechbase-web `NinjaAPI`. All clients are hand-written to match it — no co
   one with a work-order reference, close it when the work is done.
 - **Exports (all languages):** build a `measurements`, `events` or `inspections` CSV/Parquet
   export on the server and download it.
+- **Asset thread, documents and alarm limits (all languages):** post and edit comments that
+  reference points and readings; upload datasheets, manuals and drawings; set or clear a
+  point's own threshold over the installation default.
 - **Photos (all languages):** add and delete asset and point photos; pick a point's reference
   photo.
 - **Field survey apps (Swift iOS, Kotlin Android):** start a route execution, submit item

@@ -10,6 +10,9 @@
     mechbase finding ack <uuid> --wo WO-1234
     mechbase export measurements --point 2 -o readings.csv
     mechbase photo add point 2 pump.jpg
+    mechbase comment add 1 "Bearing noise after restart" --point 2
+    mechbase doc add 1 manual.pdf --kind manual
+    mechbase alarm set 2 --minor 2.8 --major 7.1
 
 Every command takes --json for scripting. MECHBASE_TOKEN / MECHBASE_URL /
 MECHBASE_INSTALLATION override the stored config.
@@ -20,6 +23,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import getpass
+import html
 import json
 import os
 import platform
@@ -308,6 +312,98 @@ def cmd_photo_delete(args, cfg):
     print(f"Deleted photo {args.photo} of {args.kind} {args.id}.")
 
 
+def cmd_comments(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    cs = inst.comments.list(args.asset, limit=args.limit)
+    if args.json:
+        print(json.dumps(cs, indent=2))
+        return
+    for c in reversed(cs):  # oldest first, like the thread
+        refs = ", ".join(f"point {r['point_id']}" + (f" reading {r['point_sequence']}" if r.get("point_sequence") else "")
+                         for r in c["references"])
+        tags = " · finding" if c["is_finding"] else ""
+        print(f"#{c['id']} {c['created_at'][:16].replace('T', ' ')} {c['author_name']}{tags}" + (f" ({refs})" if refs else ""))
+        print(f"  {c['body_text'].strip()}")
+
+
+def cmd_comment_add(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    refs = [{"point_id": args.point, "point_sequence": args.reading}] if args.point else None
+    c = inst.comments.create(args.asset, f"<div>{html.escape(args.text)}</div>", references=refs)
+    print(json.dumps(c, indent=2) if args.json else f"Posted comment #{c['id']} on asset {args.asset}.")
+
+
+def cmd_comment_delete(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    if not args.yes and input(f"Delete comment #{args.comment} on asset {args.asset}? [y/N] ").lower() != "y":
+        sys.exit("Cancelled.")
+    inst.comments.delete(args.asset, args.comment)
+    print(f"Deleted comment #{args.comment}.")
+
+
+def cmd_docs(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    docs = inst.documents.list(args.asset)
+    if args.json:
+        print(json.dumps(docs, indent=2))
+        return
+    _out(args, [{**d, "added": d["created_at"][:10]} for d in docs], ["uuid", "added", "kind", "name"])
+
+
+def cmd_doc_add(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    d = inst.documents.add(args.asset, args.file, kind=args.kind)
+    print(json.dumps(d, indent=2) if args.json else f"Added {d['kind']} {d['name']} ({d['uuid']}) to asset {args.asset}.")
+
+
+def cmd_doc_delete(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    if not args.yes and input(f"Delete document {args.document} of asset {args.asset}? [y/N] ").lower() != "y":
+        sys.exit("Cancelled.")
+    inst.documents.delete(args.asset, args.document)
+    print(f"Deleted document {args.document}.")
+
+
+def cmd_alarms(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    rules = inst.alarm_rules.list(args.point)
+    if args.json:
+        print(json.dumps(rules, indent=2))
+        return
+    rows = [{"scope": r["scope"], "method": r["method"], "value": r["effective_data_key"], "direction": r["direction"],
+             "minor": r.get("minor_threshold"), "major": r.get("major_threshold"), "source": r.get("source") or ""}
+            for r in rules]
+    _out(args, rows, ["scope", "method", "value", "direction", "minor", "major", "source"])
+
+
+def _own_threshold(inst, point_id):
+    return next((r for r in inst.alarm_rules.list(point_id) if r["scope"] == "point" and r["method"] == "threshold"), None)
+
+
+def cmd_alarm_set(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    own = _own_threshold(inst, args.point)
+    if own:
+        r = inst.alarm_rules.update(args.point, own["uuid"], minor_threshold=args.minor, major_threshold=args.major,
+                                    data_key=args.key, direction=args.direction)
+    else:
+        r = inst.alarm_rules.create(args.point, minor_threshold=args.minor, major_threshold=args.major,
+                                    data_key=args.key or "", direction=args.direction or "high")
+    if args.json:
+        print(json.dumps(r, indent=2))
+        return
+    print(f"Point {args.point}: {r['effective_data_key']} minor {r.get('minor_threshold')} · major {r.get('major_threshold')} ({r['direction']}).")
+
+
+def cmd_alarm_clear(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    own = _own_threshold(inst, args.point)
+    if not own:
+        sys.exit(f"Point {args.point} has no threshold of its own.")
+    inst.alarm_rules.delete(args.point, own["uuid"])
+    print(f"Point {args.point} now uses the installation default.")
+
+
 # --- wiring -----------------------------------------------------------------
 
 
@@ -409,6 +505,53 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("photo", help="photo uuid (from `point show --json`)")
     s.add_argument("-y", "--yes", action="store_true", help="skip the confirmation")
     s.set_defaults(fn=cmd_photo_delete)
+
+    s = sub.add_parser("comments", parents=[common], help="an asset's thread")
+    s.add_argument("asset", type=int)
+    s.add_argument("-n", "--limit", type=int, default=20)
+    s.set_defaults(fn=cmd_comments)
+    comment = sub.add_parser("comment", help="post or delete a comment").add_subparsers(dest="action", required=True)
+    s = comment.add_parser("add", parents=[common], help="post to an asset's thread")
+    s.add_argument("asset", type=int)
+    s.add_argument("text")
+    s.add_argument("--point", type=int, help="reference a point of this asset")
+    s.add_argument("--reading", type=int, help="…and one of its readings (the number in the web URL)")
+    s.set_defaults(fn=cmd_comment_add)
+    s = comment.add_parser("delete", parents=[common], help="delete your comment")
+    s.add_argument("asset", type=int)
+    s.add_argument("comment", type=int, help="comment number (from `mechbase comments`)")
+    s.add_argument("-y", "--yes", action="store_true", help="skip the confirmation")
+    s.set_defaults(fn=cmd_comment_delete)
+
+    s = sub.add_parser("docs", parents=[common], help="an asset's documents")
+    s.add_argument("asset", type=int)
+    s.set_defaults(fn=cmd_docs)
+    doc = sub.add_parser("doc", help="add or delete a document").add_subparsers(dest="action", required=True)
+    s = doc.add_parser("add", parents=[common], help="upload a document to an asset")
+    s.add_argument("asset", type=int)
+    s.add_argument("file")
+    s.add_argument("--kind", default="attachment", choices=["attachment", "drawing", "datasheet", "manual", "check_sheet", "test_report"])
+    s.set_defaults(fn=cmd_doc_add)
+    s = doc.add_parser("delete", parents=[common], help="delete a document")
+    s.add_argument("asset", type=int)
+    s.add_argument("document", help="document uuid (from `mechbase docs`)")
+    s.add_argument("-y", "--yes", action="store_true", help="skip the confirmation")
+    s.set_defaults(fn=cmd_doc_delete)
+
+    s = sub.add_parser("alarms", parents=[common], help="a point's alarm limits")
+    s.add_argument("point", type=int)
+    s.set_defaults(fn=cmd_alarms)
+    alarm = sub.add_parser("alarm", help="set or clear a point's own limits").add_subparsers(dest="action", required=True)
+    s = alarm.add_parser("set", parents=[common], help="set the point's own threshold (overrides the default)")
+    s.add_argument("point", type=int)
+    s.add_argument("--minor", type=float)
+    s.add_argument("--major", type=float)
+    s.add_argument("--key", help="value to watch (default: the point type's headline value)")
+    s.add_argument("--direction", choices=["high", "low"])
+    s.set_defaults(fn=cmd_alarm_set)
+    s = alarm.add_parser("clear", parents=[common], help="go back to the installation default")
+    s.add_argument("point", type=int)
+    s.set_defaults(fn=cmd_alarm_clear)
     return p
 
 

@@ -296,3 +296,59 @@ type ExportStatus struct {
 	Error       string     `json:"error"`
 	CreatedAt   time.Time  `json:"created_at"`
 }
+
+// CommentReference points a comment at a measurement point, optionally one reading.
+type CommentReference struct {
+	PointID       *int `json:"point_id"`
+	PointSequence *int `json:"point_sequence"`
+}
+
+// CommentReferenceIn is a reference sent when writing a comment.
+type CommentReferenceIn struct {
+	PointID       int  `json:"point_id"`
+	PointSequence *int `json:"point_sequence,omitempty"`
+}
+
+// Comment is one entry in an asset's thread.
+type Comment struct {
+	ID         int                `json:"id"`
+	Body       string             `json:"body"`
+	BodyText   string             `json:"body_text"`
+	AuthorName string             `json:"author_name"`
+	CreatedAt  time.Time          `json:"created_at"`
+	EditedAt   *time.Time         `json:"edited_at"`
+	References []CommentReference `json:"references"`
+	IsFinding  bool               `json:"is_finding"`
+	Editable   bool               `json:"editable"`
+}
+
+// CommentsPage is one offset page of comments.
+type CommentsPage struct {
+	Items  []Comment `json:"items"`
+	Total  int       `json:"total"`
+	Limit  int       `json:"limit"`
+	Offset int       `json:"offset"`
+}
+
+// Document is a file attached to an asset.
+type Document struct {
+	UUID      string    `json:"uuid"`
+	Name      string    `json:"name"`
+	Kind      string    `json:"kind"`
+	URL       string    `json:"url"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// AlarmRule is a point or installation alarm rule; Scope is "point" or "installation".
+type AlarmRule struct {
+	UUID             string   `json:"uuid"`
+	Scope            string   `json:"scope"`
+	Method           string   `json:"method"`
+	DataKey          string   `json:"data_key"`
+	EffectiveDataKey string   `json:"effective_data_key"`
+	Direction        string   `json:"direction"`
+	MinorThreshold   *float64 `json:"minor_threshold"`
+	MajorThreshold   *float64 `json:"major_threshold"`
+	ThresholdMode    string   `json:"threshold_mode"`
+	Source           *string  `json:"source"`
+}
