@@ -8735,6 +8735,7 @@
             "items": {
               "$ref": "#/components/schemas/CommentReferenceIn"
             },
+            "maxItems": 50,
             "title": "References",
             "type": "array"
           }
