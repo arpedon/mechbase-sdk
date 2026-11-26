@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import io
+from pathlib import Path
+from typing import TYPE_CHECKING, BinaryIO
 
 if TYPE_CHECKING:
     from .._http import HttpClient
@@ -26,3 +28,20 @@ def _paginated(http, path: str, *, params: dict, parse) -> list:
 def _clean(d: dict) -> dict:
     """Drop keys whose value is None (keeps PATCH partial)."""
     return {k: v for k, v in d.items() if v is not None}
+
+
+def _upload(http, path: str, file: "str | Path | BinaryIO | bytes", filename: str, data: dict | None = None):
+    """POST one multipart `file` (a path, an open file or bytes) plus form `data`."""
+    fh = file
+    opened = False
+    if isinstance(file, (str, Path)):
+        filename = Path(file).name
+        fh = open(file, "rb")  # noqa: SIM115
+        opened = True
+    elif isinstance(file, (bytes, bytearray)):
+        fh = io.BytesIO(file)
+    try:
+        return http.request("POST", path, data=data, files={"file": (filename, fh)})
+    finally:
+        if opened:
+            fh.close()

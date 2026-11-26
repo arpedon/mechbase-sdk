@@ -73,6 +73,8 @@ func (c *Client) ForInstallation(id int) *Installation_ {
 		Routes:            &Routes{client: c, iid: id},
 		Sections:          &Sections{client: c, iid: id},
 		Zones:             &Zones{client: c, iid: id},
+		Findings:          &Findings{client: c, iid: id},
+		Exports:           &Exports{client: c, iid: id},
 	}
 }
 
@@ -87,6 +89,41 @@ type Installation_ struct {
 	Routes            *Routes
 	Sections          *Sections
 	Zones             *Zones
+	Findings          *Findings
+	Exports           *Exports
+}
+
+// LegacyRedirects lists legacy-URL to measurement-point redirects.
+func (i *Installation_) LegacyRedirects(ctx context.Context) (*LegacyRedirects, error) {
+	var out LegacyRedirects
+	if err := i.client.doJSON(ctx, http.MethodGet, pathf(i.ID, "/legacy-redirects"), nil, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// RevokeToken revokes the client's current API token.
+func (c *Client) RevokeToken(ctx context.Context) error {
+	return c.doJSON(ctx, http.MethodPost, "/api/auth/token/revoke", nil, nil, nil)
+}
+
+// addPhoto posts a multipart photo (field "file", optional "uuid") to path.
+func (c *Client) addPhoto(ctx context.Context, path, filename string, file io.Reader, photoUUID string, extra map[string]string) (*FileAttachment, error) {
+	if filename == "" {
+		filename = "photo.jpg"
+	}
+	fields := map[string]string{}
+	for k, v := range extra {
+		fields[k] = v
+	}
+	if photoUUID != "" {
+		fields["uuid"] = photoUUID
+	}
+	var out FileAttachment
+	if err := c.doMultipart(ctx, path, fields, []filePart{{Field: "file", Filename: filename, Reader: file}}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 // Me returns the authenticated user and accessible installations.
@@ -216,14 +253,7 @@ func (c *Client) do(req *http.Request, out any) error {
 		return nil
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		detail := string(raw)
-		var maybe map[string]any
-		if json.Unmarshal(raw, &maybe) == nil {
-			if d, ok := maybe["detail"].(string); ok {
-				detail = d
-			}
-		}
-		return &APIError{Status: resp.StatusCode, Detail: detail, Body: raw}
+		return newAPIError(resp.StatusCode, raw)
 	}
 	if out == nil || len(raw) == 0 {
 		return nil
@@ -232,6 +262,17 @@ func (c *Client) do(req *http.Request, out any) error {
 		return fmt.Errorf("mechbase: decode response: %w", err)
 	}
 	return nil
+}
+
+func newAPIError(status int, raw []byte) *APIError {
+	detail := string(raw)
+	var maybe map[string]any
+	if json.Unmarshal(raw, &maybe) == nil {
+		if d, ok := maybe["detail"].(string); ok {
+			detail = d
+		}
+	}
+	return &APIError{Status: status, Detail: detail, Body: raw}
 }
 
 // listEnvelope is the standard paginated wrapper.

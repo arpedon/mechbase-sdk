@@ -142,3 +142,13 @@ func (e *Execution) Complete(ctx context.Context) (*RouteExecution, error) {
 	}
 	return &out, nil
 }
+
+// Cancel cancels an in-progress execution that has no answers yet. The server
+// returns 409 (ErrConflict) when it already has answers.
+func (e *Execution) Cancel(ctx context.Context) (*RouteExecution, error) {
+	var out RouteExecution
+	if err := e.client.doJSON(ctx, http.MethodPost, e.url("/cancel"), nil, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}

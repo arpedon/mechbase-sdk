@@ -9,6 +9,8 @@ public final class Installation: Sendable {
     public let routes: Routes
     public let sections: Sections
     public let zones: Zones
+    public let findings: Findings
+    public let exports: Exports
     private let scope: InstallationScope
 
     init(http: HTTPClient, installationId: Int) {
@@ -20,6 +22,8 @@ public final class Installation: Sendable {
         self.routes = Routes(http: http, installationId: installationId)
         self.sections = Sections(http: http, installationId: installationId)
         self.zones = Zones(http: http, installationId: installationId)
+        self.findings = Findings(http: http, installationId: installationId)
+        self.exports = Exports(http: http, installationId: installationId)
     }
 
     private struct LegacyRedirectsPage: Decodable { let items: [LegacyRedirect] }

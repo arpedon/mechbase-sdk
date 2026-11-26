@@ -100,6 +100,48 @@
         }
       }
     },
+    "/api/auth/sso/exchange": {
+      "post": {
+        "operationId": "api_auth_endpoints_sso_exchange_view",
+        "summary": "Trade a Microsoft sign-in code (PKCE) for a bearer token",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginErr"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SSOExchangeIn"
+              }
+            }
+          },
+          "required": true
+        }
+      }
+    },
     "/api/auth/token/revoke": {
       "post": {
         "operationId": "api_auth_endpoints_revoke_token_view",
@@ -2336,6 +2378,75 @@
         ]
       }
     },
+    "/api/installations/{installation_id}/measurement-points/{point_id}/context": {
+      "get": {
+        "operationId": "api_registry_router_get_point_context",
+        "summary": "Point context: run state, staleness, limits, last 7 days",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "point_id",
+            "schema": {
+              "title": "Point Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PointContextOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "registry"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/installations/{installation_id}/legacy-redirects": {
       "get": {
         "operationId": "api_registry_router_list_legacy_redirects",
@@ -2523,7 +2634,7 @@
     "/api/installations/{installation_id}/measurement-points/{point_id}/photos/": {
       "post": {
         "operationId": "api_registry_router_add_point_photo",
-        "summary": "Set a measurement point's reference photo",
+        "summary": "Add a photo to a measurement point",
         "parameters": [
           {
             "in": "path",
@@ -2606,7 +2717,7 @@
             }
           }
         },
-        "description": "A point keeps one reference photo: this replaces any previous one. Pass a client-minted `uuid` to make retries safe.",
+        "description": "Appends to the point's photos. With `keep_reference` true the reference photo does not change (a point's first photo is its reference until another is chosen). Without it, or false, the new photo also becomes the reference: what apps that predate several photos per point expect, since they replaced the photo and read `image_urls` as it. Pass a client-minted `uuid` to make retries safe.",
         "tags": [
           "registry"
         ],
@@ -2631,6 +2742,11 @@
                       }
                     ],
                     "title": "Uuid"
+                  },
+                  "keep_reference": {
+                    "default": false,
+                    "title": "Keep Reference",
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -2643,6 +2759,232 @@
           },
           "required": true
         },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/measurement-points/{point_id}/reference-photo": {
+      "put": {
+        "operationId": "api_registry_router_set_point_reference_photo",
+        "summary": "Choose a measurement point's reference photo",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "point_id",
+            "schema": {
+              "title": "Point Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasurementPointOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "Idempotent. 404 when no photo with that uuid is attached to the point.",
+        "tags": [
+          "registry"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReferencePhotoIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/assets/{asset_id}/photos/{uuid}": {
+      "delete": {
+        "operationId": "api_registry_router_delete_asset_photo",
+        "summary": "Delete an asset photo",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "asset_id",
+            "schema": {
+              "title": "Asset Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "uuid",
+            "schema": {
+              "format": "uuid",
+              "title": "Uuid",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "404 when no photo with that uuid is attached to the asset (already deleted counts).",
+        "tags": [
+          "registry"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/installations/{installation_id}/measurement-points/{point_id}/photos/{uuid}": {
+      "delete": {
+        "operationId": "api_registry_router_delete_point_photo",
+        "summary": "Delete a measurement point's photo",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "installation_id",
+            "schema": {
+              "title": "Installation Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "point_id",
+            "schema": {
+              "title": "Point Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "uuid",
+            "schema": {
+              "format": "uuid",
+              "title": "Uuid",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "404 when no photo with that uuid is attached to the point (already deleted counts).",
+        "tags": [
+          "registry"
+        ],
         "security": [
           {
             "BearerAuth": []
@@ -3294,6 +3636,16 @@
               }
             }
           },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
           "413": {
             "description": "Content Too Large",
             "content": {
@@ -3315,7 +3667,7 @@
             }
           }
         },
-        "description": "Attach a file to an existing measurement. File kind is auto-detected from the filename and measurement point type.",
+        "description": "Attach a file to an existing measurement. File kind is auto-detected from the filename and measurement point type. Pass a client-minted `uuid` to make retries safe.",
         "tags": [
           "measurements"
         ],
@@ -3328,12 +3680,24 @@
                     "format": "binary",
                     "title": "File",
                     "type": "string"
+                  },
+                  "uuid": {
+                    "anyOf": [
+                      {
+                        "format": "uuid",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Uuid"
                   }
                 },
                 "required": [
                   "file"
                 ],
-                "title": "FileParams",
+                "title": "MultiPartBodyParams",
                 "type": "object"
               }
             }
@@ -6009,6 +6373,35 @@
         "title": "TokenIn",
         "type": "object"
       },
+      "SSOExchangeIn": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "code_verifier": {
+            "title": "Code Verifier",
+            "type": "string"
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          }
+        },
+        "required": [
+          "code",
+          "code_verifier"
+        ],
+        "title": "SSOExchangeIn",
+        "type": "object"
+      },
       "InstallationOut": {
         "properties": {
           "installation_id": {
@@ -6032,6 +6425,9 @@
           "user": {
             "$ref": "#/components/schemas/UserOut"
           },
+          "unit_prefs": {
+            "$ref": "#/components/schemas/UnitPrefsOut"
+          },
           "installations": {
             "items": {
               "$ref": "#/components/schemas/InstallationOut"
@@ -6053,9 +6449,43 @@
         },
         "required": [
           "user",
+          "unit_prefs",
           "installations"
         ],
         "title": "MeOut",
+        "type": "object"
+      },
+      "UnitPrefsOut": {
+        "properties": {
+          "acceleration": {
+            "title": "Acceleration",
+            "type": "string"
+          },
+          "velocity": {
+            "title": "Velocity",
+            "type": "string"
+          },
+          "temperature": {
+            "title": "Temperature",
+            "type": "string"
+          },
+          "pressure": {
+            "title": "Pressure",
+            "type": "string"
+          },
+          "frequency": {
+            "title": "Frequency",
+            "type": "string"
+          }
+        },
+        "required": [
+          "acceleration",
+          "velocity",
+          "temperature",
+          "pressure",
+          "frequency"
+        ],
+        "title": "UnitPrefsOut",
         "type": "object"
       },
       "UserOut": {
@@ -6452,6 +6882,14 @@
             },
             "title": "Image Urls",
             "type": "array"
+          },
+          "photos": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PhotoOut"
+            },
+            "title": "Photos",
+            "type": "array"
           }
         },
         "required": [
@@ -6496,6 +6934,25 @@
           "offset"
         ],
         "title": "Page[AssetOut]",
+        "type": "object"
+      },
+      "PhotoOut": {
+        "properties": {
+          "uuid": {
+            "format": "uuid",
+            "title": "Uuid",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "url"
+        ],
+        "title": "PhotoOut",
         "type": "object"
       },
       "AssetIn": {
@@ -6604,6 +7061,34 @@
         "title": "AssetIn",
         "type": "object"
       },
+      "DisplayUnitOut": {
+        "properties": {
+          "native": {
+            "title": "Native",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "scale": {
+            "title": "Scale",
+            "type": "number"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "number"
+          }
+        },
+        "required": [
+          "native",
+          "unit",
+          "scale",
+          "offset"
+        ],
+        "title": "DisplayUnitOut",
+        "type": "object"
+      },
       "MeasurementPointOut": {
         "properties": {
           "uuid": {
@@ -6671,11 +7156,40 @@
           },
           "image_urls": {
             "default": [],
+            "description": "The reference photo's absolute URL, or empty. All photos are in `photos`.",
             "items": {
               "type": "string"
             },
             "title": "Image Urls",
             "type": "array"
+          },
+          "photos": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PhotoOut"
+            },
+            "title": "Photos",
+            "type": "array"
+          },
+          "reference_photo_uuid": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Photo Uuid"
+          },
+          "display_units": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DisplayUnitOut"
+            },
+            "default": {},
+            "title": "Display Units",
+            "type": "object"
           }
         },
         "required": [
@@ -6858,6 +7372,125 @@
         "title": "MeasurementPointIn",
         "type": "object"
       },
+      "PointContextOut": {
+        "description": "A point's default key in native units: run state, staleness, limits, last 7 days (6 h means).",
+        "properties": {
+          "data_key": {
+            "title": "Data Key",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "running": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Running"
+          },
+          "running_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Running At"
+          },
+          "stale_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stale Since"
+          },
+          "limits": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PointLimitsOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "week": {
+            "items": {
+              "$ref": "#/components/schemas/TrendBinOut"
+            },
+            "title": "Week",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data_key",
+          "unit",
+          "week"
+        ],
+        "title": "PointContextOut",
+        "type": "object"
+      },
+      "PointLimitsOut": {
+        "properties": {
+          "minor": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minor"
+          },
+          "major": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Major"
+          }
+        },
+        "title": "PointLimitsOut",
+        "type": "object"
+      },
+      "TrendBinOut": {
+        "properties": {
+          "t": {
+            "format": "date-time",
+            "title": "T",
+            "type": "string"
+          },
+          "v": {
+            "title": "V",
+            "type": "number"
+          }
+        },
+        "required": [
+          "t",
+          "v"
+        ],
+        "title": "TrendBinOut",
+        "type": "object"
+      },
       "LegacyRedirectOut": {
         "properties": {
           "legacy_url": {
@@ -6965,6 +7598,20 @@
           "created_at"
         ],
         "title": "FileOut",
+        "type": "object"
+      },
+      "ReferencePhotoIn": {
+        "properties": {
+          "uuid": {
+            "format": "uuid",
+            "title": "Uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "ReferencePhotoIn",
         "type": "object"
       },
       "MeasurementOut": {

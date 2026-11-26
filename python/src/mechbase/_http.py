@@ -47,6 +47,7 @@ class HttpClient:
         data: dict | None = None,
         files: dict | list | None = None,
         headers: dict | None = None,
+        raw: bool = False,
     ) -> Any:
         response = self._client.request(
             method,
@@ -57,6 +58,8 @@ class HttpClient:
             files=files,
             headers=headers,
         )
+        if raw and 200 <= response.status_code < 300:
+            return response.content
         return self._handle(response)
 
     @staticmethod

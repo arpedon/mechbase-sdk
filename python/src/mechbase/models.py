@@ -62,15 +62,28 @@ class Installation:
 class Me:
     user: User
     installations: list[Installation]
-    current_installation_id: int
+    current_installation_id: int | None
+    # {"acceleration": "g", "velocity": "mm/s", ...}: the units the user reads in.
+    unit_prefs: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, d: dict) -> "Me":
         return cls(
             user=User.from_dict(d["user"]),
             installations=[Installation.from_dict(i) for i in d["installations"]],
-            current_installation_id=d["current_installation_id"],
+            current_installation_id=d.get("current_installation_id"),
+            unit_prefs=d.get("unit_prefs") or {},
         )
+
+
+@dataclass
+class Photo:
+    uuid: str
+    url: str
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Photo":
+        return cls(uuid=d["uuid"], url=d["url"])
 
 
 @dataclass
@@ -84,6 +97,7 @@ class Asset:
     equipment_type: str
     status: int
     external_id: str | None = None
+    photos: list[Photo] = field(default_factory=list)
     extra: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -99,6 +113,7 @@ class Asset:
             equipment_type=d.pop("equipment_type", ""),
             status=d.pop("status"),
             external_id=d.pop("external_id", None),
+            photos=[Photo.from_dict(p) for p in d.pop("photos", None) or []],
             extra=d,
         )
 
@@ -128,6 +143,11 @@ class MeasurementPoint:
     # transducer-type default) as sanitized HTML; embedded image URLs are
     # absolute. The server always populates it; `or ""` keeps decode resilient.
     instructions: str = ""
+    photos: list[Photo] = field(default_factory=list)
+    reference_photo_uuid: str | None = None
+    # {"velocity": {"native": "mm/s", "unit": "in/s", "scale": ..., "offset": ...}}:
+    # how to show this point's values in the caller's preferred units.
+    display_units: dict[str, dict] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, d: dict) -> "MeasurementPoint":
@@ -142,6 +162,9 @@ class MeasurementPoint:
             status=d["status"],
             external_id=d.get("external_id"),
             instructions=d.get("instructions") or "",
+            photos=[Photo.from_dict(p) for p in d.get("photos") or []],
+            reference_photo_uuid=d.get("reference_photo_uuid"),
+            display_units=d.get("display_units") or {},
         )
 
 
@@ -362,4 +385,48 @@ class MeasurementResult:
             measurement_uuid=d.get("measurement_uuid"),
             local_uuid=d.get("local_uuid", ""),
             error=d.get("error", ""),
+        )
+
+
+@dataclass
+class Finding:
+    """A diagnosed fault on an asset: open → acknowledged (work order raised) → closed."""
+
+    uuid: str
+    status: str
+    fault_type: str
+    fault_type_display: str
+    severity: str
+    recommended_action: str
+    asset_id: int | None
+    asset_name: str
+    point_id: int | None
+    point_name: str
+    created_at: str
+    web_url: str
+    work_order_ref: str = ""
+    comment: str = ""
+    due_by: str | None = None
+    extra: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Finding":
+        d = dict(d)
+        return cls(
+            uuid=d.pop("uuid"),
+            status=d.pop("status"),
+            fault_type=d.pop("fault_type", "") or "",
+            fault_type_display=d.pop("fault_type_display", "") or "",
+            severity=d.pop("severity", ""),
+            recommended_action=d.pop("recommended_action", "") or "",
+            asset_id=d.pop("asset_id", None),
+            asset_name=d.pop("asset_name", "") or "",
+            point_id=d.pop("point_id", None),
+            point_name=d.pop("point_name", "") or "",
+            created_at=d.pop("created_at"),
+            web_url=d.pop("web_url", "") or "",
+            work_order_ref=d.pop("work_order_ref", "") or "",
+            comment=d.pop("comment", "") or "",
+            due_by=d.pop("due_by", None),
+            extra=d,
         )

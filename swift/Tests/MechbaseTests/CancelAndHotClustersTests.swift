@@ -43,6 +43,8 @@ final class CancelAndHotClustersTests: XCTestCase {
 
 final class CaptureMock: URLProtocol {
     nonisolated(unsafe) static var reply = "{}"
+    /// Replies for consecutive requests; `reply` once it runs out.
+    nonisolated(unsafe) static var queue: [String] = []
     nonisolated(unsafe) static var lastMethod: String?
     nonisolated(unsafe) static var lastPath: String?
     nonisolated(unsafe) static var lastJSON: [String: Any]?
@@ -56,7 +58,7 @@ final class CaptureMock: URLProtocol {
         let resp = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
                                    headerFields: ["Content-Type": "application/json"])!
         client?.urlProtocol(self, didReceive: resp, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: Data(CaptureMock.reply.utf8)); client?.urlProtocolDidFinishLoading(self)
+        client?.urlProtocol(self, didLoad: Data((CaptureMock.queue.isEmpty ? CaptureMock.reply : CaptureMock.queue.removeFirst()).utf8)); client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {}
     private static func read(_ s: InputStream) -> Data {

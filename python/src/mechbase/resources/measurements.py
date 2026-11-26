@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import io
 import json
 from pathlib import Path
 from typing import Any, BinaryIO
 
 from ..models import BatchResult, DeleteResult, FileAttachment, Measurement
-from ._base import InstallationScoped, _paginated
+from ._base import InstallationScoped, _paginated, _upload
 
 
 class Measurements(InstallationScoped):
@@ -96,24 +95,14 @@ class Measurements(InstallationScoped):
         file: str | Path | BinaryIO | bytes,
         filename: str = "attachment",
     ) -> FileAttachment:
-        fh = file
-        opened = False
-        if isinstance(file, (str, Path)):
-            filename = Path(file).name
-            fh = open(file, "rb")  # noqa: SIM115
-            opened = True
-        elif isinstance(file, (bytes, bytearray)):
-            fh = io.BytesIO(file)
-        try:
-            body = self._http.request(
-                "POST",
-                self._path(f"/measurements/{measurement_uuid}/files/"),
-                files={"file": (filename, fh)},
-            )
-        finally:
-            if opened:
-                fh.close()
-        return FileAttachment.from_dict(body)
+        return FileAttachment.from_dict(
+            _upload(self._http, self._path(f"/measurements/{measurement_uuid}/files/"), file, filename)
+        )
+
+    def set_hotspots(self, measurement_uuid: str, hot_clusters: list[dict]) -> Measurement:
+        """Replace a thermal image's marked hot spots."""
+        return Measurement.from_dict(self._http.request(
+            "PATCH", self._path(f"/measurements/{measurement_uuid}/hotspots/"), json={"hot_clusters": hot_clusters}))
 
     def iter_for_point(
         self,
