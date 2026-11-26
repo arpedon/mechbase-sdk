@@ -170,3 +170,28 @@ func (m *Measurements) IterForPoint(ctx context.Context, pointID int, opts IterO
 		cursor = *env.NextCursor
 	}
 }
+
+// HotCluster is an analyst-confirmed thermal hotspot. Coordinates are
+// percentages of the frame; Severity is a Status integer; Source is "auto" or
+// "manual" (audit hint, optional).
+type HotCluster struct {
+	CxPct    float64 `json:"cx_pct"`
+	CyPct    float64 `json:"cy_pct"`
+	MaxTempC float64 `json:"max_temp_c"`
+	DeltaTC  float64 `json:"delta_t_c"`
+	Severity int     `json:"severity"`
+	Source   string  `json:"source,omitempty"`
+}
+
+// SetHotspots replaces a measurement's hotspots with the given clusters.
+func (m *Measurements) SetHotspots(ctx context.Context, measurementUUID string, clusters []HotCluster) (*Measurement, error) {
+	if clusters == nil {
+		clusters = []HotCluster{}
+	}
+	body := map[string]any{"hot_clusters": clusters}
+	var out Measurement
+	if err := m.client.doJSON(ctx, http.MethodPatch, pathf(m.iid, fmt.Sprintf("/measurements/%s/hotspots/", measurementUUID)), nil, body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}

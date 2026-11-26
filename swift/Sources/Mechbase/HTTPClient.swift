@@ -69,6 +69,14 @@ actor HTTPClient {
         return try await send(req)
     }
 
+    /// GET a non-JSON body (a file download) as raw bytes.
+    func getData(_ path: String, query: [URLQueryItem] = []) async throws -> Data {
+        var req = makeRequest("GET", url(path: path, query: query))
+        req.setValue("*/*", forHTTPHeaderField: "Accept")
+        let raw: RawData = try await send(req)
+        return raw.data
+    }
+
     func post<T: Decodable>(_ path: String, headers: [String: String] = [:], as: T.Type) async throws -> T {
         var req = makeRequest("POST", url(path: path))
         for (k, v) in headers { req.setValue(v, forHTTPHeaderField: k) }
@@ -156,6 +164,10 @@ actor HTTPClient {
         }
         let status = http.statusCode
         if (200..<300).contains(status) {
+            if T.self == RawData.self {
+                // swiftlint:disable:next force_cast
+                return RawData(data: data) as! T
+            }
             if T.self == EmptyResponse.self {
                 // swiftlint:disable:next force_cast
                 return EmptyResponse() as! T
@@ -188,3 +200,6 @@ actor HTTPClient {
 
 /// Sentinel for endpoints that return 204 / nothing useful.
 struct EmptyResponse: Decodable { init() {} }
+
+/// Sentinel: hand back the response body undecoded.
+struct RawData: Decodable { let data: Data; init(data: Data) { self.data = data }; init(from decoder: Decoder) throws { data = Data() } }

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from ._http import HttpClient
 from .models import Me
+from .resources.analytics import Exports
+from .resources.findings import Findings
 from .resources.measurements import Measurements
 from .resources.registry import Assets, MeasurementPoints, Sections, Zones
 from .resources.routes import Routes
@@ -14,11 +16,17 @@ class InstallationHandle:
         self._http = http
         self.installation_id = installation_id
         self.assets = Assets(http, installation_id)
+        self.exports = Exports(http, installation_id)
+        self.findings = Findings(http, installation_id)
         self.measurement_points = MeasurementPoints(http, installation_id)
         self.measurements = Measurements(http, installation_id)
         self.routes = Routes(http, installation_id)
         self.sections = Sections(http, installation_id)
         self.zones = Zones(http, installation_id)
+
+    def legacy_redirects(self) -> list[dict]:
+        """Old-platform URLs mapped to their measurement points here."""
+        return self._http.request("GET", f"/api/installations/{self.installation_id}/legacy-redirects")["items"]
 
 
 class Mechbase:
@@ -41,6 +49,10 @@ class Mechbase:
 
     def me(self) -> Me:
         return Me.from_dict(self._http.request("GET", "/api/me/"))
+
+    def revoke_token(self) -> None:
+        """Sign this token out server-side; the client is unusable afterwards."""
+        self._http.request("POST", "/api/auth/token/revoke")
 
     def for_installation(self, installation_id: int) -> InstallationHandle:
         return InstallationHandle(self._http, installation_id)

@@ -76,6 +76,13 @@ internal class Http(
         }
     }
 
+    suspend fun getBytes(path: String, params: Map<String, Any?>? = null): ByteArray = withContext(Dispatchers.IO) {
+        val request = baseRequest(buildUrl(path, params)).header("Accept", "*/*").get().build()
+        ok.newCall(request).execute().use { resp ->
+            if (resp.code in 200..299) resp.body?.bytes() ?: ByteArray(0) else handle(resp).let { ByteArray(0) }
+        }
+    }
+
     suspend fun <T> postJson(
         path: String,
         payload: JsonElement?,

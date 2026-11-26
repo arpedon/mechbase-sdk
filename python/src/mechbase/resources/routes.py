@@ -99,6 +99,13 @@ class Executions(InstallationScoped):
         body = self._http.request("POST", self._url("/complete"))
         return RouteExecution.from_dict(body)
 
+    def get(self) -> RouteExecution:
+        return RouteExecution.from_dict(self._http.request("GET", self._url("")))
+
+    def cancel(self) -> RouteExecution:
+        """Abandon an execution that has no answers yet (409 once it has)."""
+        return RouteExecution.from_dict(self._http.request("POST", self._url("/cancel")))
+
 
 class Routes(InstallationScoped):
     def list(self, *, q: str = "", limit: int = 50, offset: int = 0) -> list[Route]:

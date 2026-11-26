@@ -37,6 +37,20 @@ data class MeasurementInput(
 @Serializable
 private data class BatchBody(val items: List<MeasurementInput>)
 
+/** An analyst-confirmed thermal hotspot; coordinates are percentages of the frame, [severity] a status int, [source] `auto` or `manual`. */
+@Serializable
+data class HotCluster(
+    @SerialName("cx_pct") val cxPct: Double,
+    @SerialName("cy_pct") val cyPct: Double,
+    @SerialName("max_temp_c") val maxTempC: Double,
+    @SerialName("delta_t_c") val deltaTC: Double,
+    val severity: Int,
+    val source: String? = null,
+)
+
+@Serializable
+private data class HotspotsBody(@SerialName("hot_clusters") val hotClusters: List<HotCluster>)
+
 class Measurements internal constructor(
     private val http: Http,
     private val installationId: Int,
@@ -76,6 +90,16 @@ class Measurements internal constructor(
             )
         }
     }
+
+    /** Replace a measurement's thermal hotspots (full replacement; an empty list clears them). */
+    suspend fun setHotspots(measurementUuid: String, hotClusters: List<HotCluster>): Measurement =
+        http.sendJson(
+            "PATCH",
+            installationPath(installationId, "/measurements/$measurementUuid/hotspots/"),
+            SDK_JSON.encodeToJsonElement(HotspotsBody.serializer(), HotspotsBody(hotClusters)),
+            null,
+            Measurement.serializer(),
+        )
 
     suspend fun createBatch(items: List<MeasurementInput>): BatchResult =
         http.postJson(

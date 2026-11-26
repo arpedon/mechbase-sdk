@@ -5,6 +5,11 @@
     mechbase readings 2
     mechbase reading show 2 766         # values, state and the top spectrum peaks
     mechbase reading delete 2 767
+    mechbase point show 2               # running, stale, alarm limits, last 7 days
+    mechbase findings --status open
+    mechbase finding ack <uuid> --wo WO-1234
+    mechbase export measurements --point 2 -o readings.csv
+    mechbase photo add point 2 pump.jpg
 
 Every command takes --json for scripting. MECHBASE_TOKEN / MECHBASE_URL /
 MECHBASE_INSTALLATION override the stored config.
@@ -18,6 +23,7 @@ import json
 import os
 import platform
 import sys
+import time
 from pathlib import Path
 
 from . import Mechbase
@@ -190,6 +196,98 @@ def cmd_reading_delete(args, cfg):
     print(f"Deleted reading {args.reading} of point {args.point}.")
 
 
+def cmd_logout(args, cfg):
+    if cfg.get("token"):
+        try:
+            _client(cfg).revoke_token()
+        except MechbaseError:
+            pass  # already revoked or server gone: forget it locally anyway
+    cfg.pop("token", None)
+    _save(cfg)
+    print("Signed out.")
+
+
+def cmd_point_show(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    p = inst.measurement_points.get(args.point)
+    ctx = inst.measurement_points.context(args.point)
+    if args.json:
+        print(json.dumps({**p.__dict__, "context": ctx}, indent=2, default=str))
+        return
+    print(f"Point {p.point_id} · {p.name} · {p.transducer_type} · {STATUS.get(p.status, p.status).upper()}")
+    running = {True: "running", False: "stopped", None: "unknown"}[ctx.get("running")]
+    print(f"  machine    {running}" + (f" (since {ctx['running_at'][:16].replace('T', ' ')})" if ctx.get("running_at") else ""))
+    if ctx.get("stale_since"):
+        print(f"  stale      no reading since {ctx['stale_since'][:16].replace('T', ' ')}")
+    lim = ctx.get("limits") or {}
+    if lim.get("minor") is not None or lim.get("major") is not None:
+        print(f"  limits     minor {lim.get('minor')} · major {lim.get('major')} {ctx.get('unit', '')}")
+    week = [b["v"] for b in ctx.get("week") or [] if b.get("v") is not None]
+    if week:
+        print(f"  7 days     {ctx.get('data_key')} min {min(week):.3g} · max {max(week):.3g} · last {week[-1]:.3g} {ctx.get('unit', '')}")
+    if p.reference_photo_uuid:
+        ref = next((ph.url for ph in p.photos if ph.uuid == p.reference_photo_uuid), "")
+        print(f"  photo      {ref}")
+
+
+def cmd_findings(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    fs = inst.findings.list(status=args.status, asset_id=args.asset, point_id=args.point, limit=args.limit)
+    if args.json:
+        print(json.dumps([f.__dict__ for f in fs], indent=2, default=str))
+        return
+    rows = [{"finding": f.uuid, "when": f.created_at[:10], "status": f.status, "severity": f.severity,
+             "asset": f.asset_name, "point": f.point_name, "fault": f.fault_type_display or f.fault_type,
+             "work order": f.work_order_ref} for f in fs]
+    _out(args, rows, ["finding", "when", "status", "severity", "asset", "point", "fault", "work order"])
+
+
+def cmd_finding_set(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    if args.action == "ack":
+        f = inst.findings.acknowledge(args.finding, work_order_ref=args.wo)
+    else:
+        f = inst.findings.close(args.finding, work_order_ref=args.wo)
+    if args.json:
+        print(json.dumps(f.__dict__, indent=2, default=str))
+        return
+    print(f"{f.asset_name} · {f.fault_type_display or f.fault_type}: {f.status}" + (f" ({f.work_order_ref})" if f.work_order_ref else ""))
+
+
+def cmd_export(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    filters = {k: v for k, v in {"asset_id": args.asset, "point_id": args.point,
+                                 "created_from": args.since, "created_to": args.until}.items() if v is not None}
+    job = inst.exports.create(args.dataset, format=args.format, filters=filters)
+    out = Path(args.output or f"{args.dataset}.{args.format}")
+    # ponytail: fixed 2 s poll, no timeout; exports finish in seconds to minutes
+    while (st := inst.exports.status(job["job_uuid"]))["state"] in ("pending", "running"):
+        time.sleep(2)
+    if st["state"] != "done":
+        sys.exit(f"Export {st['state']}: {st.get('error') or 'no file'}")
+    out.write_bytes(inst.exports.download(job["job_uuid"]))
+    if args.json:
+        print(json.dumps({**st, "path": str(out)}, indent=2, default=str))
+        return
+    print(f"Wrote {st.get('row_count')} rows to {out}")
+
+
+def cmd_photo_add(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    res = inst.assets if args.kind == "asset" else inst.measurement_points
+    f = res.add_photo(args.id, args.file)
+    print(json.dumps(f.__dict__, indent=2, default=str) if args.json else f"Added photo {f.uuid} to {args.kind} {args.id}.")
+
+
+def cmd_photo_delete(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    res = inst.assets if args.kind == "asset" else inst.measurement_points
+    if not args.yes and input(f"Delete photo {args.photo} of {args.kind} {args.id}? [y/N] ").lower() != "y":
+        sys.exit("Cancelled.")
+    res.delete_photo(args.id, args.photo)
+    print(f"Deleted photo {args.photo} of {args.kind} {args.id}.")
+
+
 # --- wiring -----------------------------------------------------------------
 
 
@@ -243,6 +341,54 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("reading", type=int)
     s.add_argument("-y", "--yes", action="store_true", help="skip the confirmation")
     s.set_defaults(fn=cmd_reading_delete)
+
+    s = sub.add_parser("logout", help="revoke the stored token and forget it")
+    s.set_defaults(fn=cmd_logout)
+
+    point = sub.add_parser("point", help="one measurement point").add_subparsers(dest="action", required=True)
+    s = point.add_parser("show", parents=[common], help="run state, staleness, limits, last 7 days")
+    s.add_argument("point", type=int)
+    s.set_defaults(fn=cmd_point_show)
+
+    s = sub.add_parser("findings", parents=[common], help="list findings (diagnosed faults)")
+    s.add_argument("--status", choices=["open", "acknowledged", "closed"])
+    s.add_argument("--asset", type=int)
+    s.add_argument("--point", type=int)
+    s.add_argument("-n", "--limit", type=int, default=50)
+    s.set_defaults(fn=cmd_findings)
+
+    finding = sub.add_parser("finding", help="move a finding on").add_subparsers(dest="action", required=True)
+    s = finding.add_parser("ack", parents=[common], help="a work order was raised")
+    s.add_argument("finding", help="finding uuid (from `mechbase findings`)")
+    s.add_argument("--wo", required=True, help="work order reference")
+    s.set_defaults(fn=cmd_finding_set)
+    s = finding.add_parser("close", parents=[common], help="the work is done")
+    s.add_argument("finding")
+    s.add_argument("--wo", help="work order reference")
+    s.set_defaults(fn=cmd_finding_set)
+
+    s = sub.add_parser("export", parents=[common], help="export a dataset to a file")
+    s.add_argument("dataset", choices=["measurements", "events", "inspections"])
+    s.add_argument("--format", choices=["csv", "parquet"], default="csv")
+    s.add_argument("--asset", type=int)
+    s.add_argument("--point", type=int)
+    s.add_argument("--since", help="ISO date/time")
+    s.add_argument("--until", help="ISO date/time")
+    s.add_argument("-o", "--output", help="file (default <dataset>.<format>)")
+    s.set_defaults(fn=cmd_export)
+
+    photo = sub.add_parser("photo", help="asset and point photos").add_subparsers(dest="action", required=True)
+    s = photo.add_parser("add", parents=[common], help="add a photo")
+    s.add_argument("kind", choices=["asset", "point"])
+    s.add_argument("id", type=int)
+    s.add_argument("file")
+    s.set_defaults(fn=cmd_photo_add)
+    s = photo.add_parser("delete", parents=[common], help="delete a photo")
+    s.add_argument("kind", choices=["asset", "point"])
+    s.add_argument("id", type=int)
+    s.add_argument("photo", help="photo uuid (from `point show --json`)")
+    s.add_argument("-y", "--yes", action="store_true", help="skip the confirmation")
+    s.set_defaults(fn=cmd_photo_delete)
     return p
 
 

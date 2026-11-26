@@ -1,5 +1,6 @@
 package com.arpedon.mechbase
 
+import kotlinx.serialization.json.JsonElement
 import okhttp3.OkHttpClient
 
 /**
@@ -22,6 +23,11 @@ class MechbaseClient(
 
     suspend fun me(): Me =
         http.getJson("/api/me/", null, Me.serializer())
+
+    /** Sign this token out server-side. The token is dead afterwards; drop it. */
+    suspend fun revokeToken() {
+        http.postJson("/api/auth/token/revoke", null, JsonElement.serializer())
+    }
 
     fun forInstallation(installationId: Int): Installation =
         Installation(http, installationId)

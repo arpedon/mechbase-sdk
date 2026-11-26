@@ -18,6 +18,14 @@ public struct Measurements: Sendable {
         let hot_clusters: JSONValue?
     }
 
+    private struct HotspotsBody: Encodable { let hot_clusters: [HotCluster] }
+
+    /// Replace a measurement's thermal hotspots (full replacement; an empty array clears them).
+    public func setHotspots(measurementUuid: String, hotClusters: [HotCluster]) async throws -> Measurement {
+        try await scope.http.patchJSON(scope.path("/measurements/\(measurementUuid)/hotspots/"),
+                                       body: HotspotsBody(hot_clusters: hotClusters), as: Measurement.self)
+    }
+
     /// Create a new measurement (no file upload).
     public func create(
         pointId: Int,
@@ -202,5 +210,26 @@ public extension Measurements {
                 }
             }
         }
+    }
+}
+
+/// An analyst-confirmed thermal hotspot; coordinates are percentages of the frame,
+/// `severity` a status int, `source` `auto` or `manual`.
+public struct HotCluster: Codable, Sendable, Equatable {
+    public let cxPct: Double
+    public let cyPct: Double
+    public let maxTempC: Double
+    public let deltaTC: Double
+    public let severity: Int
+    public let source: String?
+
+    public init(cxPct: Double, cyPct: Double, maxTempC: Double, deltaTC: Double, severity: Int, source: String? = nil) {
+        self.cxPct = cxPct; self.cyPct = cyPct; self.maxTempC = maxTempC
+        self.deltaTC = deltaTC; self.severity = severity; self.source = source
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case severity, source
+        case cxPct = "cx_pct", cyPct = "cy_pct", maxTempC = "max_temp_c", deltaTC = "delta_t_c"
     }
 }

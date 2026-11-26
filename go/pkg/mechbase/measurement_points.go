@@ -3,6 +3,7 @@ package mechbase
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 )
@@ -100,6 +101,38 @@ func (m *MeasurementPoints) Delete(ctx context.Context, pointID int, cascade boo
 	}
 	var out DeleteResult
 	if err := m.client.doJSON(ctx, http.MethodDelete, pathf(m.iid, fmt.Sprintf("/measurement-points/%d", pointID)), q, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// Context returns the trend, limits and running state for a point.
+func (m *MeasurementPoints) Context(ctx context.Context, pointID int) (*PointContext, error) {
+	var out PointContext
+	if err := m.client.doJSON(ctx, http.MethodGet, pathf(m.iid, fmt.Sprintf("/measurement-points/%d/context", pointID)), nil, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// AddPhoto appends a photo to the point's gallery. A non-empty photoUUID is a
+// client-minted id so a retry returns the same photo. It sends
+// keep_reference=true so the reference photo is never changed (see
+// SetReferencePhoto), matching the Swift/Kotlin SDKs.
+func (m *MeasurementPoints) AddPhoto(ctx context.Context, pointID int, filename string, file io.Reader, photoUUID string) (*FileAttachment, error) {
+	return m.client.addPhoto(ctx, pathf(m.iid, fmt.Sprintf("/measurement-points/%d/photos/", pointID)), filename, file, photoUUID, map[string]string{"keep_reference": "true"})
+}
+
+// DeletePhoto removes a gallery photo by uuid.
+func (m *MeasurementPoints) DeletePhoto(ctx context.Context, pointID int, photoUUID string) error {
+	return m.client.doJSON(ctx, http.MethodDelete, pathf(m.iid, fmt.Sprintf("/measurement-points/%d/photos/%s", pointID, photoUUID)), nil, nil, nil)
+}
+
+// SetReferencePhoto makes an existing gallery photo the point's reference photo.
+func (m *MeasurementPoints) SetReferencePhoto(ctx context.Context, pointID int, photoUUID string) (*MeasurementPoint, error) {
+	var out MeasurementPoint
+	body := map[string]string{"uuid": photoUUID}
+	if err := m.client.doJSON(ctx, http.MethodPut, pathf(m.iid, fmt.Sprintf("/measurement-points/%d/reference-photo", pointID)), nil, body, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

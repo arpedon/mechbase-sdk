@@ -25,6 +25,11 @@ public final class MechbaseClient: Sendable {
         try await http.get("/api/me/", as: Me.self)
     }
 
+    /// Sign this token out server-side. The token is dead afterwards; drop it.
+    public func revokeToken() async throws {
+        _ = try await http.post("/api/auth/token/revoke", as: EmptyResponse.self)
+    }
+
     /// Return a handle bound to a specific installation.
     public func forInstallation(id: Int) -> Installation {
         Installation(http: http, installationId: id)

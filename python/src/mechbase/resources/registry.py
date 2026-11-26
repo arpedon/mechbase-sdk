@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from ..models import Asset, DeleteResult, MeasurementPoint, Section, Zone
-from ._base import InstallationScoped, _clean, _paginated
+from ..models import Asset, DeleteResult, FileAttachment, MeasurementPoint, Section, Zone
+from ._base import InstallationScoped, _clean, _paginated, _upload
 
 
 def locals_no_self(d: dict) -> dict:
@@ -42,6 +42,14 @@ class Assets(InstallationScoped):
         params = {"cascade": "true"} if cascade else None
         return DeleteResult.from_dict(self._http.request("DELETE", self._path(f"/assets/{asset_id}"), params=params))
 
+    def add_photo(self, asset_id: int, file, *, filename: str = "photo.jpg", uuid: str | None = None) -> FileAttachment:
+        """Append a photo to the asset's gallery. A client `uuid` makes retries safe."""
+        return FileAttachment.from_dict(_upload(self._http, self._path(f"/assets/{asset_id}/photos/"),
+                                                file, filename, _clean({"uuid": uuid}) or None))
+
+    def delete_photo(self, asset_id: int, photo_uuid: str) -> None:
+        self._http.request("DELETE", self._path(f"/assets/{asset_id}/photos/{photo_uuid}"))
+
 
 class MeasurementPoints(InstallationScoped):
     def list(self, *, q: str = "", asset_id: int | None = None, transducer_type: str = "",
@@ -81,6 +89,23 @@ class MeasurementPoints(InstallationScoped):
     def delete(self, point_id: int, *, cascade: bool = False) -> DeleteResult:
         params = {"cascade": "true"} if cascade else None
         return DeleteResult.from_dict(self._http.request("DELETE", self._path(f"/measurement-points/{point_id}"), params=params))
+
+    def context(self, point_id: int) -> dict:
+        """Run state, staleness, alarm limits and the last 7 days of the point's headline value."""
+        return self._http.request("GET", self._path(f"/measurement-points/{point_id}/context"))
+
+    def add_photo(self, point_id: int, file, *, filename: str = "photo.jpg", uuid: str | None = None) -> FileAttachment:
+        """Append a photo. The reference photo stays put (see set_reference_photo);
+        a point with none shows its first photo."""
+        return FileAttachment.from_dict(_upload(self._http, self._path(f"/measurement-points/{point_id}/photos/"),
+                                                file, filename, _clean({"uuid": uuid, "keep_reference": "true"})))
+
+    def delete_photo(self, point_id: int, photo_uuid: str) -> None:
+        self._http.request("DELETE", self._path(f"/measurement-points/{point_id}/photos/{photo_uuid}"))
+
+    def set_reference_photo(self, point_id: int, photo_uuid: str) -> MeasurementPoint:
+        return MeasurementPoint.from_dict(self._http.request(
+            "PUT", self._path(f"/measurement-points/{point_id}/reference-photo"), json={"uuid": photo_uuid}))
 
 
 class Sections(InstallationScoped):

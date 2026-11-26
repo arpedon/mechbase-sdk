@@ -16,8 +16,8 @@ Four languages, one uniform surface:
 |----------|-------------|---------------------------------------------------------------------|
 | Python   | [`python/`](python/) | `pip install mechbase`                                      |
 | Go       | [`go/`](go/)         | `go get github.com/arpedon/mechbase-sdk/go`                 |
-| Swift    | [`swift/`](swift/)   | `.package(url: "https://github.com/arpedon/mechbase-sdk", from: "0.4.2")` |
-| Kotlin   | [`kotlin/`](kotlin/) | `implementation("com.arpedon:mechbase-sdk:0.2.10")`          |
+| Swift    | [`swift/`](swift/)   | `.package(url: "https://github.com/arpedon/mechbase-sdk", from: "0.4.3")` |
+| Kotlin   | [`kotlin/`](kotlin/) | `implementation("com.arpedon:mechbase-sdk:0.2.11")`          |
 
 How each SDK is published (and how to cut a release) is documented in
 [`RELEASING.md`](RELEASING.md).
@@ -35,6 +35,12 @@ live mechbase-web `NinjaAPI`. All clients are hand-written to match it — no co
 - **Batch measurement push (all languages):** send many readings in a single request via
   `create_batch` / `CreateBatch`; the response reports created, duplicate, and error counts
   per item.
+- **Findings (all languages):** list diagnosed faults by status, asset or point; acknowledge
+  one with a work-order reference, close it when the work is done.
+- **Exports (all languages):** build a `measurements`, `events` or `inspections` CSV/Parquet
+  export on the server and download it.
+- **Photos (all languages):** add and delete asset and point photos; pick a point's reference
+  photo.
 - **Field survey apps (Swift iOS, Kotlin Android):** start a route execution, submit item
   responses with photos, author new findings on the fly, triage zone-only items to assets.
 
@@ -117,18 +123,22 @@ if await auth.ssoCheck(email: email) {                      // show "Sign in wit
 Kotlin: `MechbaseAuth()`, `Pkce.generate()`, `auth.ssoStartUrl(challenge, loginHint = email)` (a String
 for a Custom Tab), `auth.exchangeSsoCode(code, verifier, deviceId)`.
 
-### Display units and point context (Swift, Kotlin)
+### Display units and point context (all languages)
 
 Values stay in the point's native unit; `point.displayUnits[key]?.convert(v)` gives the
 viewer's unit (`me().unitPrefs` holds their choices). `measurementPoints.context(pointId:)`
-returns run state, staleness, limits and a 7-day trend, all native.
+returns run state, staleness, limits and a 7-day trend, all native. Python:
+`me().unit_prefs`, `point.display_units`, `inst.measurement_points.context(point_id)`; Go:
+`Me.UnitPrefs`, `MeasurementPoint.DisplayUnits`, `MeasurementPoints.Context`.
+
+`revoke_token()` / `RevokeToken` / `revokeToken()` signs a token out server-side.
 
 ## Updating `openapi.json`
 
 Run from a mechbase-web checkout:
 
 ```bash
-python scripts/dump-openapi.py > /path/to/mechbase-sdk/openapi.json
+PYTHONPATH=. uv run python /path/to/mechbase-sdk/scripts/dump-openapi.py > /path/to/mechbase-sdk/openapi.json
 ```
 
 ## License

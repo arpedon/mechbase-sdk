@@ -3,6 +3,7 @@ package mechbase
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 )
@@ -97,4 +98,15 @@ func (a *Assets) Delete(ctx context.Context, assetID int, cascade bool) (*Delete
 		return nil, err
 	}
 	return &out, nil
+}
+
+// AddPhoto appends a photo to the asset's gallery. A non-empty photoUUID is a
+// client-minted id so a retry returns the same photo.
+func (a *Assets) AddPhoto(ctx context.Context, assetID int, filename string, file io.Reader, photoUUID string) (*FileAttachment, error) {
+	return a.client.addPhoto(ctx, pathf(a.iid, fmt.Sprintf("/assets/%d/photos/", assetID)), filename, file, photoUUID, nil)
+}
+
+// DeletePhoto removes a gallery photo by uuid.
+func (a *Assets) DeletePhoto(ctx context.Context, assetID int, photoUUID string) error {
+	return a.client.doJSON(ctx, http.MethodDelete, pathf(a.iid, fmt.Sprintf("/assets/%d/photos/%s", assetID, photoUUID)), nil, nil, nil)
 }
