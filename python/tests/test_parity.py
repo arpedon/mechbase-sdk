@@ -124,7 +124,13 @@ def test_cli_findings_point_show_logout(cli_env, capsys):
     main(["point", "show", "2"])
     out = capsys.readouterr().out
     assert "running" in out and "minor 2.8 · major 7.1" in out and "last 2.5" in out
+    (cli_env / "mechbase").mkdir()
+    (cli_env / "mechbase" / "config.json").write_text(json.dumps({"token": "stored", "url": BASE}))
     main(["logout"])
-    assert rv.called and "Signed out." in capsys.readouterr().out
+    out = capsys.readouterr()
+    # logout revokes the stored token it forgets, not the MECHBASE_TOKEN override
+    assert rv.calls.last.request.headers["Authorization"].endswith("stored") and "Signed out." in out.out
+    assert "MECHBASE_TOKEN is still set" in out.err
+    assert json.loads((cli_env / "mechbase" / "config.json").read_text()) == {"url": BASE}
     main(["point", "show", "--json", "2"])
     assert json.loads(capsys.readouterr().out)["photos"] == [{"uuid": "ph-1", "url": "https://x/1.jpg"}]
