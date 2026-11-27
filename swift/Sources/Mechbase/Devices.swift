@@ -70,8 +70,15 @@ public struct Device: Codable, Sendable {
     public let healthUrl: String?
     public let groups: [DeviceGroup]
     public let tunnels: [Tunnel]
+    /// Credential push to Balena: follow `state` to "pushed" after a claim. Nil on older servers.
+    public let tokenPush: TokenPush?
+    /// Applied vs current config version. Nil on older servers.
+    public let config: DeviceConfig?
+    /// What the device detected at its last heartbeat (HAT addresses, USB-201, Modbus); nil until it reports.
+    public let hardware: JSONValue?
     enum CodingKeys: String, CodingKey {
-        case name, health, groups, tunnels
+        case name, health, groups, tunnels, config, hardware
+        case tokenPush = "token_push"
         case nodeUuid = "node_uuid", isOnline = "is_online", lastSeenAt = "last_seen_at", claimedAt = "claimed_at"
         case healthWarnings = "health_warnings", healthUrl = "health_url"
     }
@@ -110,7 +117,7 @@ func requireUUID(_ s: String) throws {
 
 /// The installation's MaintNode devices.
 public final class Devices: Sendable {
-    private let scope: InstallationScope
+    let scope: InstallationScope
     init(http: HTTPClient, installationId: Int) { scope = InstallationScope(http: http, installationId: installationId) }
 
     /// Devices needing attention first.
