@@ -259,7 +259,7 @@ def _revoke(stored: dict) -> None:
     if stored.get("token"):
         try:
             Mechbase(token=stored["token"], base_url=stored.get("url") or Mechbase.DEFAULT_BASE_URL).revoke_token()
-        except (MechbaseError, httpx.HTTPError, ValueError):
+        except (MechbaseError, httpx.HTTPError, httpx.InvalidURL):
             pass  # already revoked, server gone or URL garbage: forget it locally anyway
 
 
