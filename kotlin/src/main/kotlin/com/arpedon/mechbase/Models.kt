@@ -19,6 +19,8 @@ data class User(
     val username: String,
     @SerialName("full_name") val fullName: String,
     val email: String = "",
+    /** Gates staff-only UI (dashboard editing). False for service tokens and on older servers. */
+    @SerialName("is_staff") val isStaff: Boolean = false,
 )
 
 @Serializable
@@ -135,6 +137,16 @@ data class MeasurementPoint(
     val photos: List<Photo> = emptyList(),
     /** Uuid of the point's reference photo (one of [photos]); null when unset, and on older servers. */
     @SerialName("reference_photo_uuid") val referencePhotoUuid: String? = null,
+    /** Nameplate shaft speed, rpm. */
+    @SerialName("nominal_rpm") val nominalRpm: Int? = null,
+    /** The fitted bearing's uuid ([Bearings.get]). */
+    val bearing: String? = null,
+    /** Bearing shaft ÷ measured shaft. */
+    @SerialName("speed_ratio") val speedRatio: Double = 1.0,
+    @SerialName("envelope_band_low") val envelopeBandLow: Int? = null,
+    @SerialName("envelope_band_high") val envelopeBandHigh: Int? = null,
+    /** False: [instructions] is the transducer type's default. */
+    @SerialName("has_own_instructions") val hasOwnInstructions: Boolean = false,
 )
 
 @Serializable
@@ -160,6 +172,8 @@ data class Route(
     val uuid: String,
     val name: String,
     val description: String = "",
+    /** Set on single-route reads (survey, report, update); the list omits it. */
+    val section: SectionRef? = null,
 )
 
 /** Lightweight section reference embedded in a route (`{section_id, name}`). */
@@ -346,6 +360,18 @@ internal data class CursorMeasurements(
     val items: List<Measurement>,
     @SerialName("next_cursor") val nextCursor: String? = null,
 )
+
+/**
+ * A conditional GET's result (dashboards, point compare). Send the last [Fresh.etag] back as
+ * `ifNoneMatch`: while nothing changed the server answers 304 and you get [NotModified] — keep
+ * showing what you have.
+ */
+sealed class Conditional<out T> {
+    /** A new body; [etag] is echoed verbatim (gzip makes it weak, `W/"…"`). */
+    data class Fresh<out T>(val value: T, val etag: String?) : Conditional<T>()
+
+    data object NotModified : Conditional<Nothing>()
+}
 
 /** Convert a loose `Map<String, Any?>` into a `JsonObject` for request bodies. */
 fun Map<String, Any?>.toJsonObject(): JsonObject =

@@ -94,6 +94,14 @@ class Assets internal constructor(
     suspend fun ensureChecklist(assetId: Int): ChecklistResult =
         http.postJson(installationPath(installationId, "/assets/$assetId/checklist"), null, ChecklistResult.serializer())
 
+    /** Re-read the type's checklist into the asset's checks route (`created` false). 422 once a run was completed, while one is open, or without a checks route or checklist. */
+    suspend fun rebuildChecklist(assetId: Int): ChecklistResult =
+        http.postJson(installationPath(installationId, "/assets/$assetId/checklist/rebuild"), null, ChecklistResult.serializer())
+
+    /** Flip the asset's Production point on/off (as the web's toggle). 422 when it has no Production point. */
+    suspend fun flipProduction(assetId: Int): ProductionState =
+        http.postJson(installationPath(installationId, "/assets/$assetId/production/flip"), null, ProductionState.serializer())
+
     /** Append a photo to the asset's gallery. Pass a client-minted [uuid] so a retry returns the same photo. */
     suspend fun addPhoto(assetId: Int, file: File, uuid: String? = null): FileAttachment =
         http.postFile(
