@@ -29,6 +29,7 @@ import html
 import json
 import os
 import platform
+import re
 import sys
 import time
 import webbrowser
@@ -412,25 +413,35 @@ def cmd_alarm_clear(args, cfg):
     print(f"Point {args.point} is back on its default limits.")
 
 
+_JSON_SCALAR = re.compile(r'-?\d+(\.\d+)?|null|true|false|".*"')
+
+
 def _fields(pairs: list[str]) -> dict:
-    """key=value pairs; a value that parses as JSON (2, 1.5, null, true) is sent as such."""
+    """key=value pairs. A plain number (2, 1.5), null, true or false is sent as JSON, and a
+    quoted value ('"1.50"') as that string; anything else (SN-12e4, 0x10) as typed."""
     out = {}
     for pair in pairs:
         key, sep, value = pair.partition("=")
         if not sep or not key:
             sys.exit(f"Expected key=value, got: {pair}")
-        try:
-            out[key] = json.loads(value)
-        except ValueError:
-            out[key] = value
+        out[key] = json.loads(value) if _JSON_SCALAR.fullmatch(value) else value
     return out
 
 
-def _pick(items: list[dict], ref: str, keys: tuple[str, ...], what: str) -> dict:
-    """The one item whose uuid starts with `ref` or whose name is `ref` (case-insensitive)."""
+def _matches(items: list[dict], ref: str, keys: tuple[str, ...]) -> list[dict]:
+    """Items whose name (keys[1:]) is `ref`, else whose uuid (keys[0]) starts with it; case and
+    dashes don't matter."""
     ref_l = ref.lower()
-    hits = [i for i in items if any(str(i.get(k, "")).lower() == ref_l for k in keys[1:])]
-    hits = hits or [i for i in items if str(i[keys[0]]).replace("-", "").startswith(ref_l.replace("-", ""))]
+    prefix = ref_l.replace("-", "")
+    if not prefix:
+        return []  # an empty ref would otherwise match everything
+    hits = [i for i in items if any(str(i.get(k) or "").lower() == ref_l for k in keys[1:])]
+    return hits or [i for i in items if str(i[keys[0]]).replace("-", "").lower().startswith(prefix)]
+
+
+def _pick(items: list[dict], ref: str, keys: tuple[str, ...], what: str) -> dict:
+    """The one item `ref` names (see _matches), or exit."""
+    hits = _matches(items, ref, keys)
     if len(hits) != 1:
         sys.exit(f"No {what} matches {ref}." if not hits else f"{ref} matches {len(hits)} {what}s; give more of the uuid.")
     return hits[0]
@@ -439,7 +450,8 @@ def _pick(items: list[dict], ref: str, keys: tuple[str, ...], what: str) -> dict
 def _ago(ts: str | None) -> str:
     if not ts:
         return "never"
-    secs = int((datetime.now().astimezone() - datetime.fromisoformat(ts)).total_seconds())
+    # Python 3.10's fromisoformat takes no "Z"
+    secs = int((datetime.now().astimezone() - datetime.fromisoformat(ts.replace("Z", "+00:00"))).total_seconds())
     for unit, size in (("d", 86400), ("h", 3600), ("min", 60)):
         if secs >= size:
             return f"{secs // size} {unit} ago"
@@ -511,16 +523,16 @@ def cmd_tunnels(args, cfg):
         print(json.dumps(tunnels, indent=2))
         return
     rows = [{"uuid": t["uuid"][:8], "installation": t.get("installation_name") or "", "device": t["device_name"],
-             "tunnel": t["label"] or t["name"], "open": _tunnel_target(t)} for t in tunnels]
-    _out(args, rows, (["uuid", "installation"] if args.all else ["uuid"]) + ["device", "tunnel", "open"])
+             "name": t["name"], "label": t["label"], "open": _tunnel_target(t)} for t in tunnels]
+    _out(args, rows, (["uuid", "installation"] if args.all else ["uuid"]) + ["device", "name", "label", "open"])
 
 
 def _find_tunnel(args, cfg, client, ref: str) -> dict:
+    keys = ("uuid", "name", "label")
     tunnels = _tunnel_list(args, cfg, client)
-    if not args.all and not any(str(t["uuid"]).startswith(ref) or t["name"] == ref for t in tunnels):
-        args.all = True  # staff: a tunnel outside this installation
-        tunnels = client.tunnels.list()
-    return _pick(tunnels, ref, ("uuid", "name"), "tunnel")
+    if not args.all and not _matches(tunnels, ref, keys):
+        tunnels = client.tunnels.list()  # staff: a tunnel outside this installation
+    return _pick(tunnels, ref, keys, "tunnel")
 
 
 def cmd_tunnel_open(args, cfg):
@@ -528,6 +540,8 @@ def cmd_tunnel_open(args, cfg):
     t = _find_tunnel(args, cfg, client, args.tunnel)
     if t["kind"] != "http":
         sys.exit(f"{t['name']} is an stcp tunnel: mechbase tunnel file {t['uuid'][:8]}")
+    if not t["web_url"].startswith(("https://", "http://")):
+        sys.exit(f"Refusing to open {t['web_url']!r}: not an http(s) URL.")
     print(t["web_url"])
     webbrowser.open(t["web_url"])
 
@@ -537,9 +551,15 @@ def cmd_tunnel_file(args, cfg):
     t = _find_tunnel(args, cfg, client, args.tunnel)
     if t["kind"] != "stcp":
         sys.exit(f"{t['name']} is an http tunnel: mechbase tunnel open {t['uuid'][:8]}")
-    path = Path(args.output or f"{t['device_name']}-{t['name']}.toml".replace("/", "-").replace(" ", "-"))
-    path.write_bytes(client.tunnels.visitor_toml(t["uuid"]))
-    path.chmod(0o600)  # it holds the frps token and the tunnel secret
+    # The device name is anyone's to set: keep only filename-safe characters.
+    device = re.sub(r"[^A-Za-z0-9._-]+", "-", t["device_name"]).strip(".-")[:60] or "device"
+    path = Path(args.output or f"{device}-{t['name']}.toml")
+    body = client.tunnels.visitor_toml(t["uuid"])
+    # Created 0600: it holds the frps token and the tunnel secret, never readable by others.
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)  # an existing file keeps its mode through O_CREAT
+    with os.fdopen(fd, "wb") as fh:
+        fh.write(body)
     print(f"Wrote {path}. Run: frpc -c {path}  then connect to 127.0.0.1:{t['local_port']}")
 
 

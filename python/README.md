@@ -58,8 +58,8 @@ mechbase source delete 2 6f1c
 ```
 
 Devices, groups and tunnels take a name or the start of a uuid. `source` and `group` fields are
-the web form's (`key=value`; numbers and `null` are sent as JSON), and any field left out keeps
-its value.
+the web form's (`key=value`; plain numbers, `null`, `true` and `false` are sent as JSON, and
+`key='"1.50"'` forces a string), and any field left out keeps its value.
 
 Reading numbers are the ones in the web URL (`…/measurementpoints/2/measurements/766/`).
 Add `--json` to any command for scripting; `MECHBASE_TOKEN`, `MECHBASE_URL` and

@@ -121,3 +121,46 @@ def test_cli_source_delete_by_prefix(cli_env, capsys):
     delete = respx.delete(f"{I}/measurement-points/1/sources/m-1abc").mock(return_value=httpx.Response(204))
     main(["source", "delete", "1", "m-1", "-y"])
     assert delete.called
+
+
+# --- review fixes ---------------------------------------------------------------
+
+
+@respx.mock
+def test_cli_tunnel_file_is_private_and_safely_named(cli_env, capsys, tmp_path):
+    hostile = {**DEVICE, "name": "../../etc/x\nrm"}
+    respx.get(f"{I}/devices").mock(return_value=httpx.Response(200, json=[hostile]))
+    respx.get(f"{BASE}/api/tunnels/bb22-stcp/visitor.toml").mock(return_value=httpx.Response(200, content=b"secret"))
+    main(["tunnel", "file", "SSH"])  # case-insensitive, found locally: no staff fallback
+    (written,) = tmp_path.glob("*.toml")
+    assert written.name == "etc-x-rm-ssh.toml"
+    assert written.stat().st_mode & 0o777 == 0o600
+
+
+def test_fields_keeps_lookalike_strings():
+    from mechbase.cli import _fields
+
+    assert _fields(["a=12e4", "b=2", "c=1.5", "d=null", 'e="1.50"', "f=NaN", "g=SN-1"]) == {
+        "a": "12e4", "b": 2, "c": 1.5, "d": None, "e": "1.50", "f": "NaN", "g": "SN-1"}
+
+
+def test_an_empty_ref_matches_nothing():
+    from mechbase.cli import _pick
+
+    with pytest.raises(SystemExit):
+        _pick([SOURCE], "-", ("uuid",), "source")
+
+
+def test_ago_takes_a_z_timestamp():
+    from mechbase.cli import _ago
+
+    assert _ago("2020-01-01T00:00:00.123Z").endswith("d ago")
+
+
+@respx.mock
+def test_cli_tunnel_open_refuses_a_non_http_url(cli_env, monkeypatch):
+    monkeypatch.setattr("webbrowser.open", lambda url: pytest.fail("opened"))
+    evil = {**DEVICE, "tunnels": [{**HTTP_T, "web_url": "file:///etc/passwd"}]}
+    respx.get(f"{I}/devices").mock(return_value=httpx.Response(200, json=[evil]))
+    with pytest.raises(SystemExit):
+        main(["tunnel", "open", "logo"])
