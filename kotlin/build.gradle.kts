@@ -9,6 +9,9 @@ plugins {
 
 group = "com.arpedon"
 version = "0.2.13"
+// Local builds only (`publishToMavenLocal -PsdkVersion=0.3.0-parity-SNAPSHOT`); CI's tag check reads the line above.
+// A dedicated name, so a stray `version=` in ~/.gradle/gradle.properties can't change the artifact.
+providers.gradleProperty("sdkVersion").orNull?.let { version = it }
 
 repositories {
     mavenCentral()

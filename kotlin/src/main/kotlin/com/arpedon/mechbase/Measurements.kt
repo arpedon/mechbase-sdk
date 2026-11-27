@@ -91,6 +91,16 @@ class Measurements internal constructor(
         }
     }
 
+    /** Replace a reading's notes (rich-text HTML, sanitized like the web editor's). Device tokens 403. */
+    suspend fun updateNotes(pointId: Int, pointSequence: Int, notes: String): Measurement =
+        http.sendJson(
+            "PATCH",
+            installationPath(installationId, "/measurement-points/$pointId/measurements/$pointSequence/"),
+            buildJsonObject { put("notes", notes) },
+            null,
+            Measurement.serializer(),
+        )
+
     /** Replace a measurement's thermal hotspots (full replacement; an empty list clears them). */
     suspend fun setHotspots(measurementUuid: String, hotClusters: List<HotCluster>): Measurement =
         http.sendJson(
