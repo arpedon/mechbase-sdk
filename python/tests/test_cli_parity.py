@@ -385,11 +385,10 @@ def test_open_mints_a_web_session_and_opens_it(capsys, monkeypatch):
     o = out(capsys)
     assert "Opened /7/assets/4/" in o and "magic" not in o  # the link stays out of the scrollback
 
-    monkeypatch.setattr("webbrowser.open", lambda url: pytest.fail("opened"))
-    main(["open", "https://t-abcd1234.mechbase.io/", "--print"])
-    assert out(capsys).strip() == SESSION["url"]
-    main(["open", "/", "--json"])
-    assert json.loads(out(capsys)) == SESSION
+    main(["open", "https://t-abcd1234.mechbase.io/", "--json"])
+    assert json.loads(out(capsys)) == {"opened": "https://t-abcd1234.mechbase.io/", "expires_at": SESSION["expires_at"]}
+    assert opened == [SESSION["url"]] * 2  # the URL itself never reaches stdout
+    assert exits(["open", "/", "--print"]).code == 2  # gone
 
 
 @respx.mock

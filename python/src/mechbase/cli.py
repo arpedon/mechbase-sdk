@@ -668,13 +668,11 @@ def cmd_tunnel_open(args, cfg):
 
 def cmd_open(args, cfg):
     session = _client(cfg).web_session(args.target)
+    # The link signs a browser in: open it, never print it (scrollback, --json logs).
+    webbrowser.open(session.url)
     if args.json:
-        print(json.dumps(dataclasses.asdict(session), indent=2))
-    elif args.print:
-        print(session.url)
+        print(json.dumps({"opened": args.target, "expires_at": session.expires_at}, indent=2))
     else:
-        # The link signs a browser in once: open it rather than leave it in the scrollback.
-        webbrowser.open(session.url)
         print(f"Opened {args.target} (signed in; the link expires at {session.expires_at})")
 
 
@@ -1416,7 +1414,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("open", parents=[common], help="open a web page or tunnel URL in the browser, signed in")
     s.add_argument("target", help='a path ("/2012/assets/5/") or a device tunnel URL')
-    s.add_argument("--print", action="store_true", help="print the one-time link instead of opening it")
     s.set_defaults(fn=cmd_open)
 
     s = sub.add_parser("tunnels", parents=[common], help="remote access to devices' sites")
