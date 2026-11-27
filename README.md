@@ -16,8 +16,8 @@ Four languages, one uniform surface:
 |----------|-------------|---------------------------------------------------------------------|
 | Python   | [`python/`](python/) | `pip install mechbase`                                      |
 | Go       | [`go/`](go/)         | `go get github.com/arpedon/mechbase-sdk/go`                 |
-| Swift    | [`swift/`](swift/)   | `.package(url: "https://github.com/arpedon/mechbase-sdk", from: "0.4.4")` |
-| Kotlin   | [`kotlin/`](kotlin/) | `implementation("com.arpedon:mechbase-sdk:0.2.12")`          |
+| Swift    | [`swift/`](swift/)   | `.package(url: "https://github.com/arpedon/mechbase-sdk", from: "0.4.5")` |
+| Kotlin   | [`kotlin/`](kotlin/) | `implementation("com.arpedon:mechbase-sdk:0.2.13")`          |
 
 How each SDK is published (and how to cut a release) is documented in
 [`RELEASING.md`](RELEASING.md).
@@ -44,6 +44,11 @@ live mechbase-web `NinjaAPI`. All clients are hand-written to match it — no co
   point's own threshold over the installation default.
 - **Photos (all languages):** add and delete asset and point photos; pick a point's reference
   photo.
+- **Devices and remote access (all languages):** list an installation's MaintNodes with their
+  health, groups and mapped channels; rename a device and change a group's timing and hardware;
+  add, change and remove a point's data sources. Tunnels give each device's remote access: an
+  http tunnel's page to open in a browser, and for staff every installation's tunnels and an stcp
+  tunnel's frpc connection file.
 - **Field survey apps (Swift iOS, Kotlin Android):** start a route execution, submit item
   responses with photos, author new findings on the fly, triage zone-only items to assets.
 

@@ -13,6 +13,8 @@
     mechbase comment add 1 "Bearing noise after restart" --point 2
     mechbase doc add 1 manual.pdf --kind manual
     mechbase alarm set 2 --minor 2.8 --major 7.1
+    mechbase devices                    # MaintNodes: online, health, channels
+    mechbase tunnel open logo           # remote access to a device's site
 
 Every command takes --json for scripting. MECHBASE_TOKEN / MECHBASE_URL /
 MECHBASE_INSTALLATION override the stored config.
@@ -29,6 +31,7 @@ import os
 import platform
 import sys
 import time
+import webbrowser
 from datetime import datetime
 from pathlib import Path
 
@@ -409,6 +412,172 @@ def cmd_alarm_clear(args, cfg):
     print(f"Point {args.point} is back on its default limits.")
 
 
+def _fields(pairs: list[str]) -> dict:
+    """key=value pairs; a value that parses as JSON (2, 1.5, null, true) is sent as such."""
+    out = {}
+    for pair in pairs:
+        key, sep, value = pair.partition("=")
+        if not sep or not key:
+            sys.exit(f"Expected key=value, got: {pair}")
+        try:
+            out[key] = json.loads(value)
+        except ValueError:
+            out[key] = value
+    return out
+
+
+def _pick(items: list[dict], ref: str, keys: tuple[str, ...], what: str) -> dict:
+    """The one item whose uuid starts with `ref` or whose name is `ref` (case-insensitive)."""
+    ref_l = ref.lower()
+    hits = [i for i in items if any(str(i.get(k, "")).lower() == ref_l for k in keys[1:])]
+    hits = hits or [i for i in items if str(i[keys[0]]).replace("-", "").startswith(ref_l.replace("-", ""))]
+    if len(hits) != 1:
+        sys.exit(f"No {what} matches {ref}." if not hits else f"{ref} matches {len(hits)} {what}s; give more of the uuid.")
+    return hits[0]
+
+
+def _ago(ts: str | None) -> str:
+    if not ts:
+        return "never"
+    secs = int((datetime.now().astimezone() - datetime.fromisoformat(ts)).total_seconds())
+    for unit, size in (("d", 86400), ("h", 3600), ("min", 60)):
+        if secs >= size:
+            return f"{secs // size} {unit} ago"
+    return "just now"
+
+
+def cmd_devices(args, cfg):
+    devices = _inst(args, cfg, _client(cfg)).devices.list()
+    if args.json:
+        print(json.dumps(devices, indent=2))
+        return
+    rows = [{"device": d["name"], "uuid": d["node_uuid"][:8], "state": "online" if d["is_online"] else "OFFLINE",
+             "last seen": _ago(d["last_seen_at"]), "warnings": " ".join(d["health_warnings"]),
+             "channels": sum(len(g["channels"]) for g in d["groups"]), "tunnels": len(d["tunnels"])} for d in devices]
+    _out(args, rows, ["device", "uuid", "state", "last seen", "warnings", "channels", "tunnels"])
+
+
+def _tunnel_target(t: dict) -> str:
+    return t["web_url"] if t["kind"] == "http" else f"stcp 127.0.0.1:{t['local_port']} (mechbase tunnel file {t['uuid'][:8]})"
+
+
+def cmd_device_show(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    d = _pick(inst.devices.list(), args.device, ("node_uuid", "name"), "device")
+    if args.json:
+        print(json.dumps(d, indent=2))
+        return
+    state = "online" if d["is_online"] else "OFFLINE"
+    print(f"{d['name']} ({d['node_uuid']}): {state}, last seen {_ago(d['last_seen_at'])}"
+          + (f", {' '.join(d['health_warnings'])}" if d["health_warnings"] else ""))
+    if d.get("health_url"):
+        print(f"Factory health: {d['health_url']}")
+    for g in d["groups"]:
+        print(f"\nGroup {g['name']} ({g['hardware_type']}, every {g['interval']} s) {g['uuid']}")
+        rows = [{"channel": f"CH{c['channel']}", "point": f"{c['point_id']} {c['asset_name']} · {c['point_name']}",
+                 "sensor": c["sensor"], "last data": _ago(c["last_seen_at"]), "state": c["state"].upper()}
+                for c in g["channels"]]
+        _out(args, rows, ["channel", "point", "sensor", "last data", "state"])
+    if d["tunnels"]:
+        print("\nRemote access")
+        for t in d["tunnels"]:
+            print(f"  {t['label'] or t['name']}: {_tunnel_target(t)}")
+
+
+def cmd_device_rename(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    d = _pick(inst.devices.list(), args.device, ("node_uuid", "name"), "device")
+    d = inst.devices.rename(d["node_uuid"], args.name)
+    print(json.dumps(d, indent=2) if args.json else f"Renamed to {d['name']}.")
+
+
+def cmd_group_set(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    d = _pick(inst.devices.list(), args.device, ("node_uuid", "name"), "device")
+    g = _pick(d["groups"], args.group, ("uuid", "name"), "group")
+    d = inst.devices.update_group(d["node_uuid"], g["uuid"], **_fields(args.fields))
+    print(json.dumps(d, indent=2) if args.json else f"Updated group {g['name']} on {d['name']}.")
+
+
+def _tunnel_list(args, cfg, client) -> list[dict]:
+    if args.all:
+        return client.tunnels.list()
+    return [{**t, "device_name": d["name"]} for d in _inst(args, cfg, client).devices.list() for t in d["tunnels"]]
+
+
+def cmd_tunnels(args, cfg):
+    tunnels = _tunnel_list(args, cfg, _client(cfg))
+    if args.json:
+        print(json.dumps(tunnels, indent=2))
+        return
+    rows = [{"uuid": t["uuid"][:8], "installation": t.get("installation_name") or "", "device": t["device_name"],
+             "tunnel": t["label"] or t["name"], "open": _tunnel_target(t)} for t in tunnels]
+    _out(args, rows, (["uuid", "installation"] if args.all else ["uuid"]) + ["device", "tunnel", "open"])
+
+
+def _find_tunnel(args, cfg, client, ref: str) -> dict:
+    tunnels = _tunnel_list(args, cfg, client)
+    if not args.all and not any(str(t["uuid"]).startswith(ref) or t["name"] == ref for t in tunnels):
+        args.all = True  # staff: a tunnel outside this installation
+        tunnels = client.tunnels.list()
+    return _pick(tunnels, ref, ("uuid", "name"), "tunnel")
+
+
+def cmd_tunnel_open(args, cfg):
+    client = _client(cfg)
+    t = _find_tunnel(args, cfg, client, args.tunnel)
+    if t["kind"] != "http":
+        sys.exit(f"{t['name']} is an stcp tunnel: mechbase tunnel file {t['uuid'][:8]}")
+    print(t["web_url"])
+    webbrowser.open(t["web_url"])
+
+
+def cmd_tunnel_file(args, cfg):
+    client = _client(cfg)
+    t = _find_tunnel(args, cfg, client, args.tunnel)
+    if t["kind"] != "stcp":
+        sys.exit(f"{t['name']} is an http tunnel: mechbase tunnel open {t['uuid'][:8]}")
+    path = Path(args.output or f"{t['device_name']}-{t['name']}.toml".replace("/", "-").replace(" ", "-"))
+    path.write_bytes(client.tunnels.visitor_toml(t["uuid"]))
+    path.chmod(0o600)  # it holds the frps token and the tunnel secret
+    print(f"Wrote {path}. Run: frpc -c {path}  then connect to 127.0.0.1:{t['local_port']}")
+
+
+def cmd_sources(args, cfg):
+    sources = _inst(args, cfg, _client(cfg)).sources.list(args.point)
+    if args.json:
+        print(json.dumps(sources, indent=2))
+        return
+    rows = [{"uuid": s["uuid"][:8], "type": s["source_type"], "device": s.get("device_name") or s["device_id"],
+             "group": (s.get("group") or {}).get("name", ""), "channel": s["channel"], "sensor": s["sensor"],
+             "last data": _ago(s["last_seen_at"]), "stale": "STALE" if s.get("stale_since") else ""} for s in sources]
+    _out(args, rows, ["uuid", "type", "device", "group", "channel", "sensor", "last data", "stale"])
+
+
+def _source(inst, point, ref):
+    return _pick(inst.sources.list(point), ref, ("uuid",), "source")
+
+
+def cmd_source_add(args, cfg):
+    s = _inst(args, cfg, _client(cfg)).sources.create(args.point, **_fields(args.fields))
+    print(json.dumps(s, indent=2) if args.json else f"Added {s['source_type']} source {s['uuid']} to point {args.point}.")
+
+
+def cmd_source_set(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    s = inst.sources.update(args.point, _source(inst, args.point, args.source)["uuid"], **_fields(args.fields))
+    print(json.dumps(s, indent=2) if args.json else f"Updated source {s['uuid']}.")
+
+
+def cmd_source_delete(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    s = _source(inst, args.point, args.source)
+    if not args.yes and input(f"Remove source {s['uuid']} from point {args.point}? [y/N] ").lower() != "y":
+        sys.exit("Cancelled.")
+    inst.sources.delete(args.point, s["uuid"])
+    print(f"Removed source {s['uuid']}.")
+
+
 # --- wiring -----------------------------------------------------------------
 
 
@@ -557,6 +726,56 @@ def build_parser() -> argparse.ArgumentParser:
     s = alarm.add_parser("clear", parents=[common], help="go back to the installation default")
     s.add_argument("point", type=int)
     s.set_defaults(fn=cmd_alarm_clear)
+
+    s = sub.add_parser("devices", parents=[common], help="MaintNode devices: state, health, channels, tunnels")
+    s.set_defaults(fn=cmd_devices)
+    device = sub.add_parser("device", help="one MaintNode device").add_subparsers(dest="action", required=True)
+    s = device.add_parser("show", parents=[common], help="channels by group, and remote access")
+    s.add_argument("device", help="name or uuid (prefix)")
+    s.set_defaults(fn=cmd_device_show)
+    s = device.add_parser("rename", parents=[common], help="rename a device")
+    s.add_argument("device", help="name or uuid (prefix)")
+    s.add_argument("name")
+    s.set_defaults(fn=cmd_device_rename)
+    group = sub.add_parser("group", help="a device's acquisition group").add_subparsers(dest="action", required=True)
+    s = group.add_parser("set", parents=[common], help="change a group: interval=600 sample_rate=25600 …")
+    s.add_argument("device", help="name or uuid (prefix)")
+    s.add_argument("group", help="name or uuid (prefix)")
+    s.add_argument("fields", nargs="+", metavar="key=value")
+    s.set_defaults(fn=cmd_group_set)
+
+    s = sub.add_parser("tunnels", parents=[common], help="remote access to devices' sites")
+    s.add_argument("--all", action="store_true", help="every installation's tunnels (staff)")
+    s.set_defaults(fn=cmd_tunnels)
+    tunnel = sub.add_parser("tunnel", help="open a tunnel").add_subparsers(dest="action", required=True)
+    s = tunnel.add_parser("open", parents=[common], help="open an http tunnel in the browser")
+    s.add_argument("tunnel", help="name or uuid (prefix)")
+    s.add_argument("--all", action="store_true", help="look in every installation (staff)")
+    s.set_defaults(fn=cmd_tunnel_open)
+    s = tunnel.add_parser("file", parents=[common], help="save an stcp tunnel's frpc connection file (staff)")
+    s.add_argument("tunnel", help="name or uuid (prefix)")
+    s.add_argument("-o", "--output", help="file to write (default <device>-<tunnel>.toml)")
+    s.add_argument("--all", action="store_true", help="look in every installation (staff)")
+    s.set_defaults(fn=cmd_tunnel_file)
+
+    s = sub.add_parser("sources", parents=[common], help="a point's data sources")
+    s.add_argument("point", type=int)
+    s.set_defaults(fn=cmd_sources)
+    source = sub.add_parser("source", help="add, change or remove a data source").add_subparsers(dest="action", required=True)
+    s = source.add_parser("add", parents=[common], help="source_type=maintnode device=<uuid> group_name=… mn_channel=3 sensor=accelerometer")
+    s.add_argument("point", type=int)
+    s.add_argument("fields", nargs="+", metavar="key=value")
+    s.set_defaults(fn=cmd_source_add)
+    s = source.add_parser("set", parents=[common], help="change a source: sensitivity=50 …")
+    s.add_argument("point", type=int)
+    s.add_argument("source", help="uuid (prefix)")
+    s.add_argument("fields", nargs="+", metavar="key=value")
+    s.set_defaults(fn=cmd_source_set)
+    s = source.add_parser("delete", parents=[common], help="remove a source")
+    s.add_argument("point", type=int)
+    s.add_argument("source", help="uuid (prefix)")
+    s.add_argument("-y", "--yes", action="store_true", help="skip the confirmation")
+    s.set_defaults(fn=cmd_source_delete)
     return p
 
 
