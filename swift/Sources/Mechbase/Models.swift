@@ -77,10 +77,13 @@ public struct User: Codable, Sendable {
     public let username: String
     public let fullName: String
     public let email: String
+    /// Gates staff-only UI (dashboard editing); false for service tokens and on older servers.
+    public let isStaff: Bool
 
     enum CodingKeys: String, CodingKey {
         case id, username, email
         case fullName = "full_name"
+        case isStaff = "is_staff"
     }
 
     public init(from decoder: Decoder) throws {
@@ -89,6 +92,7 @@ public struct User: Codable, Sendable {
         self.username = try c.decode(String.self, forKey: .username)
         self.fullName = try c.decode(String.self, forKey: .fullName)
         self.email = (try? c.decode(String.self, forKey: .email)) ?? ""
+        self.isStaff = (try? c.decode(Bool.self, forKey: .isStaff)) ?? false
     }
 }
 
@@ -243,9 +247,22 @@ public struct MeasurementPoint: Codable, Sendable {
     public let photos: [Photo]
     /// Uuid of the point's reference photo (one of `photos`); `nil` when unset, and on older servers.
     public let referencePhotoUuid: String?
+    /// Nameplate shaft speed, rpm.
+    public let nominalRpm: Int?
+    /// The fitted bearing's uuid (``Bearings/get(uuid:)``).
+    public let bearing: String?
+    /// Bearing shaft ÷ measured shaft; 1 when unset and on older servers.
+    public let speedRatio: Double
+    /// Envelope band edges, Hz; nil = default.
+    public let envelopeBandLow: Int?
+    public let envelopeBandHigh: Int?
+    /// False: `instructions` is the transducer type's default.
+    public let hasOwnInstructions: Bool
 
     enum CodingKeys: String, CodingKey {
-        case uuid, name, location, status, instructions, photos
+        case uuid, name, location, status, instructions, photos, bearing
+        case nominalRpm = "nominal_rpm", speedRatio = "speed_ratio", envelopeBandLow = "envelope_band_low"
+        case envelopeBandHigh = "envelope_band_high", hasOwnInstructions = "has_own_instructions"
         case imageUrls = "image_urls"
         case displayUnits = "display_units"
         case referencePhotoUuid = "reference_photo_uuid"
@@ -272,6 +289,12 @@ public struct MeasurementPoint: Codable, Sendable {
         self.displayUnits = (try? c.decode([String: DisplayUnit].self, forKey: .displayUnits)) ?? [:]
         self.photos = (try? c.decode([Photo].self, forKey: .photos)) ?? []
         self.referencePhotoUuid = try c.decodeIfPresent(String.self, forKey: .referencePhotoUuid)
+        self.nominalRpm = try c.decodeIfPresent(Int.self, forKey: .nominalRpm)
+        self.bearing = try c.decodeIfPresent(String.self, forKey: .bearing)
+        self.speedRatio = (try? c.decode(Double.self, forKey: .speedRatio)) ?? 1
+        self.envelopeBandLow = try c.decodeIfPresent(Int.self, forKey: .envelopeBandLow)
+        self.envelopeBandHigh = try c.decodeIfPresent(Int.self, forKey: .envelopeBandHigh)
+        self.hasOwnInstructions = (try? c.decode(Bool.self, forKey: .hasOwnInstructions)) ?? false
     }
 }
 
@@ -362,15 +385,18 @@ public struct Route: Codable, Sendable {
     public let uuid: String
     public let name: String
     public let description: String
+    /// The route's section; nil when it has none, and where the server leaves it out.
+    public let section: SectionRef?
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.uuid = try c.decode(String.self, forKey: .uuid)
         self.name = try c.decode(String.self, forKey: .name)
         self.description = (try? c.decode(String.self, forKey: .description)) ?? ""
+        self.section = try? c.decodeIfPresent(SectionRef.self, forKey: .section)
     }
 
-    enum CodingKeys: String, CodingKey { case uuid, name, description }
+    enum CodingKeys: String, CodingKey { case uuid, name, description, section }
 }
 
 public struct SectionRef: Codable, Sendable {
