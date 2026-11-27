@@ -164,11 +164,15 @@ def cmd_login(args, cfg):
             "/api/auth/token",
             json={"username": email, "password": password, "device_id": f"cli-{platform.node()}"},
         )
-    _revoke_stored()  # don't leave the replaced token live on the server
-    _save(token=body["token"], url=url)  # the URL the token was issued by, even if it came from MECHBASE_URL
-    _warn_env("MECHBASE_TOKEN")
+    old = _stored()
+    changes = {"token": body["token"], "url": url}  # the URL the token was issued by, even if from MECHBASE_URL
+    if old.get("url", Mechbase.DEFAULT_BASE_URL) != url:
+        changes["installation"] = None  # an installation id means nothing on another server
+    _save(**changes)  # save first: a slow or broken revoke below must not lose the new token
+    _revoke(old)  # don't leave the replaced token live on the server
     me = Mechbase(token=body["token"], base_url=url).me()
     print(f"Signed in as {me.user.email or me.user.username} on {url}")
+    _warn_env("MECHBASE_TOKEN")
 
 
 def cmd_whoami(args, cfg):
@@ -250,14 +254,13 @@ def cmd_reading_delete(args, cfg):
     print(f"Deleted reading {args.reading} of point {args.point}.")
 
 
-def _revoke_stored() -> None:
-    """Revoke the stored token (not a MECHBASE_TOKEN override) against the URL it was issued by."""
-    stored = _stored()
+def _revoke(stored: dict) -> None:
+    """Revoke a stored token (not a MECHBASE_TOKEN override) against the URL it was issued by."""
     if stored.get("token"):
         try:
             Mechbase(token=stored["token"], base_url=stored.get("url") or Mechbase.DEFAULT_BASE_URL).revoke_token()
-        except (MechbaseError, httpx.HTTPError):
-            pass  # already revoked or server gone: forget it locally anyway
+        except (MechbaseError, httpx.HTTPError, ValueError):
+            pass  # already revoked, server gone or URL garbage: forget it locally anyway
 
 
 def _warn_env(var: str) -> None:
@@ -266,7 +269,7 @@ def _warn_env(var: str) -> None:
 
 
 def cmd_logout(args, cfg):
-    _revoke_stored()
+    _revoke(_stored())
     _save(token=None)
     print("Signed out.")
     _warn_env("MECHBASE_TOKEN")

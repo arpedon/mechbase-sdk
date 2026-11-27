@@ -169,4 +169,4 @@ def test_login_revokes_replaced_token_and_stores_issuing_url(monkeypatch, tmp_pa
         "user": {"id": 1, "username": "u", "full_name": "", "email": "u@x"}, "installations": [], "current_installation_id": None}))
     main(["login", "--email", "u@x"])
     assert old.calls.last.request.headers["Authorization"].endswith("old")
-    assert json.loads(path.read_text()) == {"token": "new", "url": "https://new.example", "installation": 3}
+    assert json.loads(path.read_text()) == {"token": "new", "url": "https://new.example"}
