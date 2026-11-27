@@ -66,7 +66,72 @@ data class Device(
     @SerialName("health_url") val healthUrl: String? = null,
     val groups: List<DeviceGroup> = emptyList(),
     val tunnels: List<Tunnel> = emptyList(),
+    /** The credentials push to Balena; null on older servers. */
+    @SerialName("token_push") val tokenPush: TokenPush? = null,
+    /** Applied vs current config; null on older servers. */
+    val config: DeviceConfig? = null,
+    /** Hardware the device last reported (HAT addresses, USB-201, Modbus reachability); null until it does. */
+    val hardware: JsonObject? = null,
 )
+
+/** [state]: none | queued | pushed | failed. After a claim, wait for `pushed`, then the first heartbeat. */
+@Serializable
+data class TokenPush(
+    val state: String = "",
+    @SerialName("queued_at") val queuedAt: String? = null,
+    @SerialName("pushed_at") val pushedAt: String? = null,
+    @SerialName("failed_at") val failedAt: String? = null,
+)
+
+/** [isCurrent] is null until the device reports a config version (or has its own token). */
+@Serializable
+data class DeviceConfig(
+    @SerialName("applied_version") val appliedVersion: String? = null,
+    @SerialName("current_version") val currentVersion: String = "",
+    @SerialName("is_current") val isCurrent: Boolean? = null,
+)
+
+/**
+ * What the provision page shows: [state] claim | member | taken | not_found | unreachable (`member`
+ * only when the device is in this installation; retry `unreachable`).
+ */
+@Serializable
+data class DeviceLookup(
+    val state: String = "",
+    @SerialName("node_uuid") val nodeUuid: String,
+    val name: String? = null,
+    @SerialName("installation_id") val installationId: Int? = null,
+    @SerialName("installation_name") val installationName: String? = null,
+    @SerialName("is_online") val isOnline: Boolean? = null,
+)
+
+/** A group's channel slots; [slots] is null for Modbus (only used registers are listed). */
+@Serializable
+data class GroupChannels(
+    val uuid: String,
+    val name: String = "",
+    @SerialName("hardware_type") val hardwareType: String = "",
+    val slots: Int? = null,
+    val channels: List<ChannelSlot> = emptyList(),
+)
+
+/** One channel slot, free ([used] false) or feeding a point. [state]: ok | stale | waiting. */
+@Serializable
+data class ChannelSlot(
+    val channel: Int,
+    val used: Boolean,
+    @SerialName("mapping_uuid") val mappingUuid: String? = null,
+    @SerialName("is_active") val isActive: Boolean? = null,
+    @SerialName("point_id") val pointId: Int? = null,
+    @SerialName("point_name") val pointName: String? = null,
+    @SerialName("asset_id") val assetId: Int? = null,
+    @SerialName("asset_name") val assetName: String? = null,
+    val sensor: String? = null,
+    val state: String? = null,
+)
+
+@Serializable
+private data class ClaimBody(@SerialName("balena_uuid") val balenaUuid: String, val name: String? = null)
 
 @Serializable
 data class SourceGroup(
@@ -101,6 +166,41 @@ class Devices internal constructor(private val http: Http, private val installat
     suspend fun get(nodeUuid: String): Device {
         requireUuid(nodeUuid)
         return http.getJson(path("/$nodeUuid"), null, Device.serializer())
+    }
+
+    /** Claim state of a device by its Balena uuid (the label QR's `/provision/<balena_uuid>/`). Service tokens 403. */
+    suspend fun lookup(balenaUuid: String): DeviceLookup {
+        requireHex(balenaUuid)
+        return http.getJson(path("/lookup/$balenaUuid"), null, DeviceLookup.serializer())
+    }
+
+    /**
+     * Claim a device into this installation and queue its credentials push (201); a device already here
+     * resends them and keeps its name (200). 409 when another installation has it. Then poll [get]:
+     * [TokenPush.state] `pushed` → first heartbeat ([Device.isOnline]) → [DeviceConfig.isCurrent].
+     */
+    suspend fun claim(balenaUuid: String, name: String? = null): Device =
+        http.postJson(path(), SDK_JSON.encodeToJsonElement(ClaimBody.serializer(), ClaimBody(balenaUuid, name)), Device.serializer())
+
+    /** Queue the push of the device's current token again; follow [Device.tokenPush]. */
+    suspend fun resendCredentials(nodeUuid: String): Device {
+        requireUuid(nodeUuid)
+        return http.postJson(path("/$nodeUuid/credentials"), null, Device.serializer())
+    }
+
+    /** Per group, every channel slot (16 for hat/ul; USB-201 physically uses 0–7) with the point it feeds, or free. */
+    suspend fun channels(nodeUuid: String): List<GroupChannels> {
+        requireUuid(nodeUuid)
+        return http.getJson(path("/$nodeUuid/channels"), null, ListSerializer(GroupChannels.serializer()))
+    }
+
+    /**
+     * Add a group, as the add-source page: group_name, hardware_type (hat | ul | modbus), hardware_address /
+     * hardware_id (USB DAQ), interval (s), sample_rate, samples, and the Modbus connection fields. Returns the device.
+     */
+    suspend fun createGroup(nodeUuid: String, fields: JsonObject): Device {
+        requireUuid(nodeUuid)
+        return http.postJson(path("/$nodeUuid/groups"), fields, Device.serializer())
     }
 
     suspend fun rename(nodeUuid: String, name: String): Device {
@@ -141,4 +241,10 @@ class Sources internal constructor(private val http: Http, private val installat
         requireUuid(sourceUuid)
         http.sendJson("DELETE", path(pointId, "/$sourceUuid"), null, null, Unit.serializer())
     }
+}
+
+// A Balena uuid is 32 hex digits (dashed or not); anything else could reroute the path.
+private fun requireHex(id: String) {
+    if (id.isNotEmpty() && id.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' || it == '-' }) return
+    throw ValidationException("invalid balena uuid: $id")
 }
