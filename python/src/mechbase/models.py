@@ -20,6 +20,8 @@ class User:
     username: str
     full_name: str
     email: str
+    # Gates staff-only features (dashboard editing); always False for service tokens.
+    is_staff: bool = False
     extra: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -38,6 +40,7 @@ class User:
             # stays `str`; the type stops lying. See issue #2.
             full_name=d.pop("full_name") or "",
             email=d.pop("email") or "",
+            is_staff=bool(d.pop("is_staff", False)),
             extra=d,
         )
 
@@ -150,6 +153,13 @@ class MeasurementPoint:
     # {"velocity": {"native": "mm/s", "unit": "in/s", "scale": ..., "offset": ...}}:
     # how to show this point's values in the caller's preferred units.
     display_units: dict[str, dict] = field(default_factory=dict)
+    # Analysis settings: nameplate rpm, fitted bearing uuid, speed ratio and envelope band (Hz).
+    nominal_rpm: int | None = None
+    bearing: str | None = None
+    speed_ratio: float = 1.0
+    envelope_band_low: int | None = None
+    envelope_band_high: int | None = None
+    has_own_instructions: bool = False
 
     @classmethod
     def from_dict(cls, d: dict) -> "MeasurementPoint":
@@ -167,6 +177,12 @@ class MeasurementPoint:
             photos=[Photo.from_dict(p) for p in d.get("photos") or []],
             reference_photo_uuid=d.get("reference_photo_uuid"),
             display_units=d.get("display_units") or {},
+            nominal_rpm=d.get("nominal_rpm"),
+            bearing=d.get("bearing"),
+            speed_ratio=1.0 if d.get("speed_ratio") is None else d["speed_ratio"],
+            envelope_band_low=d.get("envelope_band_low"),
+            envelope_band_high=d.get("envelope_band_high"),
+            has_own_instructions=bool(d.get("has_own_instructions")),
         )
 
 
@@ -455,3 +471,16 @@ class Finding:
             due_by=d.pop("due_by", None),
             extra=d,
         )
+
+
+@dataclass
+class Conditional:
+    """A conditional GET's result. `data` is None when the server said 304 (keep what you have);
+    pass `etag` back next time, verbatim (a weak W/"…" one included)."""
+
+    data: dict | None
+    etag: str | None
+
+    @property
+    def not_modified(self) -> bool:
+        return self.data is None

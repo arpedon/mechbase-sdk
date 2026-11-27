@@ -63,6 +63,37 @@ class Assets(InstallationScoped):
     def delete_photo(self, asset_id: int, photo_uuid: str) -> None:
         self._http.request("DELETE", self._path(f"/assets/{asset_id}/photos/{photo_uuid}"))
 
+    def rebuild_checklist(self, asset_id: int) -> dict:
+        """Re-read the type's checklist into the asset's checks route. Returns {route_uuid, created: False};
+        422 once a run was completed, while one is open, or without a checks route or checklist."""
+        return self._http.request("POST", self._path(f"/assets/{asset_id}/checklist/rebuild"))
+
+    def flip_production(self, asset_id: int) -> dict:
+        """Flip the asset's production state now (running ⇄ stopped). Returns {state: on|off|stale|None, last_ping}."""
+        return self._http.request("POST", self._path(f"/assets/{asset_id}/production/flip"))
+
+    def trend(self, asset_id: int, *, type: str | None = None) -> dict:
+        """The datasheet trend, in your units: {series[{point_id, name, unit, type, thresholds,
+        measurements[{t, v, status, off}]}], production_status[{t, on}], window, empty}.
+        `type` narrows to one transducer type (e.g. "VB")."""
+        return self._http.request("GET", self._path(f"/assets/{asset_id}/trend"), params=_clean({"type": type}))
+
+    def fault_record(self, asset_id: int, at: str, *, point_id: int | None = None) -> dict:
+        """Every point of the asset over `at` (ISO datetime) ± 60 s: {window, trigger_point_id,
+        rows[{point_id, name, unit, status, series[{t, v}], thresholds}]}."""
+        return self._http.request("GET", self._path(f"/assets/{asset_id}/fault-record"),
+                                  params=_clean({"at": at, "point": point_id}))
+
+
+_POINT_FIELDS = ("nominal_rpm", "bearing", "speed_ratio", "envelope_band_low", "envelope_band_high", "instructions")
+
+
+def _point_body(fields: dict) -> dict:
+    """_clean, except the analysis fields, where None is sent (it clears them) and _UNSET is not."""
+    body = _clean({k: v for k, v in fields.items() if k not in _POINT_FIELDS})
+    body.update({k: v for k, v in fields.items() if k in _POINT_FIELDS and v is not _UNSET})
+    return body
+
 
 class MeasurementPoints(InstallationScoped):
     def list(self, *, q: str = "", asset_id: int | None = None, transducer_type: str = "",
@@ -81,22 +112,32 @@ class MeasurementPoints(InstallationScoped):
                asset_id: int | None = None, asset_external_id: str | None = None,
                transducer_type: str | None = None, measurement_unit_code: str | None = None,
                location: str | None = None, body_segment: int | None = None,
-               body_angle: int | None = None, machine_class: str | None = None) -> MeasurementPoint:
-        return MeasurementPoint.from_dict(self._http.request("POST", self._path("/measurement-points"), json=_clean(locals_no_self(locals()))))
+               body_angle: int | None = None, machine_class: str | None = None,
+               nominal_rpm: int | None = _UNSET, bearing: str | None = _UNSET, speed_ratio: float | None = _UNSET,
+               envelope_band_low: int | None = _UNSET, envelope_band_high: int | None = _UNSET,
+               instructions: str | None = _UNSET) -> MeasurementPoint:
+        """Analysis fields (nominal_rpm, bearing uuid, speed_ratio, envelope band Hz, instructions HTML)
+        are sent only when given; None clears one."""
+        return MeasurementPoint.from_dict(self._http.request("POST", self._path("/measurement-points"), json=_point_body(locals_no_self(locals()))))
 
     def upsert(self, *, name: str | None = None, external_id: str | None = None,
                asset_id: int | None = None, asset_external_id: str | None = None,
                transducer_type: str | None = None, measurement_unit_code: str | None = None,
                location: str | None = None, body_segment: int | None = None,
                body_angle: int | None = None, machine_class: str | None = None) -> MeasurementPoint:
+        """The analysis fields are not upsertable (the server refuses them on PUT): set them with update()."""
         return MeasurementPoint.from_dict(self._http.request("PUT", self._path("/measurement-points"), json=_clean(locals_no_self(locals()))))
 
     def update(self, point_id: int, *, name: str | None = None, external_id: str | None = None,
                asset_id: int | None = None, asset_external_id: str | None = None,
                transducer_type: str | None = None, measurement_unit_code: str | None = None,
                location: str | None = None, body_segment: int | None = None,
-               body_angle: int | None = None, machine_class: str | None = None) -> MeasurementPoint:
-        body = _clean({k: v for k, v in locals().items() if k not in ("self", "point_id")})
+               body_angle: int | None = None, machine_class: str | None = None,
+               nominal_rpm: int | None = _UNSET, bearing: str | None = _UNSET, speed_ratio: float | None = _UNSET,
+               envelope_band_low: int | None = _UNSET, envelope_band_high: int | None = _UNSET,
+               instructions: str | None = _UNSET) -> MeasurementPoint:
+        """Change only the fields given; for the analysis fields None clears one (e.g. bearing=None)."""
+        body = _point_body({k: v for k, v in locals().items() if k not in ("self", "point_id")})
         return MeasurementPoint.from_dict(self._http.request("PATCH", self._path(f"/measurement-points/{point_id}"), json=body))
 
     def delete(self, point_id: int, *, cascade: bool = False) -> DeleteResult:
@@ -119,6 +160,21 @@ class MeasurementPoints(InstallationScoped):
     def set_reference_photo(self, point_id: int, photo_uuid: str) -> MeasurementPoint:
         return MeasurementPoint.from_dict(self._http.request(
             "PUT", self._path(f"/measurement-points/{point_id}/reference-photo"), json={"uuid": photo_uuid}))
+
+    def create_baseline(self, point_id: int, refit_from: str) -> str:
+        """Relearn the point's normal range from readings since `refit_from` (YYYY-MM-DD); runs in the
+        background (422 with too few readings: see baseline_preview). Returns the server's message."""
+        return self._http.request("POST", self._path(f"/measurement-points/{point_id}/baseline"),
+                                  json={"refit_from": refit_from})["detail"]
+
+    def clear_baseline(self, point_id: int) -> str:
+        """Back to the standard ISO limits. Returns the server's message."""
+        return self._http.request("DELETE", self._path(f"/measurement-points/{point_id}/baseline"))["detail"]
+
+    def baseline_preview(self, point_id: int, *, since: str | None = None) -> dict:
+        """{eligible: usable readings since `since`, fit_min: how many a relearn needs}."""
+        return self._http.request("GET", self._path(f"/measurement-points/{point_id}/baseline/preview"),
+                                  params=_clean({"since": since}))
 
 
 class Sections(InstallationScoped):
@@ -180,6 +236,31 @@ class Zones(InstallationScoped):
     def delete(self, zone_id: int, *, cascade: bool = False) -> DeleteResult:
         params = {"cascade": "true"} if cascade else None
         return DeleteResult.from_dict(self._http.request("DELETE", self._path(f"/zones/{zone_id}"), params=params))
+
+    def documents(self, zone_id: int) -> list[dict]:
+        """Each: uuid, name, kind, url, created_at, inherited (from the section: delete it there)."""
+        return self._http.request("GET", self._path(f"/zones/{zone_id}/documents"))
+
+    def add_document(self, zone_id: int, file, *, filename: str = "document.pdf", kind: str = "attachment",
+                     uuid: str | None = None) -> dict:
+        """A client `uuid` makes retries safe."""
+        return _upload(self._http, self._path(f"/zones/{zone_id}/documents"), file, filename,
+                       _clean({"kind": kind, "uuid": uuid}))
+
+    def delete_document(self, zone_id: int, document_uuid: str) -> None:
+        self._http.request("DELETE", self._path(f"/zones/{zone_id}/documents/{document_uuid}"))
+
+    def photos(self, zone_id: int) -> list[dict]:
+        """Each: uuid, name, url, taken_at, created_at."""
+        return self._http.request("GET", self._path(f"/zones/{zone_id}/photos"))
+
+    def add_photo(self, zone_id: int, file, *, filename: str = "photo.jpg", uuid: str | None = None) -> dict:
+        """A client `uuid` makes retries safe."""
+        return _upload(self._http, self._path(f"/zones/{zone_id}/photos"), file, filename,
+                       _clean({"uuid": uuid}) or None)
+
+    def delete_photo(self, zone_id: int, photo_uuid: str) -> None:
+        self._http.request("DELETE", self._path(f"/zones/{zone_id}/photos/{photo_uuid}"))
 
 
 class AssetTypes(InstallationScoped):
