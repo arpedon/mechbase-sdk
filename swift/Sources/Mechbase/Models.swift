@@ -412,6 +412,8 @@ public struct Route: Codable, Sendable {
     public let description: String
     /// The route's section; nil when it has none, and where the server leaves it out.
     public let section: SectionRef?
+    /// An asset's own checklist route (hidden from route lists): that asset's id; nil for any other route.
+    public let assetChecksFor: Int?
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -419,9 +421,10 @@ public struct Route: Codable, Sendable {
         self.name = try c.decode(String.self, forKey: .name)
         self.description = (try? c.decode(String.self, forKey: .description)) ?? ""
         self.section = try? c.decodeIfPresent(SectionRef.self, forKey: .section)
+        self.assetChecksFor = (try? c.decodeIfPresent(Int.self, forKey: .assetChecksFor)) ?? nil
     }
 
-    enum CodingKeys: String, CodingKey { case uuid, name, description, section }
+    enum CodingKeys: String, CodingKey { case uuid, name, description, section, assetChecksFor = "asset_checks_for" }
 }
 
 public struct SectionRef: Codable, Sendable {
@@ -500,14 +503,19 @@ public struct RouteDetail: Codable, Sendable {
     public let name: String
     public let description: String
     public let section: SectionRef?
+    /// As ``Route/assetChecksFor``.
+    public let assetChecksFor: Int?
     public let items: [RouteItem]
-    enum CodingKeys: String, CodingKey { case uuid, name, description, section, items }
+    enum CodingKeys: String, CodingKey {
+        case uuid, name, description, section, items, assetChecksFor = "asset_checks_for"
+    }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.uuid = try c.decode(String.self, forKey: .uuid)
         self.name = (try? c.decode(String.self, forKey: .name)) ?? ""
         self.description = (try? c.decode(String.self, forKey: .description)) ?? ""
         self.section = try c.decodeIfPresent(SectionRef.self, forKey: .section)
+        self.assetChecksFor = (try? c.decodeIfPresent(Int.self, forKey: .assetChecksFor)) ?? nil
         self.items = (try? c.decode([RouteItem].self, forKey: .items)) ?? []
     }
 }

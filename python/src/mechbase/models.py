@@ -253,6 +253,8 @@ class Route:
     uuid: str
     name: str
     description: str
+    # An asset's own checklist route (hidden from route lists): that asset's id; None for any other route.
+    asset_checks_for: int | None = None
 
     @classmethod
     def from_dict(cls, d: dict) -> "Route":
@@ -260,7 +262,8 @@ class Route:
         # present-but-null to "" — same rationale as the other defaulted
         # text fields. The exact production crash on installations 2012/2013
         # (issue #164 server side; #2 client side). See issue #2.
-        return cls(uuid=d["uuid"], name=d["name"], description=d.get("description") or "")
+        return cls(uuid=d["uuid"], name=d["name"], description=d.get("description") or "",
+                   asset_checks_for=d.get("asset_checks_for"))
 
 
 @dataclass

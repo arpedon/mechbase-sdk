@@ -36,17 +36,21 @@ class Installation internal constructor(
 
     /**
      * The activity feed, newest first, [limit] (≤200) a page; [sectionId] narrows to one section, [assetId] to
-     * one asset (its status changes, notes, findings and the route runs that checked it).
+     * one asset (its status changes, notes, findings and the route runs that checked it), [kind]
+     * (status_change | comment | finding | route_completion) to one kind, filtered server-side so pages stay full.
      */
     suspend fun activity(
         cursor: String? = null,
         limit: Int? = null,
         sectionId: Int? = null,
         assetId: Int? = null,
+        kind: String? = null,
     ): ActivityPage =
         http.getJson(
             path("/activity"),
-            mapOf("cursor" to cursor, "limit" to limit, "section_id" to sectionId, "asset_id" to assetId),
+            mapOf(
+                "cursor" to cursor, "limit" to limit, "section_id" to sectionId, "asset_id" to assetId, "kind" to kind,
+            ),
             ActivityPage.serializer(),
         )
 

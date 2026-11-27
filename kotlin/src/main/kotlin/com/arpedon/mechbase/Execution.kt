@@ -48,7 +48,8 @@ class Execution internal constructor(
      * Append a field-discovered item to the execution.
      *
      * Items are zone-anchored ([zoneId]) or route-level (`null`). Bind the item
-     * to a specific asset after the walk via [triage].
+     * to a specific asset after the walk via [triage]. A client-minted [uuid] (the new item's) makes it
+     * retry-safe: a retry returns the response already recorded; a uuid another item has throws [ConflictException].
      */
     suspend fun addFieldItem(
         label: String,
@@ -57,8 +58,10 @@ class Execution internal constructor(
         zoneId: Int? = null,
         config: Map<String, Any?> = emptyMap(),
         notes: String = "",
+        uuid: String? = null,
     ): ItemResponse {
         val payload: JsonObject = buildJsonObject {
+            if (uuid != null) put("uuid", JsonPrimitive(uuid))
             put("label", JsonPrimitive(label))
             put("item_type", JsonPrimitive(itemType))
             put("data", data.toJsonObject())

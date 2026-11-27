@@ -75,4 +75,40 @@ final class AppGapsTests: ParityTestCase {
         let untracked = try await inst.assets.get(id: 1)
         XCTAssertNil(untracked.running)
     }
+
+    func testActivityTriggerAndKind() async throws {
+        ParityMock.reset(reply: #"{"items":[{"kind":"status_change","timestamp":"t","title":"x","detail":"d","state":"Warning","severity":3,"trigger_type":"measurement","measured_at":"2026-11-27T08:00:00Z"},{"kind":"comment","timestamp":"t","title":"y","detail":"d","state":"Note","severity":0}],"next_cursor":null}"#)
+        let page = try await inst.activity(assetId: 4, kind: .statusChange)
+        let q = URLComponents(string: url!)?.queryItems ?? []
+        XCTAssertEqual(q.first { $0.name == "kind" }?.value, "status_change")
+        XCTAssertEqual(page.items[0].triggerType, "measurement")
+        XCTAssertEqual(page.items[0].measuredAt, "2026-11-27T08:00:00Z")
+        XCTAssertNil(page.items[1].measuredAt)
+        _ = try await inst.activity()
+        XCTAssertNil(URLComponents(string: url!)?.queryItems?.first { $0.name == "kind" }?.value)
+    }
+
+    func testAddFieldItemSendsClientUuidOnlyWhenGiven() async throws {
+        let exec = inst.routes.execution(uuid: u1)
+        reply("ItemResponseOut", status: 201)
+        _ = try await exec.addFieldItem(label: "Leak", uuid: u2)
+        XCTAssertEqual(url, "\(base)/executions/\(u1)/items")
+        XCTAssertEqual(json["uuid"] as? String, u2)
+        reply("ItemResponseOut", status: 201)
+        _ = try await exec.addFieldItem(label: "Leak", data: ["passed": false])
+        XCTAssertNil(json["uuid"])
+        ParityMock.reset(status: 409, reply: #"{"detail":"That uuid belongs to another route item."}"#)
+        await expectError({ _ = try await exec.addFieldItem(label: "x", uuid: self.u3) }) {
+            $0.detail == "That uuid belongs to another route item."
+        }
+    }
+
+    func testRouteAssetChecksFor() async throws {
+        ParityMock.reset(reply: #"{"uuid":"\#(u1)","name":"Pump checks","description":"","asset_checks_for":4,"items":[]}"#)
+        let detail = try await inst.routes.detail(routeUUID: u1)
+        XCTAssertEqual(detail.assetChecksFor, 4)
+        ParityMock.reset(reply: #"{"items":[{"uuid":"\#(u1)","name":"Daily","description":""}],"total":1,"limit":50,"offset":0}"#)
+        let routes = try await inst.routes.list()
+        XCTAssertNil(routes.first?.assetChecksFor)
+    }
 }

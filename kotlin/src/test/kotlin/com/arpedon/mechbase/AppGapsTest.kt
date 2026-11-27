@@ -68,4 +68,36 @@ class AppGapsTest : ApiTest() {
         reply("""{"uuid":"$u1","asset_id":1,"name":"P","status":1}""")
         assertFalse(inst.assets.get(1).running != null)
     }
+
+    @Test fun activity_trigger_and_kind() = runBlocking {
+        reply("""{"items":[{"kind":"status_change","severity":3,"trigger_type":"measurement",""" +
+            """"measured_at":"2026-11-27T08:00:00Z"},{"kind":"comment","severity":0}],"next_cursor":null}""")
+        val page = inst.activity(kind = "status_change", assetId = 4)
+        assertRequest("GET /api/installations/7/activity?asset_id=4&kind=status_change")
+        assertEquals("measurement", page.items[0].triggerType)
+        assertEquals("2026-11-27T08:00:00Z", page.items[0].measuredAt)
+        assertNull(page.items[1].measuredAt)
+    }
+
+    @Test fun add_field_item_sends_client_uuid_only_when_given() = runBlocking {
+        val response = """{"uuid":"$u3","route_item_uuid":"$u2","status":1,"created_at":"t"}"""
+        val exec = inst.routes.execution(u1)
+        reply(response, 201)
+        assertEquals(u2, exec.addFieldItem("Leak", uuid = u2).routeItemUuid)
+        val sent = take()
+        assertEquals("POST /api/installations/7/executions/$u1/items", sent.line())
+        assertTrue(sent.body.readUtf8().startsWith("""{"uuid":"$u2","label":"Leak""""))
+        reply(response, 201)
+        exec.addFieldItem("Leak")
+        assertFalse(take().body.readUtf8().contains("uuid"))
+        assertEquals("nope", assertFails<ConflictException>(409) { exec.addFieldItem("x", uuid = u3) }.detail)
+    }
+
+    @Test fun route_asset_checks_for() = runBlocking {
+        reply("""{"uuid":"$u1","name":"Pump checks","asset_checks_for":4,"items":[]}""")
+        assertEquals(4, inst.routes.detail(u1).assetChecksFor)
+        take()
+        reply("""{"items":[{"uuid":"$u1","name":"Daily"}],"total":1,"limit":50,"offset":0}""")
+        assertNull(inst.routes.list().single().assetChecksFor)
+    }
 }

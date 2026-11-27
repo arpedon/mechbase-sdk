@@ -82,12 +82,15 @@ public struct Execution: Sendable {
         let zone_id: Int?
         let config: JSONValue
         let notes: String
+        let uuid: String?
     }
 
     /// Append a field-discovered item to the execution.
     ///
     /// Items are zone-anchored (`zoneId`) or route-level (`nil`). Bind the item
     /// to a specific asset after the walk via ``triage(routeItemUUID:assetId:)``.
+    /// A client-minted `uuid` (the new item's) makes it retry-safe: a retry returns the response already
+    /// recorded; a uuid another item has is ``MechbaseError/conflict(_:body:)``.
     @discardableResult
     public func addFieldItem(
         label: String,
@@ -95,7 +98,8 @@ public struct Execution: Sendable {
         data: JSONValue = .object([:]),
         zoneId: Int? = nil,
         config: JSONValue = .object([:]),
-        notes: String = ""
+        notes: String = "",
+        uuid: String? = nil
     ) async throws -> ItemResponse {
         let body = FieldItemBody(
             label: label,
@@ -103,7 +107,8 @@ public struct Execution: Sendable {
             data: data,
             zone_id: zoneId,
             config: config,
-            notes: notes
+            notes: notes,
+            uuid: uuid
         )
         return try await scope.http.postJSON(url("/items"), body: body, as: ItemResponse.self)
     }
@@ -115,14 +120,16 @@ public struct Execution: Sendable {
         itemType: String = "pass_fail",
         data: [String: Any],
         zoneId: Int? = nil,
-        notes: String = ""
+        notes: String = "",
+        uuid: String? = nil
     ) async throws -> ItemResponse {
         try await addFieldItem(
             label: label,
             itemType: itemType,
             data: JSONValue.from(data),
             zoneId: zoneId,
-            notes: notes
+            notes: notes,
+            uuid: uuid
         )
     }
 

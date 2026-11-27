@@ -193,6 +193,8 @@ data class Route(
     val description: String = "",
     /** Set on single-route reads (survey, report, update); the list omits it. */
     val section: SectionRef? = null,
+    /** An asset's own checklist route (hidden from route lists): that asset's id; null for any other route. */
+    @SerialName("asset_checks_for") val assetChecksFor: Int? = null,
 )
 
 /** Lightweight section reference embedded in a route (`{section_id, name}`). */
@@ -242,6 +244,8 @@ data class RouteDetail(
     val name: String,
     val description: String = "",
     val section: SectionRef? = null,
+    /** As [Route.assetChecksFor]. */
+    @SerialName("asset_checks_for") val assetChecksFor: Int? = null,
     val items: List<RouteItem> = emptyList(),
 )
 

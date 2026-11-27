@@ -19,27 +19,30 @@ extension Installation {
 
     /// One page of the activity feed, newest first (`limit` ≤ 200). Pass `nextCursor` back as `cursor`.
     /// Group by local day client-side. `assetId` narrows it to one asset (status changes, notes,
-    /// findings and the route runs that checked it).
+    /// findings and the route runs that checked it), `kind` to one kind (filtered server-side, so pages
+    /// stay full).
     public func activity(cursor: String? = nil, limit: Int = 50, sectionId: Int? = nil,
-                         assetId: Int? = nil) async throws -> ActivityPage {
+                         assetId: Int? = nil, kind: ActivityKind? = nil) async throws -> ActivityPage {
         let q = [
             URLQueryItem(name: "cursor", value: cursor),
             URLQueryItem(name: "limit", value: String(limit)),
             URLQueryItem(name: "section_id", value: sectionId.map(String.init)),
             URLQueryItem(name: "asset_id", value: assetId.map(String.init)),
+            URLQueryItem(name: "kind", value: kind?.rawValue),
         ]
         return try await http.get(scope.path("/activity"), query: q, as: ActivityPage.self)
     }
 
     /// The whole activity feed, newest first, following cursors until it ends or the task is cancelled.
-    public func activityFeed(pageSize: Int = 50, sectionId: Int? = nil,
-                             assetId: Int? = nil) -> AsyncThrowingStream<ActivityEntry, Error> {
+    public func activityFeed(pageSize: Int = 50, sectionId: Int? = nil, assetId: Int? = nil,
+                             kind: ActivityKind? = nil) -> AsyncThrowingStream<ActivityEntry, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
                 var cursor: String?
                 do {
                     repeat {
-                        let page = try await activity(cursor: cursor, limit: pageSize, sectionId: sectionId, assetId: assetId)
+                        let page = try await activity(cursor: cursor, limit: pageSize, sectionId: sectionId, assetId: assetId,
+                                                      kind: kind)
                         for entry in page.items { continuation.yield(entry) }
                         cursor = page.nextCursor
                     } while cursor?.isEmpty == false && !Task.isCancelled
@@ -282,12 +285,21 @@ public struct ActivityEntry: Codable, Sendable {
     public let findingUuid: String?
     public let executionUuid: String?
     public let routeUuid: String?
+    /// A status change's trigger ("measurement", "inspection", "resolved", …); nil otherwise.
+    public let triggerType: String?
+    /// For a measurement-triggered status change, the reading's time: open the fault record at it.
+    public let measuredAt: String?
     enum CodingKeys: String, CodingKey {
         case kind, timestamp, title, detail, state, severity, actor
         case oldStatus = "old_status", newStatus = "new_status", assetId = "asset_id", pointId = "point_id"
         case commentId = "comment_id", findingUuid = "finding_uuid", executionUuid = "execution_uuid"
-        case routeUuid = "route_uuid"
+        case routeUuid = "route_uuid", triggerType = "trigger_type", measuredAt = "measured_at"
     }
+}
+
+/// The activity feed's entry kinds, for ``Installation/activity(cursor:limit:sectionId:assetId:kind:)``.
+public enum ActivityKind: String, Sendable {
+    case statusChange = "status_change", comment, finding, routeCompletion = "route_completion"
 }
 
 public struct ActivityPage: Codable, Sendable {
