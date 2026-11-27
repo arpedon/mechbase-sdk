@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from ._base import InstallationScoped
+from urllib.parse import quote
+
+from ._base import InstallationScoped, _clean
 
 
 class Devices(InstallationScoped):
@@ -11,7 +13,8 @@ class Devices(InstallationScoped):
         health, health_warnings, health_url (staff), groups[{uuid, name, hardware_type, hardware_config,
         interval, sample_rate, samples, channels[{uuid, channel, point_id, point_name, asset_id,
         asset_name, sensor, last_seen_at, stale_since, state}]}], tunnels[{uuid, name, label, kind,
-        staff_only, web_url, local_port, visitor_url}] (the ones you may open)."""
+        staff_only, web_url, local_port, visitor_url}] (the ones you may open), token_push{state, …},
+        config{applied_version, current_version, is_current}, hardware (as the device last reported)."""
         return self._http.request("GET", self._path("/devices"))
 
     def get(self, node_uuid: str) -> dict:
@@ -19,6 +22,31 @@ class Devices(InstallationScoped):
 
     def rename(self, node_uuid: str, name: str) -> dict:
         return self._http.request("PATCH", self._path(f"/devices/{node_uuid}"), json={"name": name})
+
+    def lookup(self, balena_uuid: str) -> dict:
+        """What scanning a device label (/provision/<balena_uuid>/) finds: {state: claim|member|taken|not_found|
+        unreachable, node_uuid, name, installation_id, installation_name, is_online}."""
+        return self._http.request("GET", self._path(f"/devices/lookup/{quote(balena_uuid, safe='')}"))
+
+    def claim(self, balena_uuid: str, *, name: str | None = None) -> dict:
+        """Claim the device into this installation (already ours: its credentials are sent again).
+        Then poll get(): token_push.state == "pushed", a heartbeat (is_online), config.is_current."""
+        return self._http.request("POST", self._path("/devices"),
+                                  json=_clean({"balena_uuid": balena_uuid, "name": name}))
+
+    def resend_credentials(self, node_uuid: str) -> dict:
+        """Queue the device's API token to be pushed to it again. Returns the device."""
+        return self._http.request("POST", self._path(f"/devices/{node_uuid}/credentials"))
+
+    def channels(self, node_uuid: str) -> list[dict]:
+        """Per group: {uuid, name, hardware_type, slots, channels[{channel, used, mapping_uuid, point_id,
+        point_name, asset_name, sensor, state}]}; hat/ul list every slot, Modbus the used registers."""
+        return self._http.request("GET", self._path(f"/devices/{node_uuid}/channels"))
+
+    def create_group(self, node_uuid: str, **fields) -> dict:
+        """The add-group form: group_name, hardware_type, hardware_id, hardware_address, interval, sample_rate,
+        samples, Modbus connection fields. Returns the device."""
+        return self._http.request("POST", self._path(f"/devices/{node_uuid}/groups"), json=fields)
 
     def update_group(self, node_uuid: str, group_uuid: str, **fields) -> dict:
         """The group edit page's fields (name, interval, sample_rate, samples, hardware_id,

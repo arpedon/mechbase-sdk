@@ -59,6 +59,8 @@ actor HTTPClient {
         if !token.isEmpty { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         req.setValue("mechbase-swift/0.4", forHTTPHeaderField: "User-Agent")
         req.setValue("application/json", forHTTPHeaderField: "Accept")
+        // The server's day windows ("today", the 7-day strip) follow the caller's zone.
+        req.setValue(TimeZone.current.identifier, forHTTPHeaderField: "X-Timezone")
         return req
     }
 
