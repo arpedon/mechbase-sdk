@@ -9,6 +9,8 @@ plugins {
 
 group = "com.arpedon"
 version = "0.2.13"
+// Local builds only (`publishToMavenLocal -Pversion=0.3.0-parity-SNAPSHOT`); CI's tag check reads the line above.
+providers.gradleProperty("version").orNull?.let { version = it }
 
 repositories {
     mavenCentral()
