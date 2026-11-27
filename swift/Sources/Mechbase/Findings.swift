@@ -82,7 +82,7 @@ public struct FindingsPage: Codable, Sendable {
 }
 
 public final class Findings: Sendable {
-    private let scope: InstallationScope
+    let scope: InstallationScope
 
     init(http: HTTPClient, installationId: Int) {
         self.scope = InstallationScope(http: http, installationId: installationId)
