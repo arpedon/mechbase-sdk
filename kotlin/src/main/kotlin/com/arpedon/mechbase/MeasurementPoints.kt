@@ -3,6 +3,10 @@ package com.arpedon.mechbase
 import java.io.File
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -19,7 +23,36 @@ data class PointInput(
     @SerialName("body_segment") val bodySegment: Int? = null,
     @SerialName("body_angle") val bodyAngle: Int? = null,
     @SerialName("machine_class") val machineClass: String? = null,
+    // Analysis settings (POST and PATCH; the PUT upsert refuses them). Null leaves a field out; the clear* flags send null.
+    /** Nameplate shaft speed, rpm (>= 0). */
+    @SerialName("nominal_rpm") val nominalRpm: Int? = null,
+    /** A library bearing's or this installation's own bearing uuid. */
+    val bearing: String? = null,
+    /** Bearing shaft ÷ measured shaft (>= 0.001). */
+    @SerialName("speed_ratio") val speedRatio: Double? = null,
+    /** Envelope band lower edge, Hz (>= 1). */
+    @SerialName("envelope_band_low") val envelopeBandLow: Int? = null,
+    /** Envelope band upper edge, Hz, above the lower. */
+    @SerialName("envelope_band_high") val envelopeBandHigh: Int? = null,
+    /** Rich-text HTML; "" (or the type default) clears the point's own instructions. */
+    val instructions: String? = null,
+    /** Send `nominal_rpm: null` (unset). */
+    @Transient val clearNominalRpm: Boolean = false,
+    /** Send `bearing: null` (remove the bearing). */
+    @Transient val clearBearing: Boolean = false,
+    /** Send both envelope band edges as null (back to the default band). */
+    @Transient val clearEnvelopeBand: Boolean = false,
 )
+
+private fun PointInput.toJson(): JsonElement {
+    val o = SDK_JSON.encodeToJsonElement(PointInput.serializer(), this) as JsonObject
+    val nulls = buildList {
+        if (clearNominalRpm && nominalRpm == null) add("nominal_rpm")
+        if (clearBearing && bearing == null) add("bearing")
+        if (clearEnvelopeBand) { add("envelope_band_low"); add("envelope_band_high") }
+    }
+    return JsonObject(o + nulls.associateWith { JsonNull })
+}
 
 class MeasurementPoints internal constructor(
     private val http: Http,
@@ -64,7 +97,7 @@ class MeasurementPoints internal constructor(
     suspend fun create(input: PointInput): MeasurementPoint =
         http.postJson(
             installationPath(installationId, "/measurement-points"),
-            SDK_JSON.encodeToJsonElement(PointInput.serializer(), input),
+            input.toJson(),
             MeasurementPoint.serializer(),
         )
 
@@ -72,7 +105,7 @@ class MeasurementPoints internal constructor(
         http.sendJson(
             "PUT",
             installationPath(installationId, "/measurement-points"),
-            SDK_JSON.encodeToJsonElement(PointInput.serializer(), input),
+            input.toJson(),
             null,
             MeasurementPoint.serializer(),
         )
@@ -81,7 +114,7 @@ class MeasurementPoints internal constructor(
         http.sendJson(
             "PATCH",
             installationPath(installationId, "/measurement-points/$pointId"),
-            SDK_JSON.encodeToJsonElement(PointInput.serializer(), input),
+            input.toJson(),
             null,
             MeasurementPoint.serializer(),
         )

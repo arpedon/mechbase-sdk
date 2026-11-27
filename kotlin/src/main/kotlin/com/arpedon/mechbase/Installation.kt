@@ -23,6 +23,9 @@ class Installation internal constructor(
     val alarmRules: AlarmRules = AlarmRules(http, installationId)
     val devices: Devices = Devices(http, installationId)
     val sources: Sources = Sources(http, installationId)
+    val dashboards: Dashboards = Dashboards(http, installationId)
+    val analysis: Analysis = Analysis(http, installationId)
+    val bearings: Bearings = Bearings(http, installationId)
 
     suspend fun overview(): Overview = http.getJson(path("/overview"), null, Overview.serializer())
 
