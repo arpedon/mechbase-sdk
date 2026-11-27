@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 from typing import Any, BinaryIO
 
-from ..models import BatchResult, DeleteResult, FileAttachment, Measurement
-from ._base import InstallationScoped, _paginated, _upload
+from ..models import BatchResult, Conditional, DeleteResult, FileAttachment, Measurement
+from ._base import InstallationScoped, _clean, _paginated, _upload
 
 
 class Measurements(InstallationScoped):
@@ -77,6 +77,41 @@ class Measurements(InstallationScoped):
         return DeleteResult.from_dict(
             self._http.request("DELETE", self._path(f"/measurement-points/{point_id}/measurements/{point_sequence}/"))
         )
+
+    def set_notes(self, point_id: int, point_sequence: int, notes: str) -> Measurement:
+        return Measurement.from_dict(self._http.request(
+            "PATCH", self._path(f"/measurement-points/{point_id}/measurements/{point_sequence}/"), json={"notes": notes}))
+
+    def analysis(self, point_id: int, point_sequence: int, *, highpass_hz: float | None = None,
+                 lowpass_hz: float | None = None) -> dict:
+        """What the web's reading page draws: data (scalars), units, display_units, previous/next_sequence,
+        vibration{waveform, spectrum{freq_hz, accel, velocity, envelope}, thresholds, bearing_markers, order,
+        n_lines, freq_resolution_hz, source_resolution_hz}, thermography{thermograms, hotspot_count}, attachments.
+        Amplitudes are in your units; frequencies in Hz (× units.frequency_scale to show). Waveform x is t_s[]."""
+        return self._http.request(
+            "GET", self._path(f"/measurement-points/{point_id}/measurements/{point_sequence}/analysis"),
+            params=_clean({"highpass_hz": highpass_hz, "lowpass_hz": lowpass_hz}))
+
+    def process(self, point_id: int, point_sequence: int, *, type: str = "velocity", high_pass: float = 0,
+                low_pass: float = 0, db_scale: bool = False, peak_count: int = 0,
+                cursors: list[int] | None = None) -> dict:
+        """The compare panel: type accel|velocity|envelope|waveform, filters (Hz, 0 = off), dB, top peaks.
+        `cursors` are up to 8 point_sequences of the same point (default: this one). Returns
+        {type, units, cursors[{point_sequence, x, y, peaks[{x, y}]}]}; a foreign sequence comes back empty."""
+        body = _clean({"type": type, "high_pass": high_pass, "low_pass": low_pass, "db_scale": db_scale,
+                       "peak_count": peak_count, "cursors": cursors})
+        return self._http.request(
+            "POST", self._path(f"/measurement-points/{point_id}/measurements/{point_sequence}/process"), json=body)
+
+    def compare(self, point_id: int, point_sequences: list[int], *, spectrum: str | None = None,
+                etag: str | None = None) -> Conditional:
+        """Overlay spectra of up to 8 readings: {point_id, spectrum, units, zoom_range_hz, baseline,
+        cursors[{point_sequence, color, metrics, freq_hz, values, markers}]}. Send the last `etag` back
+        to get `not_modified` instead of the same data."""
+        params = _clean({"seq": ",".join(map(str, point_sequences)), "spectrum": spectrum})
+        body, tag = self._http.conditional(self._path(f"/measurement-points/{point_id}/compare"),
+                                           etag=etag, params=params)
+        return Conditional(body, tag)
 
     def spectra(self, measurement_uuid: str) -> dict:
         """FFT arrays: freq_hz, velocity, acceleration, envelope (empty without a waveform)."""
