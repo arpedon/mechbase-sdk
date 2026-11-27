@@ -385,15 +385,18 @@ public struct Route: Codable, Sendable {
     public let uuid: String
     public let name: String
     public let description: String
+    /// The route's section; nil when it has none, and where the server leaves it out.
+    public let section: SectionRef?
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.uuid = try c.decode(String.self, forKey: .uuid)
         self.name = try c.decode(String.self, forKey: .name)
         self.description = (try? c.decode(String.self, forKey: .description)) ?? ""
+        self.section = try? c.decodeIfPresent(SectionRef.self, forKey: .section)
     }
 
-    enum CodingKeys: String, CodingKey { case uuid, name, description }
+    enum CodingKeys: String, CodingKey { case uuid, name, description, section }
 }
 
 public struct SectionRef: Codable, Sendable {
