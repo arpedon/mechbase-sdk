@@ -26,6 +26,7 @@ class Installation internal constructor(
     val dashboards: Dashboards = Dashboards(http, installationId)
     val analysis: Analysis = Analysis(http, installationId)
     val bearings: Bearings = Bearings(http, installationId)
+    val nonConformities: NonConformities = NonConformities(http, installationId)
 
     suspend fun overview(): Overview = http.getJson(path("/overview"), null, Overview.serializer())
 
