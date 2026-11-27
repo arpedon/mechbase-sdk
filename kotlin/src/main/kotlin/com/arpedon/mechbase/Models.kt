@@ -122,6 +122,10 @@ data class Asset(
     val photos: List<Photo> = emptyList(),
     /** Asset type code, if the asset has one. */
     @SerialName("asset_type") val assetType: String? = null,
+    /** Production-tracked assets only: "on" / "off" from the latest run, "stale" when its last ping is too old. */
+    val running: String? = null,
+    /** When that run began (ISO 8601). */
+    @SerialName("running_since") val runningSince: String? = null,
 )
 
 @Serializable

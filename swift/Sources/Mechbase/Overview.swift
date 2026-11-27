@@ -18,24 +18,28 @@ extension Installation {
     }
 
     /// One page of the activity feed, newest first (`limit` ≤ 200). Pass `nextCursor` back as `cursor`.
-    /// Group by local day client-side.
-    public func activity(cursor: String? = nil, limit: Int = 50, sectionId: Int? = nil) async throws -> ActivityPage {
+    /// Group by local day client-side. `assetId` narrows it to one asset (status changes, notes,
+    /// findings and the route runs that checked it).
+    public func activity(cursor: String? = nil, limit: Int = 50, sectionId: Int? = nil,
+                         assetId: Int? = nil) async throws -> ActivityPage {
         let q = [
             URLQueryItem(name: "cursor", value: cursor),
             URLQueryItem(name: "limit", value: String(limit)),
             URLQueryItem(name: "section_id", value: sectionId.map(String.init)),
+            URLQueryItem(name: "asset_id", value: assetId.map(String.init)),
         ]
         return try await http.get(scope.path("/activity"), query: q, as: ActivityPage.self)
     }
 
     /// The whole activity feed, newest first, following cursors until it ends or the task is cancelled.
-    public func activityFeed(pageSize: Int = 50, sectionId: Int? = nil) -> AsyncThrowingStream<ActivityEntry, Error> {
+    public func activityFeed(pageSize: Int = 50, sectionId: Int? = nil,
+                             assetId: Int? = nil) -> AsyncThrowingStream<ActivityEntry, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
                 var cursor: String?
                 do {
                     repeat {
-                        let page = try await activity(cursor: cursor, limit: pageSize, sectionId: sectionId)
+                        let page = try await activity(cursor: cursor, limit: pageSize, sectionId: sectionId, assetId: assetId)
                         for entry in page.items { continuation.yield(entry) }
                         cursor = page.nextCursor
                     } while cursor?.isEmpty == false && !Task.isCancelled

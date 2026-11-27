@@ -122,6 +122,9 @@ class Asset:
     external_id: str | None = None
     asset_type: str | None = None  # type code
     photos: list[Photo] = field(default_factory=list)
+    # Production-tracked assets only: "on" / "off" from the latest run, "stale" when its last ping is too old.
+    running: str | None = None
+    running_since: str | None = None  # when that run began
     extra: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -139,6 +142,8 @@ class Asset:
             external_id=d.pop("external_id", None),
             asset_type=d.pop("asset_type", None),
             photos=[Photo.from_dict(p) for p in d.pop("photos", None) or []],
+            running=d.pop("running", None),
+            running_since=d.pop("running_since", None),
             extra=d,
         )
 
@@ -468,6 +473,8 @@ class Finding:
     work_order_ref: str = ""
     comment: str = ""
     due_by: str | None = None
+    # The reading's number on its point (measurements.get(point_id, point_sequence)); None when none.
+    point_sequence: int | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -489,6 +496,7 @@ class Finding:
             work_order_ref=d.pop("work_order_ref", "") or "",
             comment=d.pop("comment", "") or "",
             due_by=d.pop("due_by", None),
+            point_sequence=d.pop("point_sequence", None),
             extra=d,
         )
 

@@ -34,11 +34,19 @@ class Installation internal constructor(
     suspend fun alerts(silentOnly: Boolean = false): List<Alert> =
         http.getJson(path("/alerts"), mapOf("show" to if (silentOnly) "silent" else null), ListSerializer(Alert.serializer()))
 
-    /** The activity feed, newest first, [limit] (≤200) a page; [sectionId] narrows to one section. */
-    suspend fun activity(cursor: String? = null, limit: Int? = null, sectionId: Int? = null): ActivityPage =
+    /**
+     * The activity feed, newest first, [limit] (≤200) a page; [sectionId] narrows to one section, [assetId] to
+     * one asset (its status changes, notes, findings and the route runs that checked it).
+     */
+    suspend fun activity(
+        cursor: String? = null,
+        limit: Int? = null,
+        sectionId: Int? = null,
+        assetId: Int? = null,
+    ): ActivityPage =
         http.getJson(
             path("/activity"),
-            mapOf("cursor" to cursor, "limit" to limit, "section_id" to sectionId),
+            mapOf("cursor" to cursor, "limit" to limit, "section_id" to sectionId, "asset_id" to assetId),
             ActivityPage.serializer(),
         )
 

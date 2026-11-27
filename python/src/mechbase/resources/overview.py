@@ -10,17 +10,19 @@ class Activity(InstallationScoped):
     """The Activity feed: status changes, notes, findings and route completions, newest first.
     Group by local day client-side."""
 
-    def list(self, *, limit: int = 50, cursor: str | None = None, section_id: int | None = None) -> dict:
+    def list(self, *, limit: int = 50, cursor: str | None = None, section_id: int | None = None,
+             asset_id: int | None = None) -> dict:
         """One page: {items: [{kind, timestamp, title, detail, state, severity, actor, old_status, new_status,
-        asset_id, point_id, comment_id, finding_uuid, execution_uuid, route_uuid}], next_cursor}."""
-        return self._http.request("GET", self._path("/activity"),
-                                  params=_clean({"limit": limit, "cursor": cursor, "section_id": section_id}))
+        asset_id, point_id, comment_id, finding_uuid, execution_uuid, route_uuid}], next_cursor}.
+        asset_id narrows it to one asset (its status changes, notes, findings, the runs that checked it)."""
+        return self._http.request("GET", self._path("/activity"), params=_clean(
+            {"limit": limit, "cursor": cursor, "section_id": section_id, "asset_id": asset_id}))
 
-    def iter(self, *, section_id: int | None = None, page_size: int = 100):
+    def iter(self, *, section_id: int | None = None, asset_id: int | None = None, page_size: int = 100):
         """Yield every entry, following cursor pages (oldest last)."""
         cursor = None
         while True:
-            body = self.list(limit=page_size, cursor=cursor, section_id=section_id)
+            body = self.list(limit=page_size, cursor=cursor, section_id=section_id, asset_id=asset_id)
             yield from body["items"]
             cursor = body.get("next_cursor")
             if not cursor:

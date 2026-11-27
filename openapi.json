@@ -3309,6 +3309,16 @@
           }
         ],
         "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentOut"
+                }
+              }
+            }
+          },
           "201": {
             "description": "Created",
             "content": {
@@ -3339,6 +3349,16 @@
               }
             }
           },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Unprocessable Content",
             "content": {
@@ -3350,7 +3370,7 @@
             }
           }
         },
-        "description": "Adds a comment to the asset thread as the caller. `references` pins it to points of this asset, and optionally to one reading of each by `point_sequence`. A point or reading outside this asset is a 422.",
+        "description": "Adds a comment to the asset thread as the caller. `references` pins it to points of this asset, and optionally to one reading of each by `point_sequence`. A point or reading outside this asset is a 422. Send a client-minted `uuid` to make retries safe: a retry returns the comment it made (200, as stored, not re-edited); a uuid another asset's or person's comment has is a 409.",
         "tags": [
           "registry"
         ],
@@ -3603,7 +3623,7 @@
             }
           }
         },
-        "description": "The documents the asset page lists, newest first. Photos are not included: they are in the asset's `photos`.",
+        "description": "The documents the asset page lists: its own, newest first, then its asset type's by kind and name (`inherited`; delete or replace those on the type). Photos are not included: they are in the asset's `photos`.",
         "tags": [
           "registry"
         ],
@@ -3812,7 +3832,7 @@
             }
           }
         },
-        "description": "Anyone in the installation may delete, as on the web. 404 when no document with that uuid is attached to the asset (already deleted counts).",
+        "description": "Anyone in the installation may delete, as on the web. 404 when no document with that uuid is attached to the asset (already deleted counts, and so does an inherited one: it belongs to the type).",
         "tags": [
           "registry"
         ],
@@ -14892,6 +14912,22 @@
               "title": "Section Id"
             },
             "required": false
+          },
+          {
+            "in": "query",
+            "name": "asset_id",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Asset Id"
+            },
+            "required": false
           }
         ],
         "responses": {
@@ -14936,7 +14972,7 @@
             }
           }
         },
-        "description": "The web's Activity page as a feed, ``limit`` entries a page (at most\n200). Pass ``next_cursor`` back as ``cursor`` to read older entries;\n``section_id`` narrows to one section.",
+        "description": "The web's Activity page as a feed, ``limit`` entries a page (at most\n200). Pass ``next_cursor`` back as ``cursor`` to read older entries;\n``section_id`` narrows to one section, ``asset_id`` to one asset (its status\nchanges, notes, findings and the route runs that checked it).",
         "tags": [
           "overview"
         ],
@@ -16287,6 +16323,34 @@
             },
             "title": "Photos",
             "type": "array"
+          },
+          "running": {
+            "anyOf": [
+              {
+                "enum": [
+                  "on",
+                  "off",
+                  "stale"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Running"
+          },
+          "running_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Running Since"
           }
         },
         "required": [
@@ -17158,6 +17222,18 @@
             "title": "Id",
             "type": "integer"
           },
+          "uuid": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uuid"
+          },
           "body": {
             "title": "Body",
             "type": "string"
@@ -17293,6 +17369,19 @@
             "maxItems": 50,
             "title": "References",
             "type": "array"
+          },
+          "uuid": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Client-minted on create, so a retry returns the same comment.",
+            "title": "Uuid"
           }
         },
         "required": [
@@ -17350,6 +17439,11 @@
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "inherited": {
+            "default": false,
+            "title": "Inherited",
+            "type": "boolean"
           }
         },
         "required": [
@@ -23953,6 +24047,17 @@
               }
             ],
             "title": "Measurement Uuid"
+          },
+          "point_sequence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Point Sequence"
           },
           "measurement_external_id": {
             "anyOf": [

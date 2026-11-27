@@ -25,6 +25,8 @@ public struct Finding: Codable, Sendable {
     public let pointName: String
     public let pointLocation: String
     public let measurementUuid: String?
+    /// The reading's number on its point (``Measurements/get(pointId:pointSequence:)``); nil when none.
+    public let pointSequence: Int?
     public let measurementExternalId: String?
     public let measurementTimestamp: String?
     public let webUrl: String
@@ -38,7 +40,7 @@ public struct Finding: Codable, Sendable {
         case assetId = "asset_id", assetExternalId = "asset_external_id", assetName = "asset_name"
         case pointId = "point_id", pointExternalId = "point_external_id"
         case pointName = "point_name", pointLocation = "point_location"
-        case measurementUuid = "measurement_uuid", measurementExternalId = "measurement_external_id"
+        case measurementUuid = "measurement_uuid", pointSequence = "point_sequence", measurementExternalId = "measurement_external_id"
         case measurementTimestamp = "measurement_timestamp", webUrl = "web_url"
     }
 
@@ -68,6 +70,7 @@ public struct Finding: Codable, Sendable {
         self.pointName = str(.pointName)
         self.pointLocation = str(.pointLocation)
         self.measurementUuid = try c.decodeIfPresent(String.self, forKey: .measurementUuid)
+        self.pointSequence = (try? c.decodeIfPresent(Int.self, forKey: .pointSequence)) ?? nil
         self.measurementExternalId = try c.decodeIfPresent(String.self, forKey: .measurementExternalId)
         self.measurementTimestamp = try c.decodeIfPresent(String.self, forKey: .measurementTimestamp)
         self.webUrl = str(.webUrl)

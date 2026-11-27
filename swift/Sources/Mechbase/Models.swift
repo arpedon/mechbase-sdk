@@ -203,9 +203,15 @@ public struct Asset: Codable, Sendable {
     public let photos: [Photo]
     /// Asset type code, if the asset has one.
     public let assetType: String?
+    /// Production-tracked assets only: "on" / "off" from the latest run, "stale" when its last ping is
+    /// too old to know; nil otherwise (and on older servers).
+    public let running: String?
+    /// When that run began (ISO 8601).
+    public let runningSince: String?
 
     enum CodingKeys: String, CodingKey {
-        case uuid, name, status, photos
+        case uuid, name, status, photos, running
+        case runningSince = "running_since"
         case assetType = "asset_type"
         case imageUrls = "image_urls"
         case assetId = "asset_id"
@@ -230,6 +236,8 @@ public struct Asset: Codable, Sendable {
         self.imageUrls = (try? c.decode([String].self, forKey: .imageUrls)) ?? []
         self.photos = (try? c.decode([Photo].self, forKey: .photos)) ?? []
         self.assetType = try c.decodeIfPresent(String.self, forKey: .assetType)
+        self.running = (try? c.decodeIfPresent(String.self, forKey: .running)) ?? nil
+        self.runningSince = (try? c.decodeIfPresent(String.self, forKey: .runningSince)) ?? nil
     }
 }
 
