@@ -79,6 +79,8 @@ func (c *Client) ForInstallation(id int) *Installation_ {
 		Documents:         &Documents{client: c, iid: id},
 		AssetTypes:        &AssetTypes{client: c, iid: id},
 		AlarmRules:        &AlarmRules{client: c, iid: id},
+		Devices:           &Devices{client: c, iid: id},
+		Sources:           &Sources{client: c, iid: id},
 	}
 }
 
@@ -99,6 +101,8 @@ type Installation_ struct {
 	Documents         *Documents
 	AssetTypes        *AssetTypes
 	AlarmRules        *AlarmRules
+	Devices           *Devices
+	Sources           *Sources
 }
 
 // LegacyRedirects lists legacy-URL to measurement-point redirects.

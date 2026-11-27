@@ -56,7 +56,22 @@ mechbase asset set-type QB-STD 1 2 3               # or: asset set-type --clear 
 mechbase alarms 2                    # a point's limits: its own, then the installation default
 mechbase alarm set 2 --minor 2.8 --major 7.1
 mechbase alarm clear 2               # back to the installation default
+mechbase devices                     # MaintNodes: online, health warnings, channels, tunnels
+mechbase device show "Node A"        # channels by group, factory health URL (staff), remote access
+mechbase device rename 6f1e "Boiler room node"
+mechbase group set "Node A" hat interval=600
+mechbase tunnels                     # remote access you can open (--all: every installation, staff)
+mechbase tunnel open logo            # an http tunnel's page in the browser
+mechbase tunnel file ssh             # an stcp tunnel's frpc file (staff): frpc -c <file>
+mechbase sources 2                   # a point's data sources
+mechbase source add 2 source_type=maintnode device=<node uuid> group=<uuid> mn_channel=3 sensor=accelerometer
+mechbase source set 2 6f1c sensitivity=50
+mechbase source delete 2 6f1c
 ```
+
+Devices, groups and tunnels take a name or the start of a uuid. `source` and `group` fields are
+the web form's (`key=value`; plain numbers, `null`, `true` and `false` are sent as JSON, and
+`key='"1.50"'` forces a string), and any field left out keeps its value.
 
 Reading numbers are the ones in the web URL (`…/measurementpoints/2/measurements/766/`).
 Add `--json` to any command for scripting; `MECHBASE_TOKEN`, `MECHBASE_URL` and

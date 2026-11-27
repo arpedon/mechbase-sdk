@@ -29,6 +29,16 @@ class MechbaseClient(
         http.postJson("/api/auth/token/revoke", null, JsonElement.serializer())
     }
 
+    /** Every installation's tunnels (staff only). */
+    suspend fun tunnels(): List<Tunnel> =
+        http.getJson("/api/tunnels", null, kotlinx.serialization.builtins.ListSerializer(Tunnel.serializer()))
+
+    /** An stcp tunnel's frpc config (staff only): `frpc -c <file>`, then 127.0.0.1:<localPort>. It holds secrets. */
+    suspend fun tunnelVisitorFile(tunnelUuid: String): ByteArray {
+        requireUuid(tunnelUuid)
+        return http.getBytes("/api/tunnels/$tunnelUuid/visitor.toml")
+    }
+
     fun forInstallation(installationId: Int): Installation =
         Installation(http, installationId)
 
