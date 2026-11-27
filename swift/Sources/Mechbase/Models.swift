@@ -247,9 +247,22 @@ public struct MeasurementPoint: Codable, Sendable {
     public let photos: [Photo]
     /// Uuid of the point's reference photo (one of `photos`); `nil` when unset, and on older servers.
     public let referencePhotoUuid: String?
+    /// Nameplate shaft speed, rpm.
+    public let nominalRpm: Int?
+    /// The fitted bearing's uuid (``Bearings/get(uuid:)``).
+    public let bearing: String?
+    /// Bearing shaft ÷ measured shaft; 1 when unset and on older servers.
+    public let speedRatio: Double
+    /// Envelope band edges, Hz; nil = default.
+    public let envelopeBandLow: Int?
+    public let envelopeBandHigh: Int?
+    /// False: `instructions` is the transducer type's default.
+    public let hasOwnInstructions: Bool
 
     enum CodingKeys: String, CodingKey {
-        case uuid, name, location, status, instructions, photos
+        case uuid, name, location, status, instructions, photos, bearing
+        case nominalRpm = "nominal_rpm", speedRatio = "speed_ratio", envelopeBandLow = "envelope_band_low"
+        case envelopeBandHigh = "envelope_band_high", hasOwnInstructions = "has_own_instructions"
         case imageUrls = "image_urls"
         case displayUnits = "display_units"
         case referencePhotoUuid = "reference_photo_uuid"
@@ -276,6 +289,12 @@ public struct MeasurementPoint: Codable, Sendable {
         self.displayUnits = (try? c.decode([String: DisplayUnit].self, forKey: .displayUnits)) ?? [:]
         self.photos = (try? c.decode([Photo].self, forKey: .photos)) ?? []
         self.referencePhotoUuid = try c.decodeIfPresent(String.self, forKey: .referencePhotoUuid)
+        self.nominalRpm = try c.decodeIfPresent(Int.self, forKey: .nominalRpm)
+        self.bearing = try c.decodeIfPresent(String.self, forKey: .bearing)
+        self.speedRatio = (try? c.decode(Double.self, forKey: .speedRatio)) ?? 1
+        self.envelopeBandLow = try c.decodeIfPresent(Int.self, forKey: .envelopeBandLow)
+        self.envelopeBandHigh = try c.decodeIfPresent(Int.self, forKey: .envelopeBandHigh)
+        self.hasOwnInstructions = (try? c.decode(Bool.self, forKey: .hasOwnInstructions)) ?? false
     }
 }
 

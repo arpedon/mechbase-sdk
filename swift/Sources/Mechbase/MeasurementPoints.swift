@@ -12,11 +12,29 @@ public struct PointInput: Encodable, Sendable {
     public var bodySegment: Int?
     public var bodyAngle: Int?
     public var machineClass: String?
+    // Analysis settings (POST/PATCH only; the PUT upsert refuses them). For these, nil omits the
+    // field and `.some(nil)` sends null: no rpm, no bearing, ratio 1, default envelope band.
+    public var nominalRpm: Int??
+    /// A bearing uuid (library or this installation's own).
+    public var bearing: String??
+    public var speedRatio: Double??
+    public var envelopeBandLow: Int??
+    public var envelopeBandHigh: Int??
+    /// Rich-text HTML; "" (or the type's default) clears the point's own text.
+    public var instructions: String?
 
     public init(name: String? = nil, externalId: String? = nil, assetId: Int? = nil,
                 assetExternalId: String? = nil, transducerType: String? = nil,
                 measurementUnitCode: String? = nil, location: String? = nil,
-                bodySegment: Int? = nil, bodyAngle: Int? = nil, machineClass: String? = nil) {
+                bodySegment: Int? = nil, bodyAngle: Int? = nil, machineClass: String? = nil,
+                nominalRpm: Int?? = nil, bearing: String?? = nil, speedRatio: Double?? = nil,
+                envelopeBandLow: Int?? = nil, envelopeBandHigh: Int?? = nil, instructions: String? = nil) {
+        self.nominalRpm = nominalRpm
+        self.bearing = bearing
+        self.speedRatio = speedRatio
+        self.envelopeBandLow = envelopeBandLow
+        self.envelopeBandHigh = envelopeBandHigh
+        self.instructions = instructions
         self.name = name
         self.externalId = externalId
         self.assetId = assetId
@@ -39,6 +57,9 @@ public struct PointInput: Encodable, Sendable {
         case bodySegment = "body_segment"
         case bodyAngle = "body_angle"
         case machineClass = "machine_class"
+        case bearing, instructions
+        case nominalRpm = "nominal_rpm", speedRatio = "speed_ratio"
+        case envelopeBandLow = "envelope_band_low", envelopeBandHigh = "envelope_band_high"
     }
 }
 
