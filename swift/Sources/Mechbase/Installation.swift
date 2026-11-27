@@ -17,7 +17,7 @@ public final class Installation: Sendable {
     public let alarmRules: AlarmRules
     public let devices: Devices
     public let sources: Sources
-    private let scope: InstallationScope
+    let scope: InstallationScope
 
     init(http: HTTPClient, installationId: Int) {
         self.scope = InstallationScope(http: http, installationId: installationId)
