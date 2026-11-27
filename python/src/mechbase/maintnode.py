@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import io
 from pathlib import Path
 from typing import Any, BinaryIO
@@ -11,33 +12,47 @@ from .models import MeasurementResult
 class MaintNode:
     """Device-facing client for the maintnode integration API.
 
-    Unauthenticated; the node is identified by ``node_uuid`` in the path.
+    The node is identified by ``node_uuid`` in the path and authenticates with its own API token
+    (the one the server pushes to it on claim). config, measurements and files need it; heartbeat
+    needs it once the device is claimed (an unclaimed device heartbeats without one).
 
     Usage::
 
-        node = MaintNode(node_uuid="...")  # defaults to https://app.mechbase.io
+        node = MaintNode(node_uuid="...", token="...")  # defaults to https://app.mechbase.io
         cfg = node.config()
+        node.heartbeat(config_version=MaintNode.config_version(cfg))
         node.push_measurements([{"mapping_uuid": "...", "data": {"rms": 2.3}}])
     """
 
     DEFAULT_BASE_URL = "https://app.mechbase.io"
 
-    def __init__(self, *, node_uuid: str, base_url: str = DEFAULT_BASE_URL, timeout: float = 30.0,
-                 max_retries: int = MAX_RETRIES):
-        self._http = HttpClient(token=None, base_url=base_url, timeout=timeout, max_retries=max_retries)
+    def __init__(self, *, node_uuid: str, token: str | None = None, base_url: str = DEFAULT_BASE_URL,
+                 timeout: float = 30.0, max_retries: int = MAX_RETRIES):
+        self._http = HttpClient(token=token, base_url=base_url, timeout=timeout, max_retries=max_retries)
         self.node_uuid = node_uuid
 
     def _path(self, suffix: str) -> str:
         return f"/api/maintnode/{self.node_uuid}{suffix}"
 
     def config(self) -> str:
-        return self._http.request("GET", self._path("/config/"))
+        """The device.yaml the server generates for this node (exactly as served)."""
+        return self._http.request("GET", self._path("/config/"), raw=True).decode()
 
-    def heartbeat(self, *, balena_uuid: str = "", services: dict | None = None) -> dict:
-        return self._http.request(
-            "POST", self._path("/heartbeat/"),
-            json={"balena_uuid": balena_uuid, "services": services or {}},
-        )
+    @staticmethod
+    def config_version(config: str | bytes) -> str:
+        """What heartbeat(config_version=) reports: sha256 hex of the config body applied."""
+        return hashlib.sha256(config.encode() if isinstance(config, str) else config).hexdigest()
+
+    def heartbeat(self, *, balena_uuid: str = "", services: dict | None = None,
+                  config_version: str | None = None, hardware: dict | None = None) -> dict:
+        """hardware: what the node detected, any of {hat_addresses: [int] (≤8), usb201: bool,
+        modbus: [{host, port, unit_id, reachable}] (≤32)}. Out of bounds rejects the whole heartbeat (422)."""
+        body: dict[str, Any] = {"balena_uuid": balena_uuid, "services": services or {}}
+        if config_version is not None:
+            body["config_version"] = config_version
+        if hardware is not None:
+            body["hardware"] = hardware
+        return self._http.request("POST", self._path("/heartbeat/"), json=body)
 
     def push_measurements(self, items: list[dict]) -> list[MeasurementResult]:
         body = self._http.request(
