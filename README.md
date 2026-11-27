@@ -17,7 +17,7 @@ Four languages, one uniform surface:
 | Python   | [`python/`](python/) | `pip install mechbase`                                      |
 | Go       | [`go/`](go/)         | `go get github.com/arpedon/mechbase-sdk/go`                 |
 | Swift    | [`swift/`](swift/)   | `.package(url: "https://github.com/arpedon/mechbase-sdk", from: "0.4.5")` |
-| Kotlin   | [`kotlin/`](kotlin/) | `implementation("com.arpedon:mechbase-sdk:0.2.13")`          |
+| Kotlin   | [`kotlin/`](kotlin/) | `implementation("com.arpedon:mechbase-sdk:0.2.14")`          |
 
 How each SDK is published (and how to cut a release) is documented in
 [`RELEASING.md`](RELEASING.md).
