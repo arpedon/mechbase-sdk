@@ -75,6 +75,7 @@ mechbase device rename 6f1e "Boiler room node"
 mechbase group set "Node A" hat interval=600
 mechbase tunnels                     # remote access you can open (--all: every installation, staff)
 mechbase tunnel open logo            # an http tunnel's page in the browser
+mechbase open /2012/assets/5/        # a web page (or tunnel URL), already signed in
 mechbase tunnel file ssh             # an stcp tunnel's frpc file (staff): frpc -c <file>
 mechbase sources 2                   # a point's data sources
 mechbase source add 2 source_type=maintnode device=<node uuid> group=<uuid> mn_channel=3 sensor=accelerometer

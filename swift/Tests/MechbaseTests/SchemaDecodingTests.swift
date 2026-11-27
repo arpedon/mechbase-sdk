@@ -51,6 +51,7 @@ final class SchemaDecodingTests: XCTestCase {
         check(DeviceLookup.self, "DeviceLookupOut")
         check(GroupChannels.self, "GroupChannelsOut")
         check(PushDevice.self, "PushDeviceOut")
+        check(WebSession.self, "WebSessionOut")
         check(ZoneDocument.self, "ZoneDocumentOut")
         check(ZonePhoto.self, "ZonePhotoOut")
     }

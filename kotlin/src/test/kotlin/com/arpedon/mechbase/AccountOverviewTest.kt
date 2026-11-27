@@ -43,6 +43,18 @@ class AccountOverviewTest : ApiTest() {
         Unit
     }
 
+    @Test fun web_session() = runBlocking {
+        reply("""{"url":"https://x.test/auth/magic/abc/","expires_at":"2026-11-27T10:00:00Z"}""")
+        val s = client.webSession("/2012/assets/5/")
+        assertEquals("https://x.test/auth/magic/abc/", s.url)
+        assertEquals("2026-11-27T10:00:00Z", s.expiresAt)
+        assertRequest("POST /api/auth/web-session", """{"next":"/2012/assets/5/"}""")
+
+        assertFails<ValidationException>(422) { client.webSession("//evil") }
+        assertFails<AuthException>(403) { client.webSession("/") }
+        Unit
+    }
+
     @Test fun push_register_and_delete() = runBlocking {
         reply("""{"platform":"fcm","token":"abc:DEF","app_version":"1.2","created_at":"2026-01-01T00:00:00Z","last_seen_at":"2026-01-01T00:00:00Z"}""", 201)
         assertEquals("1.2", client.registerPushDevice("fcm", "abc:DEF", "1.2").appVersion)

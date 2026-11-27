@@ -174,6 +174,67 @@
         ]
       }
     },
+    "/api/auth/web-session": {
+      "post": {
+        "operationId": "api_auth_endpoints_web_session_view",
+        "summary": "Mint a one-time link that signs a browser in and opens `next`",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebSessionOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "For the apps' in-app browser: open `url` within 60 s and the browser is signed in as the token's user, then lands on `next`. The link works once, and dies with this token. `next` is a path on this site (\"/2012/assets/5/\"), an absolute URL on this host, or an `https://` URL of an http device tunnel the user may open; anything else is 422. Only a user's own unscoped bearer token may call this: a browser session, a service or MaintNode device token, an installation-scoped token or an inactive user gets 403. Limited to 10 links a minute per user (429 with Retry-After).",
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebSessionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/me/": {
       "get": {
         "operationId": "api_installations_router_me",
@@ -15435,6 +15496,52 @@
         "title": "SSOExchangeIn",
         "type": "object"
       },
+      "WebSessionOut": {
+        "properties": {
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "expires_at"
+        ],
+        "title": "WebSessionOut",
+        "type": "object"
+      },
+      "ErrorOut": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorOut",
+        "type": "object"
+      },
+      "WebSessionIn": {
+        "properties": {
+          "next": {
+            "maxLength": 2048,
+            "title": "Next",
+            "type": "string"
+          }
+        },
+        "required": [
+          "next"
+        ],
+        "title": "WebSessionIn",
+        "type": "object"
+      },
       "InstallationOut": {
         "properties": {
           "installation_id": {
@@ -15552,19 +15659,6 @@
           "email"
         ],
         "title": "UserOut",
-        "type": "object"
-      },
-      "ErrorOut": {
-        "properties": {
-          "detail": {
-            "title": "Detail",
-            "type": "string"
-          }
-        },
-        "required": [
-          "detail"
-        ],
-        "title": "ErrorOut",
         "type": "object"
       },
       "MeIn": {

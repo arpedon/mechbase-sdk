@@ -48,6 +48,22 @@ def test_me_is_staff_and_partial_patch():
 
 
 @respx.mock
+def test_web_session():
+    route = respx.post(f"{BASE}/api/auth/web-session").mock(return_value=httpx.Response(
+        200, json={"url": f"{BASE}/auth/magic/abc/", "expires_at": "2026-11-27T10:00:00Z"}))
+    c = Mechbase(token="tok", base_url=BASE)
+    s = c.web_session("/7/assets/4/")
+    assert body(route) == {"next": "/7/assets/4/"}
+    assert (s.url, s.expires_at) == (f"{BASE}/auth/magic/abc/", "2026-11-27T10:00:00Z")
+    route.mock(return_value=httpx.Response(422, json={"detail": "next: must be a path on this site."}))
+    with pytest.raises(ValidationError):
+        c.web_session("//evil")
+    route.mock(return_value=httpx.Response(403, json={"detail": "This token cannot open a web session."}))
+    with pytest.raises(AuthError):
+        c.web_session("/")
+
+
+@respx.mock
 def test_push_register_and_delete():
     reg = respx.post(f"{BASE}/api/push/devices").mock(return_value=httpx.Response(201, json={"platform": "apns"}))
     gone = respx.delete(f"{BASE}/api/push/devices/ab%2Fcd").mock(return_value=httpx.Response(204))

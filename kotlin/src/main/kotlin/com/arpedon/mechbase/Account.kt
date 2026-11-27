@@ -35,3 +35,13 @@ data class PushDevice(
     @SerialName("created_at") val createdAt: String = "",
     @SerialName("last_seen_at") val lastSeenAt: String = "",
 )
+
+@Serializable
+internal data class WebSessionBody(val next: String)
+
+/** A one-time browser sign-in link from [MechbaseClient.webSession]: open [url] once, within the minute. */
+@Serializable
+data class WebSession(
+    val url: String,
+    @SerialName("expires_at") val expiresAt: String = "",
+)

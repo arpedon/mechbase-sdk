@@ -80,6 +80,18 @@ class Me:
 
 
 @dataclass
+class WebSession:
+    """A one-time browser sign-in link: open `url` once, within the minute."""
+
+    url: str
+    expires_at: str
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "WebSession":
+        return cls(url=d["url"], expires_at=d.get("expires_at") or "")
+
+
+@dataclass
 class Photo:
     uuid: str
     url: str
