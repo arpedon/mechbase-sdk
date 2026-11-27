@@ -3,6 +3,7 @@ from __future__ import annotations
 from ._http import HttpClient
 from .models import Me
 from .resources.analytics import Exports
+from .resources.devices import Devices, Sources, Tunnels
 from .resources.findings import Findings
 from .resources.measurements import Measurements
 from .resources.registry import Assets, MeasurementPoints, Sections, Zones
@@ -19,6 +20,7 @@ class InstallationHandle:
         self.alarm_rules = AlarmRules(http, installation_id)
         self.assets = Assets(http, installation_id)
         self.comments = Comments(http, installation_id)
+        self.devices = Devices(http, installation_id)
         self.documents = Documents(http, installation_id)
         self.exports = Exports(http, installation_id)
         self.findings = Findings(http, installation_id)
@@ -26,6 +28,7 @@ class InstallationHandle:
         self.measurements = Measurements(http, installation_id)
         self.routes = Routes(http, installation_id)
         self.sections = Sections(http, installation_id)
+        self.sources = Sources(http, installation_id)
         self.zones = Zones(http, installation_id)
 
     def legacy_redirects(self) -> list[dict]:
@@ -50,6 +53,7 @@ class Mechbase:
 
     def __init__(self, *, token: str, base_url: str = DEFAULT_BASE_URL, timeout: float = 30.0):
         self._http = HttpClient(token=token, base_url=base_url, timeout=timeout)
+        self.tunnels = Tunnels(self._http)
 
     def me(self) -> Me:
         return Me.from_dict(self._http.request("GET", "/api/me/"))
