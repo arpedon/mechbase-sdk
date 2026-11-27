@@ -13287,7 +13287,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SectionOut"
+                  "$ref": "#/components/schemas/DashboardSectionOut"
                 }
               }
             }
@@ -13321,7 +13321,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SectionIn"
+                "$ref": "#/components/schemas/DashboardSectionIn"
               }
             }
           },
@@ -13378,7 +13378,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SectionOut"
+                  "$ref": "#/components/schemas/DashboardSectionOut"
                 }
               }
             }
@@ -13422,7 +13422,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SectionIn"
+                "$ref": "#/components/schemas/DashboardSectionIn"
               }
             }
           },
@@ -15729,29 +15729,64 @@
             "title": "Uuid",
             "type": "string"
           },
-          "title": {
-            "title": "Title",
+          "section_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Id"
+          },
+          "name": {
+            "title": "Name",
             "type": "string"
           },
-          "position": {
-            "title": "Position",
-            "type": "integer"
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
           }
         },
         "required": [
           "uuid",
-          "title",
-          "position"
+          "section_id",
+          "name"
         ],
         "title": "SectionOut",
         "type": "object"
       },
       "SectionIn": {
         "properties": {
-          "title": {
-            "default": "",
-            "title": "Title",
-            "type": "string"
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
           }
         },
         "title": "SectionIn",
@@ -16130,24 +16165,14 @@
             "title": "Uuid",
             "type": "string"
           },
-          "kind": {
-            "title": "Kind",
-            "type": "string"
-          },
           "url": {
             "title": "Url",
-            "type": "string"
-          },
-          "name": {
-            "title": "Name",
             "type": "string"
           }
         },
         "required": [
           "uuid",
-          "kind",
-          "url",
-          "name"
+          "url"
         ],
         "title": "PhotoOut",
         "type": "object"
@@ -19025,6 +19050,35 @@
         "title": "ReportGroupOut",
         "type": "object"
       },
+      "ReportPhotoOut": {
+        "properties": {
+          "uuid": {
+            "format": "uuid",
+            "title": "Uuid",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "kind",
+          "url",
+          "name"
+        ],
+        "title": "ReportPhotoOut",
+        "type": "object"
+      },
       "ReportResponseOut": {
         "properties": {
           "uuid": {
@@ -19078,7 +19132,7 @@
           },
           "photos": {
             "items": {
-              "$ref": "#/components/schemas/PhotoOut"
+              "$ref": "#/components/schemas/ReportPhotoOut"
             },
             "title": "Photos",
             "type": "array"
@@ -24935,6 +24989,41 @@
           "id"
         ],
         "title": "LayoutSectionIn",
+        "type": "object"
+      },
+      "DashboardSectionOut": {
+        "properties": {
+          "uuid": {
+            "format": "uuid",
+            "title": "Uuid",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "uuid",
+          "title",
+          "position"
+        ],
+        "title": "DashboardSectionOut",
+        "type": "object"
+      },
+      "DashboardSectionIn": {
+        "properties": {
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "title": "DashboardSectionIn",
         "type": "object"
       },
       "TileRefOut": {
