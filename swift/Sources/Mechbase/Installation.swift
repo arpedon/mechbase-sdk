@@ -17,6 +17,7 @@ public final class Installation: Sendable {
     public let alarmRules: AlarmRules
     public let devices: Devices
     public let sources: Sources
+    public let dashboards: Dashboards
     let scope: InstallationScope
 
     init(http: HTTPClient, installationId: Int) {
@@ -36,6 +37,7 @@ public final class Installation: Sendable {
         self.alarmRules = AlarmRules(http: http, installationId: installationId)
         self.devices = Devices(http: http, installationId: installationId)
         self.sources = Sources(http: http, installationId: installationId)
+        self.dashboards = Dashboards(http: http, installationId: installationId)
     }
 
     private struct LegacyRedirectsPage: Decodable { let items: [LegacyRedirect] }
