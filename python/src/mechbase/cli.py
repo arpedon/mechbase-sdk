@@ -20,7 +20,8 @@
     mechbase tunnel open logo           # remote access to a device's site
 
 Every command takes --json for scripting. MECHBASE_TOKEN / MECHBASE_URL /
-MECHBASE_INSTALLATION override the stored config.
+MECHBASE_INSTALLATION override the stored config and are never written to it
+(`login` stores the URL it signed in to, wherever that came from).
 """
 
 from __future__ import annotations
@@ -54,11 +55,17 @@ def _config_path() -> Path:
     return Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "mechbase" / "config.json"
 
 
-def _load() -> dict:
+def _stored() -> dict:
+    """The config file alone, without the MECHBASE_* overrides."""
     try:
-        cfg = json.loads(_config_path().read_text())
+        data = json.loads(_config_path().read_text())
     except (OSError, ValueError):
-        cfg = {}
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _load() -> dict:
+    cfg = _stored()
     for key, env in (("token", "MECHBASE_TOKEN"), ("url", "MECHBASE_URL"), ("installation", "MECHBASE_INSTALLATION")):
         if os.environ.get(env):
             cfg[key] = os.environ[env]
@@ -66,11 +73,26 @@ def _load() -> dict:
     return cfg
 
 
-def _save(cfg: dict) -> None:
+def _save(**changes) -> None:
+    """Apply changes to the stored file (None removes a key). Env overrides are never written."""
+    cfg = _stored()
+    for key, value in changes.items():
+        if value is None:
+            cfg.pop(key, None)
+        else:
+            cfg[key] = value
     path = _config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(cfg, indent=2))
-    path.chmod(0o600)
+    _write_private(path, json.dumps(cfg, indent=2).encode())
+
+
+def _write_private(path: Path, data: bytes) -> None:
+    """Write a file that is 0600 from its creation, never briefly readable by others."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    if hasattr(os, "fchmod"):  # absent on Windows before 3.13
+        os.fchmod(fd, 0o600)  # an existing file keeps its mode through O_CREAT
+    with os.fdopen(fd, "wb") as fh:
+        fh.write(data)
 
 
 def _client(cfg: dict) -> Mechbase:
@@ -142,10 +164,15 @@ def cmd_login(args, cfg):
             "/api/auth/token",
             json={"username": email, "password": password, "device_id": f"cli-{platform.node()}"},
         )
-    cfg.update(token=body["token"], url=url)
-    _save(cfg)
-    me = Mechbase(token=cfg["token"], base_url=url).me()
+    old = _stored()
+    changes = {"token": body["token"], "url": url}  # the URL the token was issued by, even if from MECHBASE_URL
+    if old.get("url", Mechbase.DEFAULT_BASE_URL) != url:
+        changes["installation"] = None  # an installation id means nothing on another server
+    _save(**changes)  # save first: a slow or broken revoke below must not lose the new token
+    _revoke(old)  # don't leave the replaced token live on the server
+    me = Mechbase(token=body["token"], base_url=url).me()
     print(f"Signed in as {me.user.email or me.user.username} on {url}")
+    _warn_env("MECHBASE_TOKEN")
 
 
 def cmd_whoami(args, cfg):
@@ -159,8 +186,8 @@ def cmd_whoami(args, cfg):
 
 
 def cmd_use(args, cfg):
-    cfg["installation"] = args.installation_id
-    _save(cfg)
+    _save(installation=args.installation_id)
+    _warn_env("MECHBASE_INSTALLATION")
     print(f"Using installation {args.installation_id}")
 
 
@@ -227,15 +254,25 @@ def cmd_reading_delete(args, cfg):
     print(f"Deleted reading {args.reading} of point {args.point}.")
 
 
-def cmd_logout(args, cfg):
-    if cfg.get("token"):
+def _revoke(stored: dict) -> None:
+    """Revoke a stored token (not a MECHBASE_TOKEN override) against the URL it was issued by."""
+    if stored.get("token"):
         try:
-            _client(cfg).revoke_token()
-        except (MechbaseError, httpx.HTTPError):
-            pass  # already revoked or server gone: forget it locally anyway
-    cfg.pop("token", None)
-    _save(cfg)
+            Mechbase(token=stored["token"], base_url=stored.get("url") or Mechbase.DEFAULT_BASE_URL).revoke_token()
+        except (MechbaseError, httpx.HTTPError, httpx.InvalidURL):
+            pass  # already revoked, server gone or URL garbage: forget it locally anyway
+
+
+def _warn_env(var: str) -> None:
+    if os.environ.get(var):
+        print(f"{var} is still set in this shell and overrides the saved config.", file=sys.stderr)
+
+
+def cmd_logout(args, cfg):
+    _revoke(_stored())
+    _save(token=None)
     print("Signed out.")
+    _warn_env("MECHBASE_TOKEN")
 
 
 def cmd_point_show(args, cfg):
@@ -632,11 +669,7 @@ def cmd_tunnel_file(args, cfg):
     device = re.sub(r"[^A-Za-z0-9._-]+", "-", t["device_name"]).strip(".-")[:60] or "device"
     path = Path(args.output or f"{device}-{t['name']}.toml")
     body = client.tunnels.visitor_toml(t["uuid"])
-    # Created 0600: it holds the frps token and the tunnel secret, never readable by others.
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    os.fchmod(fd, 0o600)  # an existing file keeps its mode through O_CREAT
-    with os.fdopen(fd, "wb") as fh:
-        fh.write(body)
+    _write_private(path, body)  # it holds the frps token and the tunnel secret
     print(f"Wrote {path}. Run: frpc -c {path}  then connect to 127.0.0.1:{t['local_port']}")
 
 
