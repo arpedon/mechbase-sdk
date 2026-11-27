@@ -100,4 +100,96 @@ final class RegistryTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(Asset.self, from: Data(with.utf8)).imageUrls, ["https://x/a.jpg"])
         XCTAssertEqual(try JSONDecoder().decode(Asset.self, from: Data(without.utf8)).imageUrls, [])
     }
+
+    // MARK: asset types, guest view, checklist
+
+    private func body(_ r: URLRequest) -> [String: Any] {
+        var data = r.httpBody ?? Data()
+        if let st = r.httpBodyStream {
+            st.open(); defer { st.close() }
+            var buf = [UInt8](repeating: 0, count: 4096)
+            while st.hasBytesAvailable { let n = st.read(&buf, maxLength: buf.count); if n <= 0 { break }; data.append(buf, count: n) }
+        }
+        return (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+    }
+
+    func testAssetTypeOmittedNullCode() async throws {
+        var bodies: [[String: Any]] = []
+        MockURLProtocol.handler = { req in
+            XCTAssertEqual(req.url?.path, "/api/installations/2012/assets/1")
+            XCTAssertEqual(req.httpMethod, "PATCH")
+            bodies.append(self.body(req))
+            return (200, self.json(#"{"uuid":"a","asset_id":1,"name":"P","status":1,"asset_type":"QB-STD"}"#))
+        }
+        let assets = client.forInstallation(id: 2012).assets
+        let a = try await assets.update(id: 1, AssetInput(name: "P"))
+        XCTAssertEqual(a.assetType, "QB-STD")
+        _ = try await assets.update(id: 1, AssetInput(assetType: .some(nil)))
+        _ = try await assets.update(id: 1, AssetInput(assetType: "QB-STD"))
+        XCTAssertEqual(bodies[0].keys.sorted(), ["name"])
+        XCTAssertEqual(bodies[1].count, 1)
+        XCTAssertTrue(bodies[1]["asset_type"] is NSNull)
+        XCTAssertEqual(bodies[2]["asset_type"] as? String, "QB-STD")
+    }
+
+    func testZoneGuestViewAndEnsureChecklist() async throws {
+        MockURLProtocol.handler = { req in
+            if req.url?.path.hasSuffix("/zones/3") == true {
+                XCTAssertEqual(req.httpMethod, "PATCH")
+                XCTAssertEqual(self.body(req)["guest_view"] as? Bool, true)
+                return (200, self.json(#"{"uuid":"z","zone_id":3,"name":"Z","guest_view":true}"#))
+            }
+            XCTAssertEqual(req.url?.path, "/api/installations/2012/assets/1/checklist")
+            XCTAssertEqual(req.httpMethod, "POST")
+            return (200, self.json(#"{"route_uuid":"r","created":true}"#))
+        }
+        let inst = client.forInstallation(id: 2012)
+        let z = try await inst.zones.update(id: 3, ZoneInput(guestView: true))
+        XCTAssertTrue(z.guestView)
+        let c = try await inst.assets.ensureChecklist(assetId: 1)
+        XCTAssertEqual(c.routeUuid, "r")
+        XCTAssertTrue(c.created)
+        let old = try JSONDecoder().decode(Zone.self, from: Data(#"{"uuid":"z","name":"Z"}"#.utf8))
+        XCTAssertFalse(old.guestView)
+    }
+
+    func testAssetTypesPaths() async throws {
+        var seen: [String] = []
+        MockURLProtocol.handler = { req in
+            seen.append("\(req.httpMethod!) \(req.url!.path)")
+            switch (req.httpMethod!, req.url!.path) {
+            case ("GET", "/api/installations/2012/asset-types"):
+                return (200, self.json(#"[{"uuid":"t","code":"QB-STD","name":"QB","checklist":[{"label":"x"}],"asset_count":2,"document_count":1}]"#))
+            case ("DELETE", "/api/installations/2012/asset-types/QB-STD"):
+                return (200, self.json(#"{"deleted":true,"uuid":"t"}"#))
+            case ("GET", _) where req.url!.path.hasSuffix("/documents"):
+                return (200, self.json(#"[{"uuid":"d","name":"m.pdf","kind":"manual","url":"u","created_at":"c"}]"#))
+            case ("POST", _):
+                return (201, self.json(#"{"uuid":"d","name":"m.pdf","kind":"manual","url":"u","created_at":"c"}"#))
+            case ("DELETE", _):
+                return (204, Data())
+            default:
+                if req.httpMethod != "GET" { XCTAssertEqual(self.body(req)["name"] as? String, "QB") }
+                return (200, self.json(#"{"uuid":"t","code":"QB-STD","name":"QB"}"#))
+            }
+        }
+        let at = client.forInstallation(id: 2012).assetTypes
+        let list = try await at.list()
+        XCTAssertEqual(list[0].documentCount, 1)
+        XCTAssertEqual(list[0].checklist.count, 1)
+        _ = try await at.upsert(AssetTypeInput(code: "QB-STD", name: "QB"))
+        _ = try await at.update(code: "QB-STD", AssetTypeInput(name: "QB"))
+        _ = try await at.get(code: "QB-STD")
+        let del = try await at.delete(code: "QB-STD")
+        XCTAssertTrue(del.deleted)
+        let docs = try await at.documents(code: "QB-STD")
+        XCTAssertEqual(docs.count, 1)
+        _ = try await at.addDocument(code: "QB-STD", file: Data("%PDF".utf8), kind: "manual")
+        try await at.deleteDocument(code: "QB-STD", uuid: "11111111-1111-1111-1111-111111111111")
+        XCTAssertEqual(seen, ["GET /api/installations/2012/asset-types", "PUT /api/installations/2012/asset-types",
+            "PATCH /api/installations/2012/asset-types/QB-STD", "GET /api/installations/2012/asset-types/QB-STD",
+            "DELETE /api/installations/2012/asset-types/QB-STD", "GET /api/installations/2012/asset-types/QB-STD/documents",
+            "POST /api/installations/2012/asset-types/QB-STD/documents",
+            "DELETE /api/installations/2012/asset-types/QB-STD/documents/11111111-1111-1111-1111-111111111111"])
+    }
 }

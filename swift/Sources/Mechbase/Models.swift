@@ -180,9 +180,12 @@ public struct Asset: Codable, Sendable {
     public let imageUrls: [String]
     /// Same photos as `imageUrls`, with their uuids; `[]` on older servers.
     public let photos: [Photo]
+    /// Asset type code, if the asset has one.
+    public let assetType: String?
 
     enum CodingKeys: String, CodingKey {
         case uuid, name, status, photos
+        case assetType = "asset_type"
         case imageUrls = "image_urls"
         case assetId = "asset_id"
         case sectionId = "section_id"
@@ -205,6 +208,7 @@ public struct Asset: Codable, Sendable {
         self.externalId = try c.decodeIfPresent(String.self, forKey: .externalId)
         self.imageUrls = (try? c.decode([String].self, forKey: .imageUrls)) ?? []
         self.photos = (try? c.decode([Photo].self, forKey: .photos)) ?? []
+        self.assetType = try c.decodeIfPresent(String.self, forKey: .assetType)
     }
 }
 
@@ -525,12 +529,63 @@ public struct Zone: Codable, Sendable {
     public let name: String
     public let sectionId: Int?
     public let externalId: String?
+    /// Public guest page enabled; `false` on older servers.
+    public let guestView: Bool
     enum CodingKeys: String, CodingKey {
         case uuid, name
         case zoneId = "zone_id"
         case sectionId = "section_id"
         case externalId = "external_id"
+        case guestView = "guest_view"
     }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.uuid = try c.decode(String.self, forKey: .uuid)
+        self.zoneId = try c.decodeIfPresent(Int.self, forKey: .zoneId)
+        self.name = try c.decode(String.self, forKey: .name)
+        self.sectionId = try c.decodeIfPresent(Int.self, forKey: .sectionId)
+        self.externalId = try c.decodeIfPresent(String.self, forKey: .externalId)
+        self.guestView = try c.decodeIfPresent(Bool.self, forKey: .guestView) ?? false
+    }
+}
+
+/// Asset type (template), addressed by `code`.
+public struct AssetType: Codable, Sendable {
+    public let uuid: String
+    public let code: String
+    public let name: String
+    public let manufacturer: String
+    public let checklist: [JSONValue]
+    public let externalId: String?
+    public let assetCount: Int
+    public let documentCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case uuid, code, name, manufacturer, checklist
+        case externalId = "external_id"
+        case assetCount = "asset_count"
+        case documentCount = "document_count"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.uuid = try c.decode(String.self, forKey: .uuid)
+        self.code = try c.decode(String.self, forKey: .code)
+        self.name = try c.decode(String.self, forKey: .name)
+        self.manufacturer = (try? c.decode(String.self, forKey: .manufacturer)) ?? ""
+        self.checklist = (try? c.decode([JSONValue].self, forKey: .checklist)) ?? []
+        self.externalId = try c.decodeIfPresent(String.self, forKey: .externalId)
+        self.assetCount = (try? c.decode(Int.self, forKey: .assetCount)) ?? 0
+        self.documentCount = (try? c.decode(Int.self, forKey: .documentCount)) ?? 0
+    }
+}
+
+/// Result of ``Assets/ensureChecklist(assetId:)``.
+public struct ChecklistResult: Codable, Sendable {
+    public let routeUuid: String
+    public let created: Bool
+    enum CodingKeys: String, CodingKey { case routeUuid = "route_uuid", created }
 }
 
 public struct DeleteResult: Codable, Sendable {

@@ -17,7 +17,13 @@ inst = client.for_installation(me.current_installation_id)
 
 assets = inst.assets.list(q="pump", limit=50)
 inst.measurements.create(point_id=42, data={"rms": 2.3}, notes="manual reading")
+inst.assets.create(name="Box 12", asset_type="QB-STD")   # type by code, one request
+inst.zones.set_guest_view(True, zone_ids=[1, 2])         # or section_id=..., or all=True
 ```
+
+Throttled requests (HTTP 429) are retried up to 6 attempts in total, waiting `Retry-After`
+(when sent) or 1, 2, 4... seconds, before raising `MechbaseError`. A wait over 60 s (the API's
+burst window is 60 requests a minute) fails at once with the server's message.
 
 ## Command line
 
@@ -41,6 +47,12 @@ mechbase comments 1                  # an asset's thread
 mechbase comment add 1 "Bearing noise after restart" --point 2 --reading 766
 mechbase docs 1                      # an asset's documents
 mechbase doc add 1 manual.pdf --kind manual
+mechbase zone guest on --all                       # QR guest view for zones (or give zone ids)
+mechbase asset-type list
+mechbase asset-type set QB-STD --name "QB pump"
+mechbase asset-type checklist QB-STD list.json     # replaces the type's checklist
+mechbase asset-type doc add QB-STD manual.pdf --kind manual
+mechbase asset set-type QB-STD 1 2 3               # or: asset set-type --clear 1 2 3
 mechbase alarms 2                    # a point's limits: its own, then the installation default
 mechbase alarm set 2 --minor 2.8 --major 7.1
 mechbase alarm clear 2               # back to the installation default

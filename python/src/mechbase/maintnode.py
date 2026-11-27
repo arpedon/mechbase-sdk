@@ -4,7 +4,7 @@ import io
 from pathlib import Path
 from typing import Any, BinaryIO
 
-from ._http import HttpClient
+from ._http import MAX_RETRIES, HttpClient
 from .models import MeasurementResult
 
 
@@ -22,8 +22,9 @@ class MaintNode:
 
     DEFAULT_BASE_URL = "https://app.mechbase.io"
 
-    def __init__(self, *, node_uuid: str, base_url: str = DEFAULT_BASE_URL, timeout: float = 30.0):
-        self._http = HttpClient(token=None, base_url=base_url, timeout=timeout)
+    def __init__(self, *, node_uuid: str, base_url: str = DEFAULT_BASE_URL, timeout: float = 30.0,
+                 max_retries: int = MAX_RETRIES):
+        self._http = HttpClient(token=None, base_url=base_url, timeout=timeout, max_retries=max_retries)
         self.node_uuid = node_uuid
 
     def _path(self, suffix: str) -> str:

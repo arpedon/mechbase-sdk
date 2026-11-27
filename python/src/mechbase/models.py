@@ -97,6 +97,7 @@ class Asset:
     equipment_type: str
     status: int
     external_id: str | None = None
+    asset_type: str | None = None  # type code
     photos: list[Photo] = field(default_factory=list)
     extra: dict[str, Any] = field(default_factory=dict)
 
@@ -113,6 +114,7 @@ class Asset:
             equipment_type=d.pop("equipment_type", ""),
             status=d.pop("status"),
             external_id=d.pop("external_id", None),
+            asset_type=d.pop("asset_type", None),
             photos=[Photo.from_dict(p) for p in d.pop("photos", None) or []],
             extra=d,
         )
@@ -288,6 +290,7 @@ class Zone:
     name: str
     section_id: int | None = None
     external_id: str | None = None
+    guest_view: bool = False
 
     @classmethod
     def from_dict(cls, d: dict) -> "Zone":
@@ -297,6 +300,28 @@ class Zone:
             name=d["name"],
             section_id=d.get("section_id"),
             external_id=d.get("external_id"),
+            guest_view=d.get("guest_view", False),
+        )
+
+
+@dataclass
+class AssetType:
+    uuid: str
+    code: str
+    name: str
+    manufacturer: str = ""
+    checklist: list[dict] = field(default_factory=list)
+    external_id: str | None = None
+    asset_count: int = 0
+    document_count: int = 0
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "AssetType":
+        return cls(
+            uuid=d["uuid"], code=d["code"], name=d["name"],
+            manufacturer=d.get("manufacturer", ""), checklist=d.get("checklist") or [],
+            external_id=d.get("external_id"), asset_count=d.get("asset_count", 0),
+            document_count=d.get("document_count", 0),
         )
 
 

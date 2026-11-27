@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import io
 from pathlib import Path
-from typing import TYPE_CHECKING, BinaryIO
+from typing import TYPE_CHECKING, Any, BinaryIO
 
 if TYPE_CHECKING:
     from .._http import HttpClient
@@ -17,6 +17,9 @@ class InstallationScoped:
 
     def _path(self, suffix: str) -> str:
         return f"/api/installations/{self._iid}{suffix}"
+
+
+_UNSET: Any = object()  # omitted argument (send nothing) vs None (send null)
 
 
 def _paginated(http, path: str, *, params: dict, parse) -> list:

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from ..models import Asset, DeleteResult, FileAttachment, MeasurementPoint, Section, Zone
-from ._base import InstallationScoped, _clean, _paginated, _upload
+from urllib.parse import quote
+
+from ..models import Asset, AssetType, DeleteResult, FileAttachment, MeasurementPoint, Section, Zone
+from ._base import _UNSET, InstallationScoped, _clean, _paginated, _upload
 
 
 def locals_no_self(d: dict) -> dict:
@@ -22,25 +24,36 @@ class Assets(InstallationScoped):
     def create(self, *, name: str | None = None, external_id: str | None = None,
                section_id: int | None = None, section_external_id: str | None = None,
                zone_id: int | None = None, zone_external_id: str | None = None,
-               equipment_type: str | None = None, machine_class: str | None = None) -> Asset:
+               equipment_type: str | None = None, machine_class: str | None = None,
+               asset_type: str | None = None) -> Asset:
         return Asset.from_dict(self._http.request("POST", self._path("/assets"), json=_clean(locals_no_self(locals()))))
 
     def upsert(self, *, name: str | None = None, external_id: str | None = None,
                section_id: int | None = None, section_external_id: str | None = None,
                zone_id: int | None = None, zone_external_id: str | None = None,
-               equipment_type: str | None = None, machine_class: str | None = None) -> Asset:
+               equipment_type: str | None = None, machine_class: str | None = None,
+               asset_type: str | None = None) -> Asset:
         return Asset.from_dict(self._http.request("PUT", self._path("/assets"), json=_clean(locals_no_self(locals()))))
 
     def update(self, asset_id: int, *, name: str | None = None, external_id: str | None = None,
                section_id: int | None = None, section_external_id: str | None = None,
                zone_id: int | None = None, zone_external_id: str | None = None,
-               equipment_type: str | None = None, machine_class: str | None = None) -> Asset:
-        body = _clean({k: v for k, v in locals().items() if k not in ("self", "asset_id")})
+               equipment_type: str | None = None, machine_class: str | None = None,
+               asset_type: str | None = _UNSET) -> Asset:
+        """`asset_type` is a type code: omit to leave it, None to clear it."""
+        body = _clean({k: v for k, v in locals().items() if k not in ("self", "asset_id", "asset_type")})
+        if asset_type is not _UNSET:
+            body["asset_type"] = asset_type
         return Asset.from_dict(self._http.request("PATCH", self._path(f"/assets/{asset_id}"), json=body))
 
     def delete(self, asset_id: int, *, cascade: bool = False) -> DeleteResult:
         params = {"cascade": "true"} if cascade else None
         return DeleteResult.from_dict(self._http.request("DELETE", self._path(f"/assets/{asset_id}"), params=params))
+
+    def ensure_checklist(self, asset_id: int) -> dict:
+        """Create (or find) the asset's checklist route from its type. Returns {route_uuid, created};
+        422 if the asset has no type or the type's checklist is empty."""
+        return self._http.request("POST", self._path(f"/assets/{asset_id}/checklist"))
 
     def add_photo(self, asset_id: int, file, *, filename: str = "photo.jpg", uuid: str | None = None) -> FileAttachment:
         """Append a photo to the asset's gallery. A client `uuid` makes retries safe."""
@@ -150,10 +163,62 @@ class Zones(InstallationScoped):
         return Zone.from_dict(self._http.request("PUT", self._path("/zones"), json=_clean(locals_no_self(locals()))))
 
     def update(self, zone_id: int, *, name: str | None = None, external_id: str | None = None,
-               section_id: int | None = None, section_external_id: str | None = None) -> Zone:
+               section_id: int | None = None, section_external_id: str | None = None,
+               guest_view: bool | None = None) -> Zone:
         body = _clean({k: v for k, v in locals().items() if k not in ("self", "zone_id")})
         return Zone.from_dict(self._http.request("PATCH", self._path(f"/zones/{zone_id}"), json=body))
+
+    def set_guest_view(self, enabled: bool, *, zone_ids: list[int] | None = None,
+                       section_id: int | None = None, all: bool = False) -> int:
+        """Turn the QR guest view on/off in one call for exactly one target: zone_ids, a section,
+        or all=True for every zone. Returns the number of zones updated."""
+        if (zone_ids is not None) + (section_id is not None) + all != 1:
+            raise ValueError("Name one of zone_ids, section_id, or all=True.")
+        body = _clean({"enabled": enabled, "zone_ids": zone_ids, "section_id": section_id, "all": all or None})
+        return self._http.request("POST", self._path("/zones/guest-view"), json=body)["updated"]
 
     def delete(self, zone_id: int, *, cascade: bool = False) -> DeleteResult:
         params = {"cascade": "true"} if cascade else None
         return DeleteResult.from_dict(self._http.request("DELETE", self._path(f"/zones/{zone_id}"), params=params))
+
+
+class AssetTypes(InstallationScoped):
+    """Asset types (templates), addressed by `code`: name, manufacturer, checklist and documents."""
+
+    def _type(self, code: str, suffix: str = "") -> str:
+        # Escaped so "/", "?" or "#" in a code cannot address another type.
+        if not code:
+            raise ValueError("code is required")
+        return self._path(f"/asset-types/{quote(code, safe='')}{suffix}")
+
+    def list(self) -> list[AssetType]:
+        return [AssetType.from_dict(i) for i in self._http.request("GET", self._path("/asset-types"))]
+
+    def get(self, code: str) -> AssetType:
+        return AssetType.from_dict(self._http.request("GET", self._type(code)))
+
+    def upsert(self, code: str, *, name: str | None = None, manufacturer: str | None = None,
+               checklist: list[dict] | None = None, external_id: str | None = None) -> AssetType:
+        body = _clean({"code": code, "name": name, "manufacturer": manufacturer,
+                       "checklist": checklist, "external_id": external_id})
+        return AssetType.from_dict(self._http.request("PUT", self._path("/asset-types"), json=body))
+
+    def update(self, code: str, *, name: str | None = None, manufacturer: str | None = None,
+               checklist: list[dict] | None = None, external_id: str | None = None) -> AssetType:
+        body = _clean({"name": name, "manufacturer": manufacturer, "checklist": checklist, "external_id": external_id})
+        return AssetType.from_dict(self._http.request("PATCH", self._type(code), json=body))
+
+    def delete(self, code: str) -> DeleteResult:
+        return DeleteResult.from_dict(self._http.request("DELETE", self._type(code)))
+
+    def documents(self, code: str) -> list[dict]:
+        """Each: uuid, name, kind, url, created_at."""
+        return self._http.request("GET", self._type(code, "/documents"))
+
+    def add_document(self, code: str, file, *, filename: str = "document.pdf", kind: str = "attachment",
+                     uuid: str | None = None) -> dict:
+        return _upload(self._http, self._type(code, "/documents"), file, filename,
+                       _clean({"kind": kind, "uuid": uuid}))
+
+    def delete_document(self, code: str, document_uuid: str) -> None:
+        self._http.request("DELETE", self._type(code, f"/documents/{document_uuid}"))

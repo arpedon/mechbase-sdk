@@ -6,9 +6,11 @@ public struct ZoneInput: Encodable, Sendable {
     public var externalId: String?
     public var sectionId: Int?
     public var sectionExternalId: String?
+    public var guestView: Bool?
 
     public init(name: String? = nil, externalId: String? = nil,
-                sectionId: Int? = nil, sectionExternalId: String? = nil) {
+                sectionId: Int? = nil, sectionExternalId: String? = nil, guestView: Bool? = nil) {
+        self.guestView = guestView
         self.name = name
         self.externalId = externalId
         self.sectionId = sectionId
@@ -20,6 +22,7 @@ public struct ZoneInput: Encodable, Sendable {
         case externalId = "external_id"
         case sectionId = "section_id"
         case sectionExternalId = "section_external_id"
+        case guestView = "guest_view"
     }
 }
 

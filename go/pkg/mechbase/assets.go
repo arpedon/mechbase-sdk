@@ -2,6 +2,7 @@ package mechbase
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,6 +19,24 @@ type AssetInput struct {
 	ZoneExternalID    *string `json:"zone_external_id,omitempty"`
 	EquipmentType     *string `json:"equipment_type,omitempty"`
 	MachineClass      *string `json:"machine_class,omitempty"`
+	// AssetType is a type code. Nil leaves it untouched; set ClearAssetType to send null.
+	AssetType      *string `json:"asset_type,omitempty"`
+	ClearAssetType bool    `json:"-"`
+}
+
+// MarshalJSON adds an explicit "asset_type": null when ClearAssetType is set.
+func (in AssetInput) MarshalJSON() ([]byte, error) {
+	type plain AssetInput
+	b, err := json.Marshal(plain(in))
+	if err != nil || !in.ClearAssetType || in.AssetType != nil {
+		return b, err
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+	m["asset_type"] = json.RawMessage("null")
+	return json.Marshal(m)
 }
 
 // Assets is the asset registry resource scoped to an installation.
@@ -109,4 +128,14 @@ func (a *Assets) AddPhoto(ctx context.Context, assetID int, filename string, fil
 // DeletePhoto removes a gallery photo by uuid.
 func (a *Assets) DeletePhoto(ctx context.Context, assetID int, photoUUID string) error {
 	return a.client.doJSON(ctx, http.MethodDelete, pathf(a.iid, fmt.Sprintf("/assets/%d/photos/%s", assetID, photoUUID)), nil, nil, nil)
+}
+
+// EnsureChecklist creates (or finds) the asset's checklist route from its type.
+// 422 if the asset has no type or the type's checklist is empty.
+func (a *Assets) EnsureChecklist(ctx context.Context, assetID int) (*Checklist, error) {
+	var out Checklist
+	if err := a.client.doJSON(ctx, http.MethodPost, pathf(a.iid, fmt.Sprintf("/assets/%d/checklist", assetID)), nil, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }

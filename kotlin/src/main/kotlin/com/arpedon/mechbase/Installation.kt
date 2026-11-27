@@ -9,6 +9,7 @@ class Installation internal constructor(
     val installationId: Int,
 ) {
     val assets: Assets = Assets(http, installationId)
+    val assetTypes: AssetTypes = AssetTypes(http, installationId)
     val measurementPoints: MeasurementPoints = MeasurementPoints(http, installationId)
     val measurements: Measurements = Measurements(http, installationId)
     val routes: Routes = Routes(http, installationId)

@@ -1,0 +1,114 @@
+[
+  {
+    "label": "Label and type match the room",
+    "item_type": "pass_fail",
+    "config": {}
+  },
+  {
+    "label": "Built to R7j sheet",
+    "item_type": "multi_check",
+    "config": {
+      "checks": [
+        {
+          "label": "Module count"
+        },
+        {
+          "label": "Terminal order"
+        },
+        {
+          "label": "End stops"
+        },
+        {
+          "label": "End plates"
+        },
+        {
+          "label": "N jumpers"
+        }
+      ]
+    }
+  },
+  {
+    "label": "Point-to-point wiring per circuit",
+    "item_type": "multi_check",
+    "config": {
+      "checks": [
+        {
+          "label": "Circuit 1"
+        },
+        {
+          "label": "Circuit 2"
+        },
+        {
+          "label": "Circuit 3"
+        },
+        {
+          "label": "Circuit 4"
+        },
+        {
+          "label": "Circuit 5"
+        },
+        {
+          "label": "Circuit 6"
+        },
+        {
+          "label": "Circuit 7"
+        }
+      ]
+    }
+  },
+  {
+    "label": "Push-in pull test and markers",
+    "item_type": "pass_fail",
+    "config": {}
+  },
+  {
+    "label": "PE in-to-out continuity",
+    "item_type": "numerical",
+    "config": {
+      "unit": "Ω",
+      "max": 0.1
+    }
+  },
+  {
+    "label": "Insulation at 500 V DC (L+N bridged to PE, Vimar modules disconnected)",
+    "item_type": "numerical",
+    "config": {
+      "unit": "MΩ",
+      "min": 1
+    }
+  },
+  {
+    "label": "Operational test at 230 V per circuit (T to N toggles output 1 on/off; T0 switches all off)",
+    "item_type": "multi_check",
+    "config": {
+      "checks": [
+        {
+          "label": "Circuit 1"
+        },
+        {
+          "label": "Circuit 2"
+        },
+        {
+          "label": "Circuit 3"
+        },
+        {
+          "label": "Circuit 4"
+        },
+        {
+          "label": "Circuit 5"
+        },
+        {
+          "label": "Circuit 6"
+        },
+        {
+          "label": "Circuit 7"
+        }
+      ]
+    }
+  },
+  {
+    "label": "Lid and glands",
+    "item_type": "pass_fail",
+    "config": {}
+  }
+]

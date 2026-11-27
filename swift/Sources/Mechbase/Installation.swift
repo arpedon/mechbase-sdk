@@ -4,6 +4,7 @@ import Foundation
 public final class Installation: Sendable {
     public let installationId: Int
     public let assets: Assets
+    public let assetTypes: AssetTypes
     public let measurementPoints: MeasurementPoints
     public let measurements: Measurements
     public let routes: Routes
@@ -22,6 +23,7 @@ public final class Installation: Sendable {
         self.scope = InstallationScope(http: http, installationId: installationId)
         self.installationId = installationId
         self.assets = Assets(http: http, installationId: installationId)
+        self.assetTypes = AssetTypes(http: http, installationId: installationId)
         self.measurementPoints = MeasurementPoints(http: http, installationId: installationId)
         self.measurements = Measurements(http: http, installationId: installationId)
         self.routes = Routes(http: http, installationId: installationId)
