@@ -84,11 +84,14 @@ class Executions(InstallationScoped):
         zone_id: int | None = None,
         config: dict | None = None,
         notes: str = "",
+        uuid: str | None = None,
     ) -> ItemResponse:
         """Append a new checklist item to this execution, field-authored.
 
         The item is zone-anchored (``zone_id``) or route-level (``None``).
-        Asset assignment happens afterward via :meth:`triage`.
+        Asset assignment happens afterward via :meth:`triage`. A client ``uuid`` (the new item's)
+        makes it retry-safe: a retry returns the response already recorded; a uuid another item
+        has is a ConflictError. Older servers ignore it (no retry safety there).
         """
         payload = {
             "label": label,
@@ -98,6 +101,8 @@ class Executions(InstallationScoped):
             "config": config or {},
             "notes": notes,
         }
+        if uuid is not None:
+            payload["uuid"] = uuid
         body = self._http.request("POST", self._url("/items"), json=payload)
         return ItemResponse.from_dict(body)
 
@@ -163,11 +168,14 @@ class Executions(InstallationScoped):
 
 
 class Routes(InstallationScoped):
-    def list(self, *, q: str = "", limit: int = 50, offset: int = 0) -> list[Route]:
+    def list(self, *, q: str = "", limit: int = 50, offset: int = 0,
+             include_asset_checks: bool = False) -> list[Route]:
+        """include_asset_checks also lists assets' own checklist routes (asset_checks_for set)."""
         return _paginated(
             self._http,
             self._path("/routes"),
-            params={"q": q, "limit": limit, "offset": offset},
+            params={"q": q, "limit": limit, "offset": offset,
+                    "include_asset_checks": "true" if include_asset_checks else None},
             parse=Route.from_dict,
         )
 

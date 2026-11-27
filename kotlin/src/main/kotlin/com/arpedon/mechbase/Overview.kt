@@ -131,6 +131,10 @@ data class Activity(
     @SerialName("finding_uuid") val findingUuid: String? = null,
     @SerialName("execution_uuid") val executionUuid: String? = null,
     @SerialName("route_uuid") val routeUuid: String? = null,
+    /** A status change's trigger ("measurement", "inspection", "resolved", …); null otherwise. */
+    @SerialName("trigger_type") val triggerType: String? = null,
+    /** For a measurement-triggered status change, the reading's time: open the fault record at it. */
+    @SerialName("measured_at") val measuredAt: String? = null,
 )
 
 /** Pass [nextCursor] back as `cursor` until it is null. */

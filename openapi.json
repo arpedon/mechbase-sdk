@@ -6952,6 +6952,16 @@
           }
         ],
         "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemResponseOut"
+                }
+              }
+            }
+          },
           "201": {
             "description": "Created",
             "content": {
@@ -6982,6 +6992,16 @@
               }
             }
           },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Unprocessable Content",
             "content": {
@@ -6993,6 +7013,7 @@
             }
           }
         },
+        "description": "Send a client-minted `uuid` for the new item to make retries safe: a retry returns the response this execution already recorded for it (200); a uuid another item has is a 409.",
         "tags": [
           "routes"
         ],
@@ -14928,6 +14949,28 @@
               "title": "Asset Id"
             },
             "required": false
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "status_change",
+                    "comment",
+                    "finding",
+                    "route_completion"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            },
+            "required": false
           }
         ],
         "responses": {
@@ -14972,7 +15015,7 @@
             }
           }
         },
-        "description": "The web's Activity page as a feed, ``limit`` entries a page (at most\n200). Pass ``next_cursor`` back as ``cursor`` to read older entries;\n``section_id`` narrows to one section, ``asset_id`` to one asset (its status\nchanges, notes, findings and the route runs that checked it).",
+        "description": "The web's Activity page as a feed, ``limit`` entries a page (at most\n200). Pass ``next_cursor`` back as ``cursor`` to read older entries;\n``section_id`` narrows to one section, ``asset_id`` to one asset (its status\nchanges, notes, findings and the route runs that checked it), ``kind`` to\none kind of entry (filtered in the database, so pages stay full).",
         "tags": [
           "overview"
         ],
@@ -18271,6 +18314,17 @@
           },
           "section": {
             "$ref": "#/components/schemas/SectionRef"
+          },
+          "asset_checks_for": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Checks For"
           }
         },
         "required": [
@@ -18362,6 +18416,17 @@
           },
           "section": {
             "$ref": "#/components/schemas/SectionRef"
+          },
+          "asset_checks_for": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Checks For"
           },
           "items": {
             "items": {
@@ -18979,6 +19044,18 @@
       "FieldItemIn": {
         "description": "Create a RouteItem + ItemResponse in one call (field-authored survey item).\n\nThe item is zone-anchored (or route-level with ``zone_id=None``); the\ntechnician triages it to a specific asset later via ``/triage``.",
         "properties": {
+          "uuid": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uuid"
+          },
           "zone_id": {
             "anyOf": [
               {
@@ -27471,6 +27548,29 @@
               }
             ],
             "title": "Route Uuid"
+          },
+          "trigger_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trigger Type"
+          },
+          "measured_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured At"
           }
         },
         "required": [

@@ -11,18 +11,21 @@ class Activity(InstallationScoped):
     Group by local day client-side."""
 
     def list(self, *, limit: int = 50, cursor: str | None = None, section_id: int | None = None,
-             asset_id: int | None = None) -> dict:
+             asset_id: int | None = None, kind: str | None = None) -> dict:
         """One page: {items: [{kind, timestamp, title, detail, state, severity, actor, old_status, new_status,
-        asset_id, point_id, comment_id, finding_uuid, execution_uuid, route_uuid}], next_cursor}.
-        asset_id narrows it to one asset (its status changes, notes, findings, the runs that checked it)."""
+        asset_id, point_id, comment_id, finding_uuid, execution_uuid, route_uuid, trigger_type, measured_at}],
+        next_cursor}. measured_at: a measurement-triggered status change's reading time (open the fault record
+        at it). asset_id narrows it to one asset (its status changes, notes, findings, the runs that checked
+        it); kind (status_change|comment|finding|route_completion) to one kind, filtered server-side."""
         return self._http.request("GET", self._path("/activity"), params=_clean(
-            {"limit": limit, "cursor": cursor, "section_id": section_id, "asset_id": asset_id}))
+            {"limit": limit, "cursor": cursor, "section_id": section_id, "asset_id": asset_id, "kind": kind}))
 
-    def iter(self, *, section_id: int | None = None, asset_id: int | None = None, page_size: int = 100):
+    def iter(self, *, section_id: int | None = None, asset_id: int | None = None, kind: str | None = None,
+             page_size: int = 100):
         """Yield every entry, following cursor pages (oldest last)."""
         cursor = None
         while True:
-            body = self.list(limit=page_size, cursor=cursor, section_id=section_id, asset_id=asset_id)
+            body = self.list(limit=page_size, cursor=cursor, section_id=section_id, asset_id=asset_id, kind=kind)
             yield from body["items"]
             cursor = body.get("next_cursor")
             if not cursor:

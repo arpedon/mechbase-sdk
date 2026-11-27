@@ -84,3 +84,35 @@ def test_documents_inherited_and_asset_production_state(inst):
     a = inst.assets.get(1)
     assert (a.running, a.running_since) == ("on", "2026-11-27T10:00:00Z") and "running" not in a.extra
     assert inst.assets.get(1).running is None
+
+
+@respx.mock
+def test_activity_trigger_and_kind(inst):
+    route = respx.get(f"{I}/activity").mock(return_value=httpx.Response(200, json={"items": [
+        {"kind": "status_change", "trigger_type": "measurement", "measured_at": "2026-11-27T08:00:00Z"}],
+        "next_cursor": None}))
+    items = list(inst.activity.iter(kind="status_change", asset_id=4))
+    assert items[0]["measured_at"] == "2026-11-27T08:00:00Z"
+    assert dict(route.calls.last.request.url.params) == {"limit": "100", "asset_id": "4", "kind": "status_change"}
+
+
+@respx.mock
+def test_add_field_item_sends_client_uuid_only_when_given(inst):
+    route = respx.post(f"{I}/executions/e/items").mock(return_value=httpx.Response(201, json={
+        "uuid": "r", "route_item_uuid": "i", "data": {}, "notes": "", "status": 1, "created_at": "t"}))
+    exec_ = inst.routes.execution("e")
+    exec_.add_field_item(label="Leak", uuid="i")
+    assert json.loads(route.calls.last.request.content)["uuid"] == "i"
+    exec_.add_field_item(label="Leak")
+    assert "uuid" not in json.loads(route.calls.last.request.content)
+
+
+@respx.mock
+def test_route_asset_checks_for(inst):
+    route = respx.get(f"{I}/routes").mock(return_value=httpx.Response(200, json={"items": [
+        {"uuid": "a", "name": "Pump checks", "asset_checks_for": 4}, {"uuid": "b", "name": "Daily"}],
+        "total": 2, "limit": 50, "offset": 0}))
+    assert [r.asset_checks_for for r in inst.routes.list(include_asset_checks=True)] == [4, None]
+    assert route.calls.last.request.url.params["include_asset_checks"] == "true"
+    inst.routes.list()
+    assert "include_asset_checks" not in route.calls.last.request.url.params
