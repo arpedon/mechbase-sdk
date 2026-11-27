@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import httpx
 import pytest
 import respx
@@ -131,3 +133,10 @@ def test_cli_asset_type_typos_and_partial_set_type(monkeypatch, tmp_path, capsys
         main(["asset", "set-type", "QB-STD", "5", "999", "6"])
     out = capsys.readouterr()
     assert e.value.code == 1 and "2 asset(s): 5, 6." in out.out and "Asset 999 not changed: 404" in out.err
+
+
+def test_config_path_follows_xdg_set_after_import(monkeypatch, tmp_path, capsys):
+    # The CLI is imported before this test sets the variable: the write must still land here.
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    main(["use", "5"])
+    assert json.loads((tmp_path / "mechbase" / "config.json").read_text())["installation"] == 5

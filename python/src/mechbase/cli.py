@@ -49,12 +49,14 @@ STATUS = {1: "good", 2: "elevated", 3: "minor", 4: "major"}
 # Headline values for `readings`; `reading show` prints everything.
 HEADLINE = ("value", "rms", "peak", "vel_10hz", "crest_factor", "kurtosis", "temperature")
 
-CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "mechbase" / "config.json"
+def _config_path() -> Path:
+    # Read at each call, not at import, so XDG_CONFIG_HOME set later (tests, wrappers) is honoured.
+    return Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "mechbase" / "config.json"
 
 
 def _load() -> dict:
     try:
-        cfg = json.loads(CONFIG.read_text())
+        cfg = json.loads(_config_path().read_text())
     except (OSError, ValueError):
         cfg = {}
     for key, env in (("token", "MECHBASE_TOKEN"), ("url", "MECHBASE_URL"), ("installation", "MECHBASE_INSTALLATION")):
@@ -65,9 +67,10 @@ def _load() -> dict:
 
 
 def _save(cfg: dict) -> None:
-    CONFIG.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG.write_text(json.dumps(cfg, indent=2))
-    CONFIG.chmod(0o600)
+    path = _config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(cfg, indent=2))
+    path.chmod(0o600)
 
 
 def _client(cfg: dict) -> Mechbase:
