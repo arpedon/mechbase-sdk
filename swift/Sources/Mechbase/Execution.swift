@@ -90,7 +90,8 @@ public struct Execution: Sendable {
     /// Items are zone-anchored (`zoneId`) or route-level (`nil`). Bind the item
     /// to a specific asset after the walk via ``triage(routeItemUUID:assetId:)``.
     /// A client-minted `uuid` (the new item's) makes it retry-safe: a retry returns the response already
-    /// recorded; a uuid another item has is ``MechbaseError/conflict(_:body:)``.
+    /// recorded; a uuid another item has is ``MechbaseError/conflict(_:body:)``. It is sent lowercased,
+    /// as the server echoes it in `routeItemUuid`. Older servers ignore it (no retry safety there).
     @discardableResult
     public func addFieldItem(
         label: String,
@@ -108,7 +109,7 @@ public struct Execution: Sendable {
             zone_id: zoneId,
             config: config,
             notes: notes,
-            uuid: uuid
+            uuid: uuid?.lowercased()
         )
         return try await scope.http.postJSON(url("/items"), body: body, as: ItemResponse.self)
     }

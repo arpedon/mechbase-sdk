@@ -91,7 +91,7 @@ class Executions(InstallationScoped):
         The item is zone-anchored (``zone_id``) or route-level (``None``).
         Asset assignment happens afterward via :meth:`triage`. A client ``uuid`` (the new item's)
         makes it retry-safe: a retry returns the response already recorded; a uuid another item
-        has is a ConflictError.
+        has is a ConflictError. Older servers ignore it (no retry safety there).
         """
         payload = {
             "label": label,
@@ -168,11 +168,14 @@ class Executions(InstallationScoped):
 
 
 class Routes(InstallationScoped):
-    def list(self, *, q: str = "", limit: int = 50, offset: int = 0) -> list[Route]:
+    def list(self, *, q: str = "", limit: int = 50, offset: int = 0,
+             include_asset_checks: bool = False) -> list[Route]:
+        """include_asset_checks also lists assets' own checklist routes (asset_checks_for set)."""
         return _paginated(
             self._http,
             self._path("/routes"),
-            params={"q": q, "limit": limit, "offset": offset},
+            params={"q": q, "limit": limit, "offset": offset,
+                    "include_asset_checks": "true" if include_asset_checks else None},
             parse=Route.from_dict,
         )
 

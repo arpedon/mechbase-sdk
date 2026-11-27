@@ -99,5 +99,10 @@ class AppGapsTest : ApiTest() {
         take()
         reply("""{"items":[{"uuid":"$u1","name":"Daily"}],"total":1,"limit":50,"offset":0}""")
         assertNull(inst.routes.list().single().assetChecksFor)
+        assertRequest("GET /api/installations/7/routes?limit=50&offset=0")
+        reply("""{"items":[{"uuid":"$u1","name":"Pump checks","asset_checks_for":4}],"total":1,"limit":50,"offset":0}""")
+        assertEquals(4, inst.routes.list(includeAssetChecks = true).single().assetChecksFor)
+        assertRequest("GET /api/installations/7/routes?limit=50&offset=0&include_asset_checks=true")
+        Unit
     }
 }

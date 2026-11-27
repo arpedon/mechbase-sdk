@@ -7,11 +7,14 @@ public struct Routes: Sendable {
         self.scope = InstallationScope(http: http, installationId: installationId)
     }
 
-    public func list(query: String? = nil, limit: Int = 50, offset: Int = 0) async throws -> [Route] {
+    /// `includeAssetChecks` also lists assets' own checklist routes (``Route/assetChecksFor`` set).
+    public func list(query: String? = nil, limit: Int = 50, offset: Int = 0,
+                     includeAssetChecks: Bool = false) async throws -> [Route] {
         let q: [URLQueryItem] = [
             URLQueryItem(name: "q", value: query),
             URLQueryItem(name: "limit", value: String(limit)),
             URLQueryItem(name: "offset", value: String(offset)),
+            URLQueryItem(name: "include_asset_checks", value: includeAssetChecks ? "true" : nil),
         ]
         let page = try await scope.http.get(scope.path("/routes"), query: q, as: Page<Route>.self)
         return page.items

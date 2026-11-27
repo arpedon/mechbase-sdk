@@ -91,9 +91,9 @@ final class AppGapsTests: ParityTestCase {
     func testAddFieldItemSendsClientUuidOnlyWhenGiven() async throws {
         let exec = inst.routes.execution(uuid: u1)
         reply("ItemResponseOut", status: 201)
-        _ = try await exec.addFieldItem(label: "Leak", uuid: u2)
+        _ = try await exec.addFieldItem(label: "Leak", uuid: u2.uppercased())
         XCTAssertEqual(url, "\(base)/executions/\(u1)/items")
-        XCTAssertEqual(json["uuid"] as? String, u2)
+        XCTAssertEqual(json["uuid"] as? String, u2)  // lowercased, as the server echoes it
         reply("ItemResponseOut", status: 201)
         _ = try await exec.addFieldItem(label: "Leak", data: ["passed": false])
         XCTAssertNil(json["uuid"])
@@ -110,5 +110,10 @@ final class AppGapsTests: ParityTestCase {
         ParityMock.reset(reply: #"{"items":[{"uuid":"\#(u1)","name":"Daily","description":""}],"total":1,"limit":50,"offset":0}"#)
         let routes = try await inst.routes.list()
         XCTAssertNil(routes.first?.assetChecksFor)
+        XCTAssertNil(URLComponents(string: url!)?.queryItems?.first { $0.name == "include_asset_checks" })
+        ParityMock.reset(reply: #"{"items":[{"uuid":"\#(u1)","name":"Pump checks","description":"","asset_checks_for":4}],"total":1,"limit":50,"offset":0}"#)
+        let all = try await inst.routes.list(includeAssetChecks: true)
+        XCTAssertEqual(URLComponents(string: url!)?.queryItems?.first { $0.name == "include_asset_checks" }?.value, "true")
+        XCTAssertEqual(all.first?.assetChecksFor, 4)
     }
 }

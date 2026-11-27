@@ -50,6 +50,7 @@ class Execution internal constructor(
      * Items are zone-anchored ([zoneId]) or route-level (`null`). Bind the item
      * to a specific asset after the walk via [triage]. A client-minted [uuid] (the new item's) makes it
      * retry-safe: a retry returns the response already recorded; a uuid another item has throws [ConflictException].
+     * Send it lowercase (the server echoes it lowercase). Older servers ignore it (no retry safety there).
      */
     suspend fun addFieldItem(
         label: String,

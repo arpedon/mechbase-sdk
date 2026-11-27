@@ -10,12 +10,16 @@ class Routes internal constructor(
     private val http: Http,
     private val installationId: Int,
 ) {
+    /** [includeAssetChecks] also lists assets' own checklist routes ([Route.assetChecksFor] set). */
     suspend fun list(
         q: String? = null,
         limit: Int = 50,
         offset: Int = 0,
+        includeAssetChecks: Boolean = false,
     ): List<Route> {
-        val params = mapOf<String, Any?>("q" to q, "limit" to limit, "offset" to offset)
+        val params = mapOf<String, Any?>(
+            "q" to q, "limit" to limit, "offset" to offset, "include_asset_checks" to if (includeAssetChecks) "true" else null,
+        )
         return http.getJson(
             installationPath(installationId, "/routes"),
             params,

@@ -109,7 +109,10 @@ def test_add_field_item_sends_client_uuid_only_when_given(inst):
 
 @respx.mock
 def test_route_asset_checks_for(inst):
-    respx.get(f"{I}/routes").mock(return_value=httpx.Response(200, json={"items": [
+    route = respx.get(f"{I}/routes").mock(return_value=httpx.Response(200, json={"items": [
         {"uuid": "a", "name": "Pump checks", "asset_checks_for": 4}, {"uuid": "b", "name": "Daily"}],
         "total": 2, "limit": 50, "offset": 0}))
-    assert [r.asset_checks_for for r in inst.routes.list()] == [4, None]
+    assert [r.asset_checks_for for r in inst.routes.list(include_asset_checks=True)] == [4, None]
+    assert route.calls.last.request.url.params["include_asset_checks"] == "true"
+    inst.routes.list()
+    assert "include_asset_checks" not in route.calls.last.request.url.params
