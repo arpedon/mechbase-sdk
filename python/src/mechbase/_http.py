@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import math
+import os
 import time
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
 
@@ -29,6 +31,26 @@ def _retry_after(response: httpx.Response) -> float | None:
     return max(0.0, wait) if math.isfinite(wait) else None
 
 
+def local_timezone() -> str | None:
+    """The machine's IANA zone (TZ, else /etc/localtime's target), or None when it can't be told.
+
+    ponytail: no Windows lookup (no stdlib API); pass timezone= there.
+    """
+    tz = os.environ.get("TZ", "").lstrip(":")
+    if tz and not tz.startswith("/"):
+        try:
+            ZoneInfo(tz)  # a zone name, not a POSIX rule such as "UTC0"
+            return tz
+        except (ValueError, ZoneInfoNotFoundError):
+            pass
+    try:
+        target = os.path.realpath("/etc/localtime")
+    except OSError:
+        return None
+    _, sep, zone = target.partition("zoneinfo/")
+    return zone if sep and zone else None
+
+
 def _seekable(f) -> bool:
     try:
         return bool(f.seekable())
@@ -49,8 +71,9 @@ def _streams(files) -> list:
 
 class HttpClient:
     def __init__(self, *, token: str | None, base_url: str, timeout: float = 30.0, sleep=time.sleep,
-                 max_retries: int = MAX_RETRIES):
-        """max_retries: how many times a 429 is retried (0 turns retrying off)."""
+                 max_retries: int = MAX_RETRIES, timezone: str | None = None):
+        """max_retries: how many times a 429 is retried (0 turns retrying off).
+        timezone: IANA zone sent as X-Timezone ("today" on the server); None = this machine's, "" = none."""
         self._sleep = sleep
         self._max_retries = max(0, max_retries)
         headers = {
@@ -59,6 +82,9 @@ class HttpClient:
         }
         if token:
             headers["Authorization"] = f"Bearer {token}"
+        zone = local_timezone() if timezone is None else timezone
+        if zone:
+            headers["X-Timezone"] = zone
         self._client = httpx.Client(
             base_url=base_url.rstrip("/"),
             headers=headers,
@@ -86,6 +112,19 @@ class HttpClient:
         headers: dict | None = None,
         raw: bool = False,
     ) -> Any:
+        response = self._send(method, path, params=params, json=json, data=data, files=files, headers=headers)
+        if raw and 200 <= response.status_code < 300:
+            return response.content
+        return self._handle(response)
+
+    def conditional(self, path: str, *, etag: str | None = None, params: dict | None = None):
+        """GET with If-None-Match: (body, etag), or (None, etag) when the server answers 304."""
+        response = self._send("GET", path, params=params, headers={"If-None-Match": etag} if etag else None)
+        if response.status_code == 304:
+            return None, response.headers.get("ETag") or etag
+        return self._handle(response), response.headers.get("ETag")
+
+    def _send(self, method, path, *, params=None, json=None, data=None, files=None, headers=None) -> httpx.Response:
         streams = _streams(files)
         starts = [f.tell() for f in streams if _seekable(f)]
         retryable = len(starts) == len(streams)
@@ -108,15 +147,13 @@ class HttpClient:
                 wait = 2.0**attempt
             if wait > MAX_WAIT:
                 # Fail fast rather than stall for minutes; the error's retry_after lets the caller wait.
-                return self._handle(
+                self._handle(
                     response, note=f" (the server asked to wait {wait:g} s, over the {MAX_WAIT:g} s retry cap)"
                 )
             self._sleep(wait)
             for f, pos in zip(streams, starts):
                 f.seek(pos)
-        if raw and 200 <= response.status_code < 300:
-            return response.content
-        return self._handle(response)
+        return response
 
     @staticmethod
     def _handle(response: httpx.Response, note: str = "") -> Any:
