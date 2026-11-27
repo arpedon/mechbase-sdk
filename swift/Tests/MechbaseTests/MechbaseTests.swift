@@ -56,6 +56,7 @@ final class MechbaseTests: XCTestCase {
             // URL.path strips trailing slashes; check the raw URL instead.
             XCTAssertTrue(req.url?.absoluteString.hasSuffix("/api/me/") ?? false)
             XCTAssertEqual(req.value(forHTTPHeaderField: "Authorization"), "Bearer tok")
+            XCTAssertEqual(req.value(forHTTPHeaderField: "X-Timezone"), TimeZone.current.identifier)
             let body = """
             {"user":{"id":1,"username":"u","full_name":"U U","email":"u@u"},
              "installations":[{"installation_id":2012,"name":"Plant"}],
