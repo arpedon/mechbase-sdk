@@ -143,3 +143,25 @@ func TestAssetTypeNullableAndChecklist(t *testing.T) {
 		t.Fatalf("%v %+v", err, z)
 	}
 }
+
+func TestAssetTypeEscapedCodeAndClearChecklist(t *testing.T) {
+	n := 0
+	c, stop := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		n++
+		if r.URL.EscapedPath() != iid+"/asset-types/QB%23old" || r.URL.RawQuery != "" {
+			t.Fatalf("path: %s ?%s", r.URL.EscapedPath(), r.URL.RawQuery)
+		}
+		if b, _ := io.ReadAll(r.Body); string(b) != `{"checklist":[]}` {
+			t.Fatalf("body: %s", b)
+		}
+		_, _ = w.Write([]byte(atJSON))
+	})
+	defer stop()
+	empty := []map[string]any{}
+	if _, err := inst(c).AssetTypes.Update(context.Background(), "QB#old", AssetTypeInput{Checklist: &empty}); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("requests: %d", n)
+	}
+}

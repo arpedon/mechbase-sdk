@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.parse import quote
+
 from ..models import Asset, AssetType, DeleteResult, FileAttachment, MeasurementPoint, Section, Zone
 from ._base import _UNSET, InstallationScoped, _clean, _paginated, _upload
 
@@ -183,11 +185,17 @@ class Zones(InstallationScoped):
 class AssetTypes(InstallationScoped):
     """Asset types (templates), addressed by `code`: name, manufacturer, checklist and documents."""
 
+    def _type(self, code: str, suffix: str = "") -> str:
+        # Escaped so "/", "?" or "#" in a code cannot address another type.
+        if not code:
+            raise ValueError("code is required")
+        return self._path(f"/asset-types/{quote(code, safe='')}{suffix}")
+
     def list(self) -> list[AssetType]:
         return [AssetType.from_dict(i) for i in self._http.request("GET", self._path("/asset-types"))]
 
     def get(self, code: str) -> AssetType:
-        return AssetType.from_dict(self._http.request("GET", self._path(f"/asset-types/{code}")))
+        return AssetType.from_dict(self._http.request("GET", self._type(code)))
 
     def upsert(self, code: str, *, name: str | None = None, manufacturer: str | None = None,
                checklist: list[dict] | None = None, external_id: str | None = None) -> AssetType:
@@ -198,19 +206,19 @@ class AssetTypes(InstallationScoped):
     def update(self, code: str, *, name: str | None = None, manufacturer: str | None = None,
                checklist: list[dict] | None = None, external_id: str | None = None) -> AssetType:
         body = _clean({"name": name, "manufacturer": manufacturer, "checklist": checklist, "external_id": external_id})
-        return AssetType.from_dict(self._http.request("PATCH", self._path(f"/asset-types/{code}"), json=body))
+        return AssetType.from_dict(self._http.request("PATCH", self._type(code), json=body))
 
     def delete(self, code: str) -> DeleteResult:
-        return DeleteResult.from_dict(self._http.request("DELETE", self._path(f"/asset-types/{code}")))
+        return DeleteResult.from_dict(self._http.request("DELETE", self._type(code)))
 
     def documents(self, code: str) -> list[dict]:
         """Each: uuid, name, kind, url, created_at."""
-        return self._http.request("GET", self._path(f"/asset-types/{code}/documents"))
+        return self._http.request("GET", self._type(code, "/documents"))
 
     def add_document(self, code: str, file, *, filename: str = "document.pdf", kind: str = "attachment",
                      uuid: str | None = None) -> dict:
-        return _upload(self._http, self._path(f"/asset-types/{code}/documents"), file, filename,
+        return _upload(self._http, self._type(code, "/documents"), file, filename,
                        _clean({"kind": kind, "uuid": uuid}))
 
     def delete_document(self, code: str, document_uuid: str) -> None:
-        self._http.request("DELETE", self._path(f"/asset-types/{code}/documents/{document_uuid}"))
+        self._http.request("DELETE", self._type(code, f"/documents/{document_uuid}"))

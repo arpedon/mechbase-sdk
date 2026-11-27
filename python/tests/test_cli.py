@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import httpx
+import pytest
 import respx
 
 from mechbase.cli import main, peaks
@@ -91,10 +92,42 @@ def test_zone_guest_all_asset_type_cli(monkeypatch, tmp_path, capsys):
     assert json.loads(gv.calls.last.request.content) == {"enabled": True, "zone_ids": [1, 2]}
 
     (tmp_path / "list.json").write_text('[{"title": "Oil", "item_type": "pass_fail"}]')
+    patch = respx.patch(f"{base}/asset-types/QB-STD").mock(return_value=httpx.Response(200, json=atype))
     main(["asset-type", "checklist", "QB-STD", "list.json"])
-    assert json.loads(put.calls.last.request.content) == {"code": "QB-STD", "checklist": [{"title": "Oil", "item_type": "pass_fail"}]}
+    assert json.loads(patch.calls.last.request.content) == {"checklist": [{"title": "Oil", "item_type": "pass_fail"}]}
+    assert not put.called  # a mistyped code must not create a type
 
     main(["asset", "set-type", "QB-STD", "5"])
     assert json.loads(asset.calls.last.request.content) == {"asset_type": "QB-STD"}
     main(["asset", "set-type", "--clear", "5"])
     assert json.loads(asset.calls.last.request.content) == {"asset_type": None}
+
+
+@respx.mock
+def test_cli_asset_type_typos_and_partial_set_type(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("MECHBASE_TOKEN", "tok")
+    monkeypatch.setenv("MECHBASE_URL", "https://example.test")
+    monkeypatch.setenv("MECHBASE_INSTALLATION", "7")
+    monkeypatch.chdir(tmp_path)
+    base = "https://example.test/api/installations/7"
+    missing = httpx.Response(404, json={"detail": "Not found."})
+    respx.get(f"{base}/asset-types/QB-SDT").mock(return_value=missing)
+    respx.patch(f"{base}/asset-types/QB-SDT").mock(return_value=missing)
+    put = respx.put(f"{base}/asset-types")
+    (tmp_path / "list.json").write_text("[]")
+
+    with pytest.raises(SystemExit) as e:
+        main(["asset-type", "set", "QB-SDT"])
+    assert "give --name" in str(e.value.code) and not put.called
+    with pytest.raises(SystemExit):
+        main(["asset-type", "checklist", "QB-SDT", "list.json"])
+    assert not put.called
+
+    respx.patch(f"{base}/assets/5").mock(return_value=httpx.Response(200, json={"uuid": "x", "asset_id": 5, "name": "P", "status": 1}))
+    respx.patch(f"{base}/assets/999").mock(return_value=missing)
+    respx.patch(f"{base}/assets/6").mock(return_value=httpx.Response(200, json={"uuid": "y", "asset_id": 6, "name": "Q", "status": 1}))
+    with pytest.raises(SystemExit) as e:
+        main(["asset", "set-type", "QB-STD", "5", "999", "6"])
+    out = capsys.readouterr()
+    assert e.value.code == 1 and "2 asset(s): 5, 6." in out.out and "Asset 999 not changed: 404" in out.err

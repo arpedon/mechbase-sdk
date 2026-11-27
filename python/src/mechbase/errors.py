@@ -1,10 +1,12 @@
 class MechbaseError(Exception):
     """Base class for all SDK errors."""
 
-    def __init__(self, message: str, *, status: int | None = None, body=None):
+    def __init__(self, message: str, *, status: int | None = None, body=None, retry_after: float | None = None):
         super().__init__(message)
         self.status = status
         self.body = body
+        # Seconds the server asked to wait (a 429's Retry-After); None when it gave none.
+        self.retry_after = retry_after
 
 
 class AuthError(MechbaseError):

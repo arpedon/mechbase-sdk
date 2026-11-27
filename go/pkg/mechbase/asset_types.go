@@ -2,9 +2,9 @@ package mechbase
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 )
 
 // AssetTypes is the asset type (template) resource, addressed by code.
@@ -13,17 +13,23 @@ type AssetTypes struct {
 	iid    int
 }
 
-// AssetTypeInput is the upsert/update body. Nil fields are omitted.
+// AssetTypeInput is the upsert/update body. Nil fields are omitted; a
+// non-nil empty Checklist clears it.
 type AssetTypeInput struct {
-	Code         *string          `json:"code,omitempty"`
-	Name         *string          `json:"name,omitempty"`
-	Manufacturer *string          `json:"manufacturer,omitempty"`
-	Checklist    []map[string]any `json:"checklist,omitempty"`
-	ExternalID   *string          `json:"external_id,omitempty"`
+	Code         *string           `json:"code,omitempty"`
+	Name         *string           `json:"name,omitempty"`
+	Manufacturer *string           `json:"manufacturer,omitempty"`
+	Checklist    *[]map[string]any `json:"checklist,omitempty"`
+	ExternalID   *string           `json:"external_id,omitempty"`
 }
 
 func (a *AssetTypes) path(suffix string) string {
 	return pathf(a.iid, "/asset-types"+suffix)
+}
+
+// typePath escapes code so "/", "?" or "#" in it cannot address another type.
+func (a *AssetTypes) typePath(code, suffix string) string {
+	return a.path("/" + url.PathEscape(code) + suffix)
 }
 
 // List returns all asset types.
@@ -38,7 +44,7 @@ func (a *AssetTypes) List(ctx context.Context) ([]AssetType, error) {
 // Get fetches one type by code.
 func (a *AssetTypes) Get(ctx context.Context, code string) (*AssetType, error) {
 	var out AssetType
-	if err := a.client.doJSON(ctx, http.MethodGet, a.path("/"+code), nil, nil, &out); err != nil {
+	if err := a.client.doJSON(ctx, http.MethodGet, a.typePath(code, ""), nil, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -56,7 +62,7 @@ func (a *AssetTypes) Upsert(ctx context.Context, in AssetTypeInput) (*AssetType,
 // Update partially updates a type by code.
 func (a *AssetTypes) Update(ctx context.Context, code string, in AssetTypeInput) (*AssetType, error) {
 	var out AssetType
-	if err := a.client.doJSON(ctx, http.MethodPatch, a.path("/"+code), nil, in, &out); err != nil {
+	if err := a.client.doJSON(ctx, http.MethodPatch, a.typePath(code, ""), nil, in, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -65,7 +71,7 @@ func (a *AssetTypes) Update(ctx context.Context, code string, in AssetTypeInput)
 // Delete removes a type by code.
 func (a *AssetTypes) Delete(ctx context.Context, code string) (*DeleteResult, error) {
 	var out DeleteResult
-	if err := a.client.doJSON(ctx, http.MethodDelete, a.path("/"+code), nil, nil, &out); err != nil {
+	if err := a.client.doJSON(ctx, http.MethodDelete, a.typePath(code, ""), nil, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -74,7 +80,7 @@ func (a *AssetTypes) Delete(ctx context.Context, code string) (*DeleteResult, er
 // Documents lists a type's documents.
 func (a *AssetTypes) Documents(ctx context.Context, code string) ([]Document, error) {
 	var out []Document
-	if err := a.client.doJSON(ctx, http.MethodGet, a.path("/"+code+"/documents"), nil, nil, &out); err != nil {
+	if err := a.client.doJSON(ctx, http.MethodGet, a.typePath(code, "/documents"), nil, nil, &out); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -94,7 +100,7 @@ func (a *AssetTypes) AddDocument(ctx context.Context, code string, file io.Reade
 		fields["uuid"] = uuid
 	}
 	var out Document
-	if err := a.client.doMultipart(ctx, a.path("/"+code+"/documents"), fields, []filePart{{Field: "file", Filename: filename, Reader: file}}, &out); err != nil {
+	if err := a.client.doMultipart(ctx, a.typePath(code, "/documents"), fields, []filePart{{Field: "file", Filename: filename, Reader: file}}, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -102,5 +108,5 @@ func (a *AssetTypes) AddDocument(ctx context.Context, code string, file io.Reade
 
 // DeleteDocument removes a type document by uuid.
 func (a *AssetTypes) DeleteDocument(ctx context.Context, code, uuid string) error {
-	return a.client.doJSON(ctx, http.MethodDelete, a.path(fmt.Sprintf("/%s/documents/%s", code, uuid)), nil, nil, nil)
+	return a.client.doJSON(ctx, http.MethodDelete, a.typePath(code, "/documents/"+url.PathEscape(uuid)), nil, nil, nil)
 }

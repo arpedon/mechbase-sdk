@@ -39,7 +39,7 @@ import httpx
 
 from . import Mechbase
 from ._http import HttpClient
-from .errors import MechbaseError
+from .errors import MechbaseError, NotFoundError
 
 STATUS = {1: "good", 2: "elevated", 3: "minor", 4: "major"}
 # Headline values for `readings`; `reading show` prints everything.
@@ -387,8 +387,15 @@ def cmd_asset_types(args, cfg):
 
 def cmd_asset_type_set(args, cfg):
     inst = _inst(args, cfg, _client(cfg))
+    try:
+        inst.asset_types.get(args.code)
+        verb = "Updated"
+    except NotFoundError:
+        if not args.name:
+            sys.exit(f"No asset type {args.code} yet: give --name to create it.")
+        verb = "Created"
     t = inst.asset_types.upsert(args.code, name=args.name, manufacturer=args.manufacturer)
-    print(json.dumps(dataclasses.asdict(t), indent=2) if args.json else f"Saved asset type {t.code} ({t.name}).")
+    print(json.dumps(dataclasses.asdict(t), indent=2) if args.json else f"{verb} asset type {t.code} ({t.name}).")
 
 
 def cmd_asset_type_checklist(args, cfg):
@@ -396,7 +403,7 @@ def cmd_asset_type_checklist(args, cfg):
     items = json.loads(Path(args.file).read_text())
     if not isinstance(items, list):
         sys.exit("The checklist file must hold a JSON list.")
-    t = inst.asset_types.upsert(args.code, checklist=items)
+    t = inst.asset_types.update(args.code, checklist=items)  # PATCH: a mistyped code is a 404, not a new type
     print(json.dumps(dataclasses.asdict(t), indent=2) if args.json else f"Asset type {t.code}: {len(t.checklist)} checks.")
 
 
@@ -415,10 +422,22 @@ def cmd_asset_set_type(args, cfg):
         sys.exit("Asset ids must be numbers.")
     if not ids:
         sys.exit("Give a type code and at least one asset id (or --clear and ids).")
-    for aid in ids:
-        inst.assets.update(aid, asset_type=code)
-    print(json.dumps({"assets": ids, "asset_type": code}) if args.json else
-          f"{'Cleared the type of' if code is None else f'Set type {code} on'} {len(ids)} asset(s).")
+    done, failed = [], {}
+    for aid in ids:  # one call per asset: report each so a failure part-way is not a mystery
+        try:
+            inst.assets.update(aid, asset_type=code)
+            done.append(aid)
+        except MechbaseError as e:
+            failed[aid] = str(e)
+    if args.json:
+        print(json.dumps({"assets": done, "asset_type": code, "failed": failed}))
+    else:
+        print(f"{'Cleared the type of' if code is None else f'Set type {code} on'} {len(done)} asset(s)"
+              + (f": {', '.join(map(str, done))}." if failed and done else "."))
+        for aid, err in failed.items():
+            print(f"Asset {aid} not changed: {err}", file=sys.stderr)
+    if failed:
+        sys.exit(1)
 
 
 def cmd_alarms(args, cfg):

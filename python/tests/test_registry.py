@@ -332,3 +332,28 @@ def test_500_not_retried():
     with pytest.raises(MechbaseError):
         c._http.request("GET", "/x")
     assert route.call_count == 1
+
+
+@respx.mock
+def test_429_error_carries_retry_after_and_retries_can_be_off():
+    c = Mechbase(token="tok", base_url=BASE, max_retries=0)
+    c._http._sleep = lambda s: pytest.fail("slept")
+    route = respx.get(f"{BASE}/api/me/").mock(return_value=httpx.Response(429, headers={"Retry-After": "1800"}))
+    with pytest.raises(MechbaseError) as e:
+        c._http.request("GET", "/api/me/")
+    assert route.call_count == 1 and e.value.retry_after == 1800.0
+    c = Mechbase(token="tok", base_url=BASE)
+    c._http._sleep = lambda s: None
+    with pytest.raises(MechbaseError) as e:  # fail-fast path keeps it too
+        c._http.request("GET", "/api/me/")
+    assert e.value.retry_after == 1800.0
+
+
+@respx.mock
+def test_asset_type_code_is_escaped(client):
+    route = respx.delete(f"{BASE}/api/installations/7/asset-types/QB%23old").mock(
+        return_value=httpx.Response(200, json={"deleted": True, "uuid": "t"}))
+    client.for_installation(7).asset_types.delete("QB#old")
+    assert route.called and route.calls.last.request.url.raw_path == b"/api/installations/7/asset-types/QB%23old"
+    with pytest.raises(ValueError):
+        client.for_installation(7).asset_types.get("")
