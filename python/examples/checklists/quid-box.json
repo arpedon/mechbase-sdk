@@ -5,7 +5,7 @@
     "config": {}
   },
   {
-    "label": "Built to R6 sheet",
+    "label": "Built to R7j sheet",
     "item_type": "multi_check",
     "config": {
       "checks": [
@@ -65,7 +65,8 @@
     "label": "PE in-to-out continuity",
     "item_type": "numerical",
     "config": {
-      "unit": "Ω"
+      "unit": "Ω",
+      "max": 0.1
     }
   },
   {
