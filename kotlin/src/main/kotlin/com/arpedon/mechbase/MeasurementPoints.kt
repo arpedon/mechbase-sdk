@@ -40,15 +40,21 @@ data class PointInput(
     @Transient val clearNominalRpm: Boolean = false,
     /** Send `bearing: null` (remove the bearing). */
     @Transient val clearBearing: Boolean = false,
-    /** Send both envelope band edges as null (back to the default band). */
+    /** Send `speed_ratio: null` (back to 1). */
+    @Transient val clearSpeedRatio: Boolean = false,
+    /** Send both envelope band edges as null (back to the default band); can't be combined with explicit edges. */
     @Transient val clearEnvelopeBand: Boolean = false,
 )
 
 private fun PointInput.toJson(): JsonElement {
+    require(!clearEnvelopeBand || (envelopeBandLow == null && envelopeBandHigh == null)) {
+        "clearEnvelopeBand with an explicit envelope band edge"
+    }
     val o = SDK_JSON.encodeToJsonElement(PointInput.serializer(), this) as JsonObject
     val nulls = buildList {
         if (clearNominalRpm && nominalRpm == null) add("nominal_rpm")
         if (clearBearing && bearing == null) add("bearing")
+        if (clearSpeedRatio && speedRatio == null) add("speed_ratio")
         if (clearEnvelopeBand) { add("envelope_band_low"); add("envelope_band_high") }
     }
     return JsonObject(o + nulls.associateWith { JsonNull })

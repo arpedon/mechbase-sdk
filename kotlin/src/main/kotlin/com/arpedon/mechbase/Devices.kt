@@ -179,8 +179,10 @@ class Devices internal constructor(private val http: Http, private val installat
      * resends them and keeps its name (200). 409 when another installation has it. Then poll [get]:
      * [TokenPush.state] `pushed` → first heartbeat ([Device.isOnline]) → [DeviceConfig.isCurrent].
      */
-    suspend fun claim(balenaUuid: String, name: String? = null): Device =
-        http.postJson(path(), SDK_JSON.encodeToJsonElement(ClaimBody.serializer(), ClaimBody(balenaUuid, name)), Device.serializer())
+    suspend fun claim(balenaUuid: String, name: String? = null): Device {
+        requireHex(balenaUuid)
+        return http.postJson(path(), SDK_JSON.encodeToJsonElement(ClaimBody.serializer(), ClaimBody(balenaUuid, name)), Device.serializer())
+    }
 
     /** Queue the push of the device's current token again; follow [Device.tokenPush]. */
     suspend fun resendCredentials(nodeUuid: String): Device {

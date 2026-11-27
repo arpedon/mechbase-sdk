@@ -5,6 +5,7 @@ import okhttp3.mockwebserver.MockResponse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 /** Reading analysis, process, compare (ETag), trend, fault record, baselines, notes. */
@@ -83,6 +84,8 @@ class AnalysisTest : ApiTest() {
         assertEquals("\"e1\"", take().getHeader("If-None-Match"))
 
         assertFails<ValidationException>(422) { inst.analysis.compare(9, (1..9).toList()) }
+        assertThrows(IllegalArgumentException::class.java) { runBlocking { inst.analysis.compare(9, emptyList()) } }
+        assertEquals(0, server.requestCount - 3)
         Unit
     }
 

@@ -336,12 +336,15 @@ class Analysis internal constructor(private val http: Http, private val installa
         sequences: List<Int>,
         spectrum: String = "velocity",
         ifNoneMatch: String? = null,
-    ): Conditional<PointComparison> = http.getConditional(
-        point(pointId, "/compare"),
-        mapOf("seq" to sequences.joinToString(","), "spectrum" to spectrum),
-        PointComparison.serializer(),
-        ifNoneMatch,
-    )
+    ): Conditional<PointComparison> {
+        require(sequences.isNotEmpty()) { "compare needs at least one point_sequence" }
+        return http.getConditional(
+            point(pointId, "/compare"),
+            mapOf("seq" to sequences.joinToString(","), "spectrum" to spectrum),
+            PointComparison.serializer(),
+            ifNoneMatch,
+        )
+    }
 
     /** The asset chart over 7 days back from its latest reading; [type] narrows to one transducer type. */
     suspend fun trend(assetId: Int, type: String? = null): AssetTrend =

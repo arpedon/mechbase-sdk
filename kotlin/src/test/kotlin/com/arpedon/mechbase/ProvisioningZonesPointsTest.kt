@@ -36,6 +36,7 @@ class ProvisioningZonesPointsTest : ApiTest() {
         inst.devices.claim(balena)
         assertRequest("POST /api/installations/7/devices", """{"balena_uuid":"$balena"}""")
         assertFails<ConflictException>(409) { inst.devices.claim(balena) }
+        assertThrows(ValidationException::class.java) { runBlocking { inst.devices.claim("../x") } }
 
         reply(device.replace("\"queued\"", "\"pushed\""), 202)
         assertEquals("pushed", inst.devices.resendCredentials(u1).tokenPush?.state)
@@ -124,6 +125,12 @@ class ProvisioningZonesPointsTest : ApiTest() {
             "PATCH /api/installations/7/measurement-points/9",
             """{"nominal_rpm":null,"bearing":null,"envelope_band_low":null,"envelope_band_high":null}""",
         )
+        reply(point)
+        inst.measurementPoints.update(9, PointInput(clearSpeedRatio = true))
+        assertRequest("PATCH /api/installations/7/measurement-points/9", """{"speed_ratio":null}""")
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking { inst.measurementPoints.update(9, PointInput(envelopeBandLow = 500, clearEnvelopeBand = true)) }
+        }
         assertFails<ValidationException>(422) { inst.measurementPoints.update(9, PointInput(speedRatio = 0.0)) }
         Unit
     }
