@@ -48,6 +48,22 @@ final class AccountPushTests: ParityTestCase {
         }
     }
 
+    func testMeDecodesNamesAndUnitChoices() async throws {
+        ParityMock.reset(reply: #"{"user":{"id":1,"username":"u","full_name":"Ada L","first_name":"Ada","last_name":"L","email":"u@x"},"unit_prefs":{"acceleration":"g","velocity":"mm/s","temperature":"°C","pressure":"bar","frequency":"Hz"},"unit_choices":{"acceleration":[{"value":"g","label":"g"}],"velocity":[{"value":"in/s","label":"in/s"}],"temperature":[{"value":"°F","label":"°F"}],"pressure":[{"value":"psi","label":"psi"}],"frequency":[{"value":"Hz","label":"Hz"},{"value":"CPM","label":"CPM"}]},"installations":[]}"#)
+        let me = try await client.me()
+        XCTAssertEqual(me.user.firstName, "Ada")
+        XCTAssertEqual(me.user.lastName, "L")
+        XCTAssertEqual(me.unitChoices?.frequency.map(\.value), ["Hz", "CPM"])
+        XCTAssertEqual(me.unitChoices?.temperature.first?.label, "°F")
+    }
+
+    func testMeWithoutNamesOrChoicesFromAnOlderServer() async throws {
+        ParityMock.reset(reply: #"{"user":{"id":1,"username":"u","full_name":"U","email":"u@x"},"installations":[]}"#)
+        let me = try await client.me()
+        XCTAssertEqual(me.user.firstName, "")
+        XCTAssertNil(me.unitChoices)
+    }
+
     func testWebSession() async throws {
         reply("WebSessionOut")
         let s = try await client.webSession(next: "/2012/assets/5/")

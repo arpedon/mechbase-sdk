@@ -76,13 +76,16 @@ public struct User: Codable, Sendable {
     public let id: Int
     public let username: String
     public let fullName: String
+    /// "" on servers that predate them.
+    public let firstName: String
+    public let lastName: String
     public let email: String
     /// Gates staff-only UI (dashboard editing); false for service tokens and on older servers.
     public let isStaff: Bool
 
     enum CodingKeys: String, CodingKey {
         case id, username, email
-        case fullName = "full_name"
+        case fullName = "full_name", firstName = "first_name", lastName = "last_name"
         case isStaff = "is_staff"
     }
 
@@ -91,6 +94,8 @@ public struct User: Codable, Sendable {
         self.id = try c.decode(Int.self, forKey: .id)
         self.username = try c.decode(String.self, forKey: .username)
         self.fullName = try c.decode(String.self, forKey: .fullName)
+        self.firstName = (try? c.decode(String.self, forKey: .firstName)) ?? ""
+        self.lastName = (try? c.decode(String.self, forKey: .lastName)) ?? ""
         self.email = (try? c.decode(String.self, forKey: .email)) ?? ""
         self.isStaff = (try? c.decode(Bool.self, forKey: .isStaff)) ?? false
     }
@@ -115,11 +120,13 @@ public struct Me: Codable, Sendable {
     public let currentInstallationId: Int?
     /// The user's display-unit choices; `nil` on servers that predate them.
     public let unitPrefs: UnitPrefs?
+    /// What each unit may be set to (`updateMe`); `nil` on servers that predate them.
+    public let unitChoices: UnitChoices?
 
     enum CodingKeys: String, CodingKey {
         case user, installations
         case currentInstallationId = "current_installation_id"
-        case unitPrefs = "unit_prefs"
+        case unitPrefs = "unit_prefs", unitChoices = "unit_choices"
     }
 
     public init(from decoder: Decoder) throws {
@@ -129,7 +136,17 @@ public struct Me: Codable, Sendable {
         self.currentInstallationId = try c.decodeIfPresent(Int.self, forKey: .currentInstallationId)
         // A malformed block must not break sign-in: treat it as absent.
         self.unitPrefs = (try? c.decodeIfPresent(UnitPrefs.self, forKey: .unitPrefs)) ?? nil
+        self.unitChoices = (try? c.decodeIfPresent(UnitChoices.self, forKey: .unitChoices)) ?? nil
     }
+}
+
+/// The values each display unit accepts, as the web profile offers them.
+public struct UnitChoices: Codable, Sendable {
+    public let acceleration: [Choice]
+    public let velocity: [Choice]
+    public let temperature: [Choice]
+    public let pressure: [Choice]
+    public let frequency: [Choice]
 }
 
 /// Per-quantity display units from `/api/me/` (e.g. `velocity: "mm/s"`).

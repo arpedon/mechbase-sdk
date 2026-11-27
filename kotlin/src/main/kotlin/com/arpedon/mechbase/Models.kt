@@ -18,6 +18,9 @@ data class User(
     val id: Int,
     val username: String,
     @SerialName("full_name") val fullName: String,
+    /** "" on servers that predate them. */
+    @SerialName("first_name") val firstName: String = "",
+    @SerialName("last_name") val lastName: String = "",
     val email: String = "",
     /** Gates staff-only UI (dashboard editing). False for service tokens and on older servers. */
     @SerialName("is_staff") val isStaff: Boolean = false,
@@ -36,6 +39,18 @@ data class Me(
     @SerialName("current_installation_id") val currentInstallationId: Int? = null, // null for a user with no installations
     /** The user's display-unit choices; null on servers that predate them. */
     @SerialName("unit_prefs") val unitPrefs: UnitPrefs? = null,
+    /** What each unit may be set to ([MechbaseClient.updateMe]); null on servers that predate them. */
+    @SerialName("unit_choices") val unitChoices: UnitChoices? = null,
+)
+
+/** The values each display unit accepts, as the web profile offers them. */
+@Serializable
+data class UnitChoices(
+    val acceleration: List<Choice> = emptyList(),
+    val velocity: List<Choice> = emptyList(),
+    val temperature: List<Choice> = emptyList(),
+    val pressure: List<Choice> = emptyList(),
+    val frequency: List<Choice> = emptyList(),
 )
 
 /** Per-quantity display units from `/api/me/` (e.g. `velocity = "mm/s"`). */

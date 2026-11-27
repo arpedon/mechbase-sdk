@@ -48,6 +48,22 @@ def test_me_is_staff_and_partial_patch():
 
 
 @respx.mock
+def test_me_names_and_unit_choices():
+    choices = {"frequency": [{"value": "Hz", "label": "Hz"}, {"value": "CPM", "label": "CPM"}]}
+    respx.get(f"{BASE}/api/me/").mock(side_effect=[
+        httpx.Response(200, json={**ME, "user": {**USER, "first_name": "Ada", "last_name": None}, "unit_choices": choices}),
+        httpx.Response(200, json=ME),  # an older server: neither
+    ])
+    c = Mechbase(token="tok", base_url=BASE)
+    me = c.me()
+    assert (me.user.first_name, me.user.last_name) == ("Ada", "")
+    assert "first_name" not in me.user.extra
+    assert [x["value"] for x in me.unit_choices["frequency"]] == ["Hz", "CPM"]
+    old = c.me()
+    assert old.user.first_name == "" and old.unit_choices == {}
+
+
+@respx.mock
 def test_web_session():
     route = respx.post(f"{BASE}/api/auth/web-session").mock(return_value=httpx.Response(
         200, json={"url": f"{BASE}/auth/magic/abc/", "expires_at": "2026-11-27T10:00:00Z"}))

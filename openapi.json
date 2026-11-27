@@ -15542,6 +15542,24 @@
         "title": "WebSessionIn",
         "type": "object"
       },
+      "ChoiceOut": {
+        "properties": {
+          "value": {
+            "title": "Value",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "ChoiceOut",
+        "type": "object"
+      },
       "InstallationOut": {
         "properties": {
           "installation_id": {
@@ -15568,6 +15586,9 @@
           "unit_prefs": {
             "$ref": "#/components/schemas/UnitPrefsOut"
           },
+          "unit_choices": {
+            "$ref": "#/components/schemas/UnitChoicesOut"
+          },
           "installations": {
             "items": {
               "$ref": "#/components/schemas/InstallationOut"
@@ -15590,9 +15611,59 @@
         "required": [
           "user",
           "unit_prefs",
+          "unit_choices",
           "installations"
         ],
         "title": "MeOut",
+        "type": "object"
+      },
+      "UnitChoicesOut": {
+        "description": "What each unit preference may be set to: the web profile form's choices.",
+        "properties": {
+          "acceleration": {
+            "items": {
+              "$ref": "#/components/schemas/ChoiceOut"
+            },
+            "title": "Acceleration",
+            "type": "array"
+          },
+          "velocity": {
+            "items": {
+              "$ref": "#/components/schemas/ChoiceOut"
+            },
+            "title": "Velocity",
+            "type": "array"
+          },
+          "temperature": {
+            "items": {
+              "$ref": "#/components/schemas/ChoiceOut"
+            },
+            "title": "Temperature",
+            "type": "array"
+          },
+          "pressure": {
+            "items": {
+              "$ref": "#/components/schemas/ChoiceOut"
+            },
+            "title": "Pressure",
+            "type": "array"
+          },
+          "frequency": {
+            "items": {
+              "$ref": "#/components/schemas/ChoiceOut"
+            },
+            "title": "Frequency",
+            "type": "array"
+          }
+        },
+        "required": [
+          "acceleration",
+          "velocity",
+          "temperature",
+          "pressure",
+          "frequency"
+        ],
+        "title": "UnitChoicesOut",
         "type": "object"
       },
       "UnitPrefsOut": {
@@ -15642,6 +15713,14 @@
             "title": "Full Name",
             "type": "string"
           },
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
+            "title": "Last Name",
+            "type": "string"
+          },
           "email": {
             "title": "Email",
             "type": "string"
@@ -15656,6 +15735,8 @@
           "id",
           "username",
           "full_name",
+          "first_name",
+          "last_name",
           "email"
         ],
         "title": "UserOut",
@@ -24042,24 +24123,6 @@
           "severity"
         ],
         "title": "FindingIn",
-        "type": "object"
-      },
-      "ChoiceOut": {
-        "properties": {
-          "value": {
-            "title": "Value",
-            "type": "string"
-          },
-          "label": {
-            "title": "Label",
-            "type": "string"
-          }
-        },
-        "required": [
-          "value",
-          "label"
-        ],
-        "title": "ChoiceOut",
         "type": "object"
       },
       "FindingChoicesOut": {

@@ -20,6 +20,9 @@ class User:
     username: str
     full_name: str
     email: str
+    # "" on servers that predate them.
+    first_name: str = ""
+    last_name: str = ""
     # Gates staff-only features (dashboard editing); always False for service tokens.
     is_staff: bool = False
     extra: dict[str, Any] = field(default_factory=dict)
@@ -40,6 +43,8 @@ class User:
             # stays `str`; the type stops lying. See issue #2.
             full_name=d.pop("full_name") or "",
             email=d.pop("email") or "",
+            first_name=d.pop("first_name", None) or "",
+            last_name=d.pop("last_name", None) or "",
             is_staff=bool(d.pop("is_staff", False)),
             extra=d,
         )
@@ -68,6 +73,8 @@ class Me:
     current_installation_id: int | None
     # {"acceleration": "g", "velocity": "mm/s", ...}: the units the user reads in.
     unit_prefs: dict[str, str] = field(default_factory=dict)
+    # What each unit may be set to: {"velocity": [{"value": "mm/s", "label": "mm/s"}, ...], ...}; {} on older servers.
+    unit_choices: dict[str, list[dict[str, str]]] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, d: dict) -> "Me":
@@ -76,6 +83,7 @@ class Me:
             installations=[Installation.from_dict(i) for i in d["installations"]],
             current_installation_id=d.get("current_installation_id"),
             unit_prefs=d.get("unit_prefs") or {},
+            unit_choices=d.get("unit_choices") or {},
         )
 
 
