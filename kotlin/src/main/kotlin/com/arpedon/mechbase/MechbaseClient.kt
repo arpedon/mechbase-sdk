@@ -62,6 +62,20 @@ class MechbaseClient(
         http.sendJson("DELETE", "/api/push/devices/$segment", null, null, Unit.serializer())
     }
 
+    /**
+     * A single-use, 60-second link that signs an in-app browser (Custom Tab) in as this token's user
+     * and opens [next], so the web doesn't ask for a password again. [next] is a server path
+     * (`/2012/assets/5/`) or the `https://` URL of a device tunnel the user can open; anything else
+     * throws [ValidationException]. Service and installation-scoped tokens get [AuthException].
+     * Mint it right before opening; never cache it.
+     */
+    suspend fun webSession(next: String): WebSession =
+        http.postJson(
+            "/api/auth/web-session",
+            SDK_JSON.encodeToJsonElement(WebSessionBody.serializer(), WebSessionBody(next)),
+            WebSession.serializer(),
+        )
+
     /** Sign this token out server-side. The token is dead afterwards; drop it. */
     suspend fun revokeToken() {
         http.postJson("/api/auth/token/revoke", null, JsonElement.serializer())

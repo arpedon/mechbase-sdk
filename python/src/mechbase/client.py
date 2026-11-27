@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ._http import MAX_RETRIES, HttpClient
-from .models import Me
+from .models import Me, WebSession
 from .resources._base import _clean
 from .resources.analytics import Exports
 from .resources.dashboards import Dashboards
@@ -103,6 +103,12 @@ class Mechbase:
         temperature, pressure, frequency, e.g. {"velocity": "in/s"}. Not for service tokens."""
         body = _clean({"first_name": first_name, "last_name": last_name, "unit_prefs": unit_prefs})
         return Me.from_dict(self._http.request("PATCH", "/api/me/", json=body))
+
+    def web_session(self, next: str) -> WebSession:
+        """A single-use, 60-second link that signs a browser in as this token's user and opens `next`:
+        a server path ("/2012/assets/5/") or the https:// URL of a device tunnel you can open
+        (anything else: ValidationError). Not for service or installation-scoped tokens."""
+        return WebSession.from_dict(self._http.request("POST", "/api/auth/web-session", json={"next": next}))
 
     def revoke_token(self) -> None:
         """Sign this token out server-side; the client is unusable afterwards."""

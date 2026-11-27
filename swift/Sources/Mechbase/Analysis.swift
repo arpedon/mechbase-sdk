@@ -53,6 +53,17 @@ extension Measurements {
         try await scope.http.postJSON(readingPath(pointId, pointSequence, "/process"), body: input, as: ProcessResult.self)
     }
 
+    /// One reading, by the number in its web URL (`…/measurements/766/`). Not found → ``MechbaseError/notFound(_:)``.
+    public func get(pointId: Int, pointSequence: Int) async throws -> Measurement {
+        try await scope.http.get(readingPath(pointId, pointSequence, "/"), as: Measurement.self)
+    }
+
+    /// Delete one reading; the point's state rolls back to its newest surviving reading.
+    @discardableResult
+    public func delete(pointId: Int, pointSequence: Int) async throws -> DeleteResult {
+        try await scope.http.delete(readingPath(pointId, pointSequence, "/"), as: DeleteResult.self)
+    }
+
     private struct NotesBody: Encodable { let notes: String }
 
     /// Replace a reading's notes (rich-text HTML, sanitized server-side).

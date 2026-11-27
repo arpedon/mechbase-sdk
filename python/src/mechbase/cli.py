@@ -18,6 +18,7 @@
     mechbase asset set-type QB-STD 1 2 3
     mechbase devices                    # MaintNodes: online, health, channels
     mechbase tunnel open logo           # remote access to a device's site
+    mechbase open /2012/assets/5/       # a web page (or tunnel URL), already signed in
     mechbase overview ; mechbase alerts ; mechbase activity ; mechbase search pump
     mechbase dashboard                  # the default board's tiles
     mechbase reading analysis 2 766     # values, peaks, bearing markers, shaft order
@@ -663,6 +664,16 @@ def cmd_tunnel_open(args, cfg):
         sys.exit(f"Refusing to open {t['web_url']!r}: not an http(s) URL.")
     print(t["web_url"])
     webbrowser.open(t["web_url"])
+
+
+def cmd_open(args, cfg):
+    session = _client(cfg).web_session(args.target)
+    # The link signs a browser in: open it, never print it (scrollback, --json logs).
+    webbrowser.open(session.url)
+    if args.json:
+        print(json.dumps({"opened": args.target, "expires_at": session.expires_at}, indent=2))
+    else:
+        print(f"Opened {args.target} (signed in; the link expires at {session.expires_at})")
 
 
 def cmd_tunnel_file(args, cfg):
@@ -1400,6 +1411,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("group", help="name or uuid (prefix)")
     s.add_argument("fields", nargs="+", metavar="key=value")
     s.set_defaults(fn=cmd_group_set)
+
+    s = sub.add_parser("open", parents=[common], help="open a web page or tunnel URL in the browser, signed in")
+    s.add_argument("target", help='a path ("/2012/assets/5/") or a device tunnel URL')
+    s.set_defaults(fn=cmd_open)
 
     s = sub.add_parser("tunnels", parents=[common], help="remote access to devices' sites")
     s.add_argument("--all", action="store_true", help="every installation's tunnels (staff)")

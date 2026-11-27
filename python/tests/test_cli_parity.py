@@ -369,3 +369,30 @@ def test_production_set_flips_only_a_known_different_state(capsys):
     assert exits(["production", "set", "4", "off"]).code.startswith("Asset 4's production state is stale")
     assert exits(["production", "set", "5", "on"]).code == "Asset 5 has no production tracking."
     assert flip.call_count == 1
+
+
+SESSION = {"url": f"{BASE}/auth/magic/abc/", "expires_at": "2026-11-27T10:00:00Z"}
+
+
+@respx.mock
+def test_open_mints_a_web_session_and_opens_it(capsys, monkeypatch):
+    route = respx.post(f"{BASE}/api/auth/web-session").mock(return_value=httpx.Response(200, json=SESSION))
+    opened = []
+    monkeypatch.setattr("webbrowser.open", opened.append)
+    main(["open", "/7/assets/4/"])
+    assert json.loads(route.calls.last.request.content) == {"next": "/7/assets/4/"}
+    assert opened == [SESSION["url"]]
+    o = out(capsys)
+    assert "Opened /7/assets/4/" in o and "magic" not in o  # the link stays out of the scrollback
+
+    main(["open", "https://t-abcd1234.mechbase.io/", "--json"])
+    assert json.loads(out(capsys)) == {"opened": "https://t-abcd1234.mechbase.io/", "expires_at": SESSION["expires_at"]}
+    assert opened == [SESSION["url"]] * 2  # the URL itself never reaches stdout
+    assert exits(["open", "/", "--print"]).code == 2  # gone
+
+
+@respx.mock
+def test_open_refused_target_exits(capsys):
+    respx.post(f"{BASE}/api/auth/web-session").mock(return_value=httpx.Response(
+        422, json={"detail": "next: must be a path on this site or a device tunnel you can open."}))
+    assert "next: must be a path" in exits(["open", "//evil"]).code

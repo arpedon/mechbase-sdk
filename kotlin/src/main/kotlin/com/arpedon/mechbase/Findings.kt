@@ -32,6 +32,8 @@ data class Finding(
     @SerialName("point_name") val pointName: String = "",
     @SerialName("point_location") val pointLocation: String = "",
     @SerialName("measurement_uuid") val measurementUuid: String? = null,
+    /** The reading's number on its point ([Measurements.get]); null when none. */
+    @SerialName("point_sequence") val pointSequence: Int? = null,
     @SerialName("measurement_external_id") val measurementExternalId: String? = null,
     @SerialName("measurement_timestamp") val measurementTimestamp: String? = null,
     @SerialName("web_url") val webUrl: String = "",

@@ -20,6 +20,9 @@ class User:
     username: str
     full_name: str
     email: str
+    # "" on servers that predate them.
+    first_name: str = ""
+    last_name: str = ""
     # Gates staff-only features (dashboard editing); always False for service tokens.
     is_staff: bool = False
     extra: dict[str, Any] = field(default_factory=dict)
@@ -40,6 +43,8 @@ class User:
             # stays `str`; the type stops lying. See issue #2.
             full_name=d.pop("full_name") or "",
             email=d.pop("email") or "",
+            first_name=d.pop("first_name", None) or "",
+            last_name=d.pop("last_name", None) or "",
             is_staff=bool(d.pop("is_staff", False)),
             extra=d,
         )
@@ -68,6 +73,8 @@ class Me:
     current_installation_id: int | None
     # {"acceleration": "g", "velocity": "mm/s", ...}: the units the user reads in.
     unit_prefs: dict[str, str] = field(default_factory=dict)
+    # What each unit may be set to: {"velocity": [{"value": "mm/s", "label": "mm/s"}, ...], ...}; {} on older servers.
+    unit_choices: dict[str, list[dict[str, str]]] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, d: dict) -> "Me":
@@ -76,7 +83,20 @@ class Me:
             installations=[Installation.from_dict(i) for i in d["installations"]],
             current_installation_id=d.get("current_installation_id"),
             unit_prefs=d.get("unit_prefs") or {},
+            unit_choices=d.get("unit_choices") or {},
         )
+
+
+@dataclass
+class WebSession:
+    """A one-time browser sign-in link: open `url` once, within the minute."""
+
+    url: str
+    expires_at: str
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "WebSession":
+        return cls(url=d["url"], expires_at=d.get("expires_at") or "")
 
 
 @dataclass
@@ -102,6 +122,9 @@ class Asset:
     external_id: str | None = None
     asset_type: str | None = None  # type code
     photos: list[Photo] = field(default_factory=list)
+    # Production-tracked assets only: "on" / "off" from the latest run, "stale" when its last ping is too old.
+    running: str | None = None
+    running_since: str | None = None  # when that run began
     extra: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -119,6 +142,8 @@ class Asset:
             external_id=d.pop("external_id", None),
             asset_type=d.pop("asset_type", None),
             photos=[Photo.from_dict(p) for p in d.pop("photos", None) or []],
+            running=d.pop("running", None),
+            running_since=d.pop("running_since", None),
             extra=d,
         )
 
@@ -448,6 +473,8 @@ class Finding:
     work_order_ref: str = ""
     comment: str = ""
     due_by: str | None = None
+    # The reading's number on its point (measurements.get(point_id, point_sequence)); None when none.
+    point_sequence: int | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -469,6 +496,7 @@ class Finding:
             work_order_ref=d.pop("work_order_ref", "") or "",
             comment=d.pop("comment", "") or "",
             due_by=d.pop("due_by", None),
+            point_sequence=d.pop("point_sequence", None),
             extra=d,
         )
 
