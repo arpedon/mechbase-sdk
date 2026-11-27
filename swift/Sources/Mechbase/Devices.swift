@@ -104,7 +104,7 @@ public struct Source: Codable, Sendable {
     }
 }
 
-private func requireUUID(_ s: String) throws {
+func requireUUID(_ s: String) throws {
     guard UUID(uuidString: s) != nil else { throw MechbaseError.validation("invalid uuid: \(s)") }
 }
 
