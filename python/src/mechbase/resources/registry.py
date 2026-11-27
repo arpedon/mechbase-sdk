@@ -124,11 +124,9 @@ class MeasurementPoints(InstallationScoped):
                asset_id: int | None = None, asset_external_id: str | None = None,
                transducer_type: str | None = None, measurement_unit_code: str | None = None,
                location: str | None = None, body_segment: int | None = None,
-               body_angle: int | None = None, machine_class: str | None = None,
-               nominal_rpm: int | None = _UNSET, bearing: str | None = _UNSET, speed_ratio: float | None = _UNSET,
-               envelope_band_low: int | None = _UNSET, envelope_band_high: int | None = _UNSET,
-               instructions: str | None = _UNSET) -> MeasurementPoint:
-        return MeasurementPoint.from_dict(self._http.request("PUT", self._path("/measurement-points"), json=_point_body(locals_no_self(locals()))))
+               body_angle: int | None = None, machine_class: str | None = None) -> MeasurementPoint:
+        """The analysis fields are not upsertable (the server refuses them on PUT): set them with update()."""
+        return MeasurementPoint.from_dict(self._http.request("PUT", self._path("/measurement-points"), json=_clean(locals_no_self(locals()))))
 
     def update(self, point_id: int, *, name: str | None = None, external_id: str | None = None,
                asset_id: int | None = None, asset_external_id: str | None = None,

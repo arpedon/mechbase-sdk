@@ -781,7 +781,8 @@ def cmd_activity(args, cfg):
         print(f"  {local:%H:%M}  {e['title']}" + (f" — {e['detail']}" if e.get("detail") else "") + (f" ({by})" if by else ""))
 
 
-_SEARCH_ID = ("asset_id", "point_id", "zone_id", "section_id", "check_id", "comment_id", "uuid", "response_uuid")
+_SEARCH_ID = {"assets": "asset_id", "sections": "section_id", "zones": "zone_id", "points": "point_id", "routes": "uuid",
+              "route_items": "check_id", "comments": "comment_id", "item_responses": "response_uuid"}
 _SEARCH_NAME = ("name", "label", "body_text", "notes")
 
 
@@ -797,7 +798,8 @@ def cmd_search(args, cfg):
             continue
         print(f"\n{c['label']} ({c['count']})")
         for r in rows:
-            rid = next((r[k] for k in _SEARCH_ID if r.get(k) is not None), "")
+            rid = r.get(_SEARCH_ID.get(c["key"], "uuid"))
+            rid = "" if rid is None else rid
             name = next((r[k] for k in _SEARCH_NAME if r.get(k)), "")
             where = r.get("asset_name") or r.get("route_name") or r.get("section_name") or ""
             print(f"  {rid}  {' '.join(str(name).split())[:80]}" + (f"  · {where}" if where else ""))
@@ -813,9 +815,22 @@ def cmd_hours(args, cfg):
                 for r in h.get("rows") or []], ["asset", "name", "state", "hours", "lifetime", "last ping"])
 
 
-def cmd_production_flip(args, cfg):
-    st = _inst(args, cfg, _client(cfg)).assets.flip_production(args.asset)
-    print(json.dumps(st) if args.json else f"Asset {args.asset} is now {st.get('state') or 'unknown'}.")
+def cmd_production_set(args, cfg):
+    """Flip only when the current state is known and differs: a flip toggles whatever the last run was."""
+    inst = _inst(args, cfg, _client(cfg))
+    row = next((r for r in inst.hours().get("rows") or [] if r.get("asset_id") == args.asset), None)
+    if row is None:
+        sys.exit(f"Asset {args.asset} has no production tracking.")
+    state = row.get("state")
+    if state == args.state:
+        st = {"state": state, "last_ping": row.get("last_ping")}
+    elif state in ("on", "off"):
+        st = inst.assets.flip_production(args.asset)
+    else:
+        sys.exit(f"Asset {args.asset}'s production state is {state or 'unknown'}: set it on the asset page.")
+    if args.json:
+        return print(json.dumps(st))
+    print(f"Asset {args.asset} is {'already ' if state == args.state else 'now '}{st.get('state') or 'unknown'}.")
 
 
 def cmd_dashboards(args, cfg):
@@ -939,7 +954,10 @@ def cmd_ncs(args, cfg):
 
 
 def cmd_nc_resolve(args, cfg):
-    n = _inst(args, cfg, _client(cfg)).non_conformities.resolve(args.response, comment=args.comment)
+    inst = _inst(args, cfg, _client(cfg))
+    if not args.yes and input(f"Resolve non-conformity {args.response}? [y/N] ").lower() != "y":
+        sys.exit("Cancelled.")
+    n = inst.non_conformities.resolve(args.response, comment=args.comment)
     print(json.dumps(n, indent=2) if args.json else f"Resolved {n['label']} ({n['route_name']}).")
 
 
@@ -954,7 +972,12 @@ def cmd_route_new(args, cfg):
     inst = _inst(args, cfg, _client(cfg))
     items = [{"label": c} for c in args.check]
     if args.file:
-        loaded = json.loads(Path(args.file).read_text())
+        try:
+            loaded = json.loads(Path(args.file).read_text())
+        except OSError as e:
+            sys.exit(f"Can't read {args.file}: {e.strerror}")
+        except ValueError as e:
+            sys.exit(f"{args.file} is not valid JSON: {e}")
         if not isinstance(loaded, list):
             sys.exit("The checks file must hold a JSON list.")
         items += loaded
@@ -979,11 +1002,16 @@ def cmd_route_delete(args, cfg):
     print(f"Deleted route {r['name']}.")
 
 
-def _check(inst, route_uuid: str, ref: str) -> dict:
+def _check(inst, route_uuid: str, ref: str, items: list[dict] | None = None) -> dict:
     """A route's check by its number (#), label or uuid (prefix)."""
-    items = inst.routes.get(route_uuid)["items"]
-    hit = [i for i in items if ref.lstrip("#").isdigit() and i["check_id"] == int(ref.lstrip("#"))]
-    return hit[0] if hit else _pick(items, ref, ("uuid", "label"), "check")
+    items = items if items is not None else inst.routes.get(route_uuid)["items"]
+    num = ref.lstrip("#")
+    if num.isdigit():  # a number is a check number, never a uuid prefix
+        hit = next((i for i in items if i["check_id"] == int(num)), None)
+        if hit is None:
+            sys.exit(f"No check #{num} on this route.")
+        return hit
+    return _pick(items, ref, ("uuid", "label"), "check")
 
 
 def cmd_check_add(args, cfg):
@@ -1005,11 +1033,27 @@ def cmd_check_rm(args, cfg):
     print(f"Removed check #{c['check_id']} {c['label']}.")
 
 
+def _stop(item: dict):
+    # The server's stop: an asset's checks together, else the zone's. ponytail: an asset check pinned to a zone
+    # other than the asset's own groups with the asset here; the server would put it in that zone.
+    return ("asset", item["asset_id"]) if item.get("asset_id") else ("zone", item.get("zone_id"))
+
+
+def _stop_order(items: list[dict], check: dict, position: int) -> list[dict]:
+    """Every check of `check`'s stop with positions 0..n-1, `check` moved to `position` (as the web board
+    sends it): the server takes a position as the check's number, so a lone entry only sorts right at 0."""
+    siblings = sorted((i for i in items if _stop(i) == _stop(check) and i["uuid"] != check["uuid"]),
+                      key=lambda i: i["check_id"])
+    siblings.insert(max(0, min(position, len(siblings))), check)
+    return [{"uuid": i["uuid"], "position": n} for n, i in enumerate(siblings)]
+
+
 def cmd_check_mv(args, cfg):
     inst = _inst(args, cfg, _client(cfg))
     route = _route(inst, args.route)["uuid"]
-    c = _check(inst, route, args.check)
-    numbers = inst.routes.reorder_items(route, [{"uuid": c["uuid"], "position": args.position}])
+    items = inst.routes.get(route)["items"]
+    c = _check(inst, route, args.check, items)
+    numbers = inst.routes.reorder_items(route, _stop_order(items, c, args.position))
     new = next((n["check_id"] for n in numbers if n["uuid"] == c["uuid"]), "?")
     print(json.dumps(numbers) if args.json else f"Moved {c['label']}: now check #{new}.")
 
@@ -1068,11 +1112,15 @@ def cmd_bearing_search(args, cfg):
 
 def cmd_finding_new(args, cfg):
     inst = _inst(args, cfg, _client(cfg))
-    if not args.fault or not args.severity:
-        ch = inst.findings.choices()
+    if not args.fault or not args.severity:  # list the choices (exit 0), as the help says
+        ch = inst.findings.choices(point_id=args.point, point_sequence=args.reading, hz=args.hz)
+        if args.json:
+            return _print_json(ch)
         print("Fault types: " + ", ".join(c["value"] for c in ch["fault_types"]))
         print("Severities:  " + ", ".join(c["value"] for c in ch["severities"]))
-        sys.exit("Give --fault and --severity.")
+        if ch.get("suggested_fault_type"):
+            print(f"Suggested:   {ch['suggested_fault_type']}")
+        return print("Record it with --fault <type> --severity <severity>.")
     f = inst.findings.create(point_id=args.point, point_sequence=args.reading, fault_type=args.fault, severity=args.severity,
                              recommended_action=args.action, comment=args.comment, due_by=args.due, hz=args.hz)
     print(json.dumps(dataclasses.asdict(f), indent=2, default=str) if args.json
@@ -1404,9 +1452,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--until", help="last day (YYYY-MM-DD)")
     s.set_defaults(fn=cmd_hours)
     prod = sub.add_parser("production", help="production state").add_subparsers(dest="action", required=True)
-    s = prod.add_parser("flip", parents=[common], help="switch an asset running ⇄ stopped now")
+    s = prod.add_parser("set", parents=[common], help="mark an asset running (on) or stopped (off) from now")
     s.add_argument("asset", type=int)
-    s.set_defaults(fn=cmd_production_flip)
+    s.add_argument("state", choices=["on", "off"])
+    s.set_defaults(fn=cmd_production_set)
 
     s = sub.add_parser("dashboards", parents=[common], help="list dashboards")
     s.set_defaults(fn=cmd_dashboards)
@@ -1431,6 +1480,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = nc.add_parser("resolve", parents=[common], help="mark a non-conformity resolved")
     s.add_argument("response", help="uuid (from `mechbase ncs`)")
     s.add_argument("--comment", default="")
+    s.add_argument("-y", "--yes", action="store_true", help="skip the confirmation")
     s.set_defaults(fn=cmd_nc_resolve)
     survey = sub.add_parser("survey", help="blank surveys").add_subparsers(dest="action", required=True)
     s = survey.add_parser("new", parents=[common], help="a blank route and its first run")

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from urllib.parse import quote
 
+from ..errors import NotFoundError
 from ._base import InstallationScoped, _clean
 
 
@@ -59,5 +60,8 @@ class Push:
                                   json={"platform": platform, "token": token, "app_version": app_version})
 
     def delete(self, token: str) -> None:
-        """On sign-out (best effort)."""
-        self._http.request("DELETE", f"/api/push/devices/{quote(token, safe='')}")
+        """On sign-out (best effort): a registration already gone (404) is not an error."""
+        try:
+            self._http.request("DELETE", f"/api/push/devices/{quote(token, safe='')}")
+        except NotFoundError:
+            pass

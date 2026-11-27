@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import functools
 import math
 import os
 import time
 from typing import Any
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
 
 import httpx
 
@@ -31,24 +32,40 @@ def _retry_after(response: httpx.Response) -> float | None:
     return max(0.0, wait) if math.isfinite(wait) else None
 
 
+def _zone_name(name: str) -> str | None:
+    """`name` as a canonical IANA zone, or None when it is not one (a POSIX rule such as "UTC0", junk)."""
+    for prefix in ("posix/", "right/"):  # tzdata's alternate trees hold the same names
+        name = name.removeprefix(prefix)
+    if not name or name.startswith("/") or ".." in name:
+        return None
+    try:
+        ZoneInfo(name)
+    except (ValueError, ZoneInfoNotFoundError):
+        return None
+    # A case-insensitive filesystem (macOS) opens "europe/athens" too: send the zone's own spelling.
+    known = _known_zones()
+    return known.get(name.lower(), name if not known else None)
+
+
+@functools.cache
+def _known_zones() -> dict[str, str]:
+    return {z.lower(): z for z in available_timezones()}  # ~50 ms: once per process
+
+
 def local_timezone() -> str | None:
     """The machine's IANA zone (TZ, else /etc/localtime's target), or None when it can't be told.
 
     ponytail: no Windows lookup (no stdlib API); pass timezone= there.
     """
-    tz = os.environ.get("TZ", "").lstrip(":")
-    if tz and not tz.startswith("/"):
-        try:
-            ZoneInfo(tz)  # a zone name, not a POSIX rule such as "UTC0"
-            return tz
-        except (ValueError, ZoneInfoNotFoundError):
-            pass
+    zone = _zone_name(os.environ.get("TZ", "").lstrip(":"))
+    if zone:
+        return zone
     try:
         target = os.path.realpath("/etc/localtime")
     except OSError:
         return None
-    _, sep, zone = target.partition("zoneinfo/")
-    return zone if sep and zone else None
+    _, sep, name = target.partition("zoneinfo/")
+    return _zone_name(name) if sep else None
 
 
 def _seekable(f) -> bool:

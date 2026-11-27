@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Any, BinaryIO
 
@@ -12,17 +13,13 @@ def _key(idempotency_key: str | None) -> dict | None:
     return {"X-Idempotency-Key": idempotency_key} if idempotency_key else None
 
 
-def _open_all(paths) -> tuple[list, list]:
-    """(files tuples, the handles we opened) for a list of paths or open files."""
-    out, opened = [], []
-    for p in paths:
-        if isinstance(p, (str, Path)):
-            fh = open(p, "rb")  # noqa: SIM115
-            opened.append(fh)
-            out.append((Path(p).name, fh))
-        else:
-            out.append((Path(getattr(p, "name", "photo")).name, p))
-    return out, opened
+def _part(stack: ExitStack, f) -> tuple:
+    """A multipart (filename, file) for a path (opened on `stack`), an open file or bytes."""
+    if isinstance(f, (str, Path)):
+        return Path(f).name, stack.enter_context(open(f, "rb"))  # noqa: SIM115
+    if isinstance(f, (bytes, bytearray)):
+        return "file", f
+    return Path(getattr(f, "name", "file")).name, f
 
 
 class Executions(InstallationScoped):
@@ -155,19 +152,13 @@ class Executions(InstallationScoped):
                       data_file: str | Path | BinaryIO | None = None,
                       idempotency_key: str | None = None) -> ItemResponse:
         """Record a measurement check's missed reading (a value, or a data file and/or images)."""
-        files, opened = _open_all(images or [])
-        parts = [("images", f) for f in files]
-        if data_file is not None:
-            df, more = _open_all([data_file])
-            opened += more
-            parts.append(("data_file", df[0]))
-        form = _clean({"value": value, "comment": comment})
-        try:
-            body = self._http.request("POST", self._url(f"/amend/{item_uuid}/reading"), data=form,
+        with ExitStack() as stack:  # every handle we open is closed, even if a later open fails
+            parts = [("images", _part(stack, f)) for f in images or []]
+            if data_file is not None:
+                parts.append(("data_file", _part(stack, data_file)))
+            body = self._http.request("POST", self._url(f"/amend/{item_uuid}/reading"),
+                                      data=_clean({"value": value, "comment": comment}),
                                       files=parts or None, headers=_key(idempotency_key))
-        finally:
-            for fh in opened:
-                fh.close()
         return ItemResponse.from_dict(body)
 
 
@@ -232,8 +223,11 @@ class Routes(InstallationScoped):
         self._http.request("DELETE", self._path(f"/routes/{route_uuid}/items/{item_uuid}"))
 
     def reorder_items(self, route_uuid: str, items: list[dict]) -> list[dict]:
-        """[{uuid, position, zone_id?, asset_id?}]: position within its stop; zone_id/asset_id move it
-        (None clears, omitted keeps). Returns the renumbered [{uuid, check_id}]."""
+        """[{uuid, position, zone_id?, asset_id?}]: zone_id/asset_id move a check (None clears, omitted keeps).
+        `position` is not an index into the stop: the server stores it as the check's number and then
+        renumbers, so a partial list only lands where you mean at position 0. To place a check, send every
+        check of its stop with positions 0..n-1, as the web board does. Returns the renumbered
+        [{uuid, check_id}]."""
         return self._http.request("POST", self._path(f"/routes/{route_uuid}/items/reorder"),
                                   json={"items": list(items)})["items"]
 

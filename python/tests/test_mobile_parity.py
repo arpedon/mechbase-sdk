@@ -334,3 +334,71 @@ def test_zone_documents_and_photos(inst):
     assert b'name="uuid"' not in ph.calls.last.request.content
     respx.delete(f"{I}/zones/3/photos/p").mock(return_value=httpx.Response(204))
     inst.zones.delete_photo(3, "p")
+
+
+# --- review fixes ------------------------------------------------------------------------------
+
+
+@respx.mock
+def test_point_upsert_sends_no_analysis_fields(inst):
+    put = respx.put(f"{I}/measurement-points").mock(return_value=httpx.Response(200, json={
+        "uuid": "p", "point_id": 2, "name": "DE", "asset_id": 1, "status": 1}))
+    inst.measurement_points.upsert(external_id="DE-1", name="DE")
+    assert body(put) == {"external_id": "DE-1", "name": "DE"}
+    with pytest.raises(TypeError):
+        inst.measurement_points.upsert(external_id="DE-1", nominal_rpm=1480)  # the server 422s these on PUT
+    create = respx.post(f"{I}/measurement-points").mock(return_value=httpx.Response(201, json={
+        "uuid": "p", "point_id": 2, "name": "DE", "asset_id": 1, "status": 1}))
+    inst.measurement_points.create(name="DE", asset_id=1, nominal_rpm=1480)
+    assert body(create) == {"name": "DE", "asset_id": 1, "nominal_rpm": 1480}
+
+
+@respx.mock
+def test_push_delete_is_best_effort_on_404_only():
+    route = respx.delete(f"{BASE}/api/push/devices/a1").mock(return_value=httpx.Response(404, json={"detail": "Not found."}))
+    c = Mechbase(token="tok", base_url=BASE)
+    assert c.push.delete("a1") is None
+    route.mock(return_value=httpx.Response(403, json={"detail": "Token not authorized."}))
+    with pytest.raises(AuthError):
+        c.push.delete("a1")
+
+
+def test_local_timezone_validates_and_canonicalises(monkeypatch):
+    from mechbase._http import local_timezone
+
+    monkeypatch.setenv("TZ", "EST5EDT,M3.2.0,M11.1.0")  # a POSIX rule: fall back to /etc/localtime
+    monkeypatch.setattr("os.path.realpath", lambda p: "/usr/share/zoneinfo/posix/Europe/Athens")
+    assert local_timezone() == "Europe/Athens"
+    monkeypatch.setattr("os.path.realpath", lambda p: "/usr/share/zoneinfo/right/America/New_York")
+    assert local_timezone() == "America/New_York"
+    monkeypatch.setattr("os.path.realpath", lambda p: "/var/db/timezone/zoneinfo/Not/AZone")
+    assert local_timezone() is None
+    monkeypatch.setenv("TZ", "Europe/Athens")
+    assert local_timezone() == "Europe/Athens"
+    # A case-insensitive disk (macOS) opens "europe/athens": the canonical spelling goes out, and a name
+    # that opens but is no zone is dropped.
+    from mechbase import _http
+
+    monkeypatch.setattr(_http, "ZoneInfo", lambda name: None)
+    assert _http._zone_name("europe/athens") == "Europe/Athens"
+    assert _http._zone_name("posix/europe/athens") == "Europe/Athens"
+    assert _http._zone_name("Foo/Bar") is None
+
+
+@respx.mock
+def test_amend_reading_closes_opened_files_when_a_later_one_fails(inst, tmp_path, monkeypatch):
+    opened = []
+    real_open = open
+
+    def tracking_open(path, mode="r", *a, **k):
+        fh = real_open(path, mode, *a, **k)
+        opened.append(fh)
+        return fh
+
+    monkeypatch.setattr("builtins.open", tracking_open)
+    img = tmp_path / "a.jpg"
+    img.write_bytes(b"jpg")
+    route = respx.post(f"{I}/executions/e-1/amend/it-1/reading")
+    with pytest.raises(FileNotFoundError):
+        inst.routes.execution("e-1").amend_reading("it-1", images=[img, tmp_path / "missing.jpg"])
+    assert opened and all(fh.closed for fh in opened) and not route.called

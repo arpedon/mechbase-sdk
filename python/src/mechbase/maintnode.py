@@ -40,7 +40,11 @@ class MaintNode:
 
     @staticmethod
     def config_version(config: str | bytes) -> str:
-        """What heartbeat(config_version=) reports: sha256 hex of the config body applied."""
+        """What heartbeat(config_version=) reports: sha256 hex of the config body applied.
+
+        Only a config fetched with the device's own token matches the server's version: the server
+        hashes the body it serves the device, tunnels (and their secrets) included, and other tokens
+        get it without them."""
         return hashlib.sha256(config.encode() if isinstance(config, str) else config).hexdigest()
 
     def heartbeat(self, *, balena_uuid: str = "", services: dict | None = None,

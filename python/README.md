@@ -86,14 +86,14 @@ mechbase alerts                      # every asset needing attention (--silent: 
 mechbase activity -n 50              # status changes, notes, findings, route runs, by day
 mechbase search pump --in points     # counts per category and the matches
 mechbase hours --since 2026-11-01    # running hours of production-tracked assets (default today)
-mechbase production flip 4           # switch asset 4 running ⇄ stopped now
+mechbase production set 4 off        # mark asset 4 stopped from now (on: running)
 mechbase dashboards ; mechbase dashboard Boilers   # a board's tiles (no name: your default board)
 mechbase reading analysis 2 766      # values, spectrum peaks, bearing markers, shaft order, hot spots
-mechbase finding new 2 766 --fault bpfo --severity major --hz 87.3   # no --fault: lists the choices
+mechbase finding new 2 766 --fault bpfo --severity major --hz 87.3   # no --fault/--severity: lists the choices
 mechbase bearing search 6205         # or --order 3.58: bearings matching a tone
 mechbase runs "Daily round"          # a route's run history
 mechbase run report <run uuid>       # totals, non-conformities, unanswered checks
-mechbase ncs --asset 4 ; mechbase nc resolve <uuid> --comment "topped up"
+mechbase ncs --asset 4 ; mechbase nc resolve <uuid> --comment "topped up"   # asks; -y skips
 mechbase survey new "Walkdown"       # a blank route and its first run
 mechbase route new "Night" --check "Oil level" --check "Guard fitted"   # or --file checks.json
 mechbase route rename Night "Night shift" ; mechbase route delete "Night shift"

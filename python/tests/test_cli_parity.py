@@ -78,16 +78,19 @@ def test_activity_groups_by_day_and_stops_at_limit(capsys):
 @respx.mock
 def test_search_and_hours(capsys):
     se = respx.get(f"{I}/search").mock(return_value=httpx.Response(200, json={
-        "query": "pump", "category": None, "total_count": 2,
+        "query": "pump", "category": None, "total_count": 3,
         "categories": [{"key": "assets", "slug": "assets", "label": "Assets", "count": 1, "selected": False},
+                       {"key": "points", "slug": "points", "label": "Measurement points", "count": 1, "selected": False},
                        {"key": "comments", "slug": "comments", "label": "Comments", "count": 1, "selected": False},
                        {"key": "zones", "slug": "zones", "label": "Zones", "count": 0, "selected": False}],
         "assets": [{"asset_id": 4, "uuid": "a", "name": "Pump 4", "section_name": "Boilers", "status": 1}],
+        "points": [{"point_id": 22, "uuid": "p", "name": "DE", "asset_id": 4, "asset_name": "Pump 4"}],
         "comments": [{"comment_id": 9, "body_text": "pump  noisy\n again", "author_name": "Ann", "asset_name": "Pump 4"}]}))
     main(["search", "pump", "--in", "assets"])
     o = out(capsys)
     assert se.calls.last.request.url.params["in"] == "assets"
-    assert "2 results: assets 1, comments 1" in o and "4  Pump 4  · Boilers" in o and "9  pump noisy again  · Pump 4" in o
+    assert "22  DE  · Pump 4" in o  # the point's own id, not its asset's
+    assert "3 results: assets 1, points 1, comments 1" in o and "4  Pump 4  · Boilers" in o and "9  pump noisy again  · Pump 4" in o
 
     respx.get(f"{I}/hours").mock(return_value=httpx.Response(200, json={
         "window_start": "2026-11-27T00:00:00+02:00", "window_end": "2026-11-27T12:00:00+02:00", "stale_hours": 6,
@@ -154,7 +157,7 @@ def test_reading_analysis_without_vibration(capsys):
 
 
 @respx.mock
-def test_runs_report_ncs_resolve(capsys):
+def test_runs_report_ncs_resolve(capsys, monkeypatch):
     respx.get(f"{I}/routes").mock(return_value=httpx.Response(200, json={"items": [
         {"uuid": R, "name": "Daily round", "description": None}], "total": 1}))
     respx.get(f"{I}/routes/{R}/executions").mock(return_value=httpx.Response(200, json={"items": [
@@ -181,11 +184,14 @@ def test_runs_report_ncs_resolve(capsys):
     main(["ncs", "--asset", "4"])
     assert lst.calls.last.request.url.params["asset_id"] == "4" and "Oil level" in out(capsys)
     res = respx.post(f"{I}/non-conformities/r-1/resolve").mock(return_value=httpx.Response(200, json=nc))
+    monkeypatch.setattr("builtins.input", lambda _: "n")
+    assert exits(["nc", "resolve", "r-1"]).code == "Cancelled." and not res.called
+    monkeypatch.setattr("builtins.input", lambda _: "y")
     main(["nc", "resolve", "r-1", "--comment", "topped up"])
     assert json.loads(res.calls.last.request.content) == {"comment": "topped up"}
     assert "Resolved Oil level" in out(capsys)
     res.mock(return_value=httpx.Response(409, json={"detail": "Resolved by someone else."}))
-    assert exits(["nc", "resolve", "r-1"]).code == "Error: 409 Resolved by someone else."
+    assert exits(["nc", "resolve", "r-1", "-y"]).code == "Error: 409 Resolved by someone else."
 
 
 @respx.mock
@@ -205,6 +211,10 @@ def test_survey_and_route_lifecycle(capsys, tmp_path):
         {"label": "Oil"}, {"label": "Guard"}, {"label": "Temp", "item_type": "numerical", "unit": "°C"}]
     assert "with 3 check(s)" in out(capsys)
     assert exits(["route", "new", "Empty"]).code == "Give at least one --check or a --file of checks."
+    assert exits(["route", "new", "X", "--file", "missing.json"]).code == "Can't read missing.json: No such file or directory"
+    (tmp_path / "bad.json").write_text("[{label: Oil}")
+    assert exits(["route", "new", "X", "--file", "bad.json"]).code.startswith("bad.json is not valid JSON:")
+    assert create.call_count == 1
 
     ren = respx.patch(f"{I}/routes/{R}").mock(return_value=httpx.Response(200, json={
         "uuid": R, "name": "Night shift", "description": ""}))
@@ -221,7 +231,10 @@ def test_survey_and_route_lifecycle(capsys, tmp_path):
 
 @respx.mock
 def test_check_add_rm_mv(capsys, monkeypatch):
-    items = [{"uuid": "aaaa-1", "check_id": 1, "label": "Oil"}, {"uuid": "bbbb-2", "check_id": 2, "label": "Guard"}]
+    items = [{"uuid": "aaaa-1", "check_id": 1, "label": "Oil", "asset_id": 4, "zone_id": None},
+             {"uuid": "bbbb-2", "check_id": 2, "label": "Guard", "asset_id": 4, "zone_id": None},
+             {"uuid": "cccc-3", "check_id": 3, "label": "Belt", "asset_id": 4, "zone_id": None},
+             {"uuid": "dddd-4", "check_id": 4, "label": "Floor", "asset_id": None, "zone_id": 9}]
     respx.get(f"{I}/routes/{R}").mock(return_value=httpx.Response(200, json={"uuid": R, "items": items}))
     add = respx.post(f"{I}/routes/{R}/items").mock(return_value=httpx.Response(201, json={"check_id": 3, "label": "Temp"}))
     main(["check", "add", R, "Temp", "--type", "numerical", "--unit", "°C"])
@@ -237,9 +250,21 @@ def test_check_add_rm_mv(capsys, monkeypatch):
     mv = respx.post(f"{I}/routes/{R}/items/reorder").mock(return_value=httpx.Response(200, json={"items": [
         {"uuid": "bbbb-2", "check_id": 1}, {"uuid": "aaaa-1", "check_id": 2}]}))
     main(["check", "mv", R, "2", "0"])
-    assert json.loads(mv.calls.last.request.content) == {"items": [{"uuid": "bbbb-2", "position": 0}]}
+    assert json.loads(mv.calls.last.request.content) == {"items": [
+        {"uuid": "bbbb-2", "position": 0}, {"uuid": "aaaa-1", "position": 1}, {"uuid": "cccc-3", "position": 2}]}
     assert "now check #1" in out(capsys)
+    main(["check", "mv", R, "oil", "2"])  # to the end of its stop: every sibling renumbered, other stops untouched
+    assert json.loads(mv.calls.last.request.content) == {"items": [
+        {"uuid": "bbbb-2", "position": 0}, {"uuid": "cccc-3", "position": 1}, {"uuid": "aaaa-1", "position": 2}]}
+    main(["check", "mv", R, "#1", "99"])  # past the end: last
+    assert json.loads(mv.calls.last.request.content)["items"][-1] == {"uuid": "aaaa-1", "position": 2}
+    out(capsys)
     assert exits(["check", "mv", R, "nope", "0"]).code == "No check matches nope."
+    # a number names a check number only, never a uuid prefix ("1" would match "1111…")
+    items.append({"uuid": "1111-5", "check_id": 5, "label": "Odd", "asset_id": None, "zone_id": 9})
+    respx.get(f"{I}/routes/{R}").mock(return_value=httpx.Response(200, json={"uuid": R, "items": items}))
+    assert exits(["check", "mv", R, "11", "0"]).code == "No check #11 on this route."
+    assert exits(["check", "rm", R, "#11", "-y"]).code == "No check #11 on this route."
 
 
 @respx.mock
@@ -285,10 +310,15 @@ def test_bearing_search_and_finding_new(capsys):
     main(["bearing", "search", "--order", "3.58"])
     assert "MATCH" in out(capsys)
 
-    respx.get(f"{I}/findings/choices/").mock(return_value=httpx.Response(200, json={
-        "fault_types": [{"value": "bpfo", "label": "Outer race"}], "severities": [{"value": "major", "label": "Major"}]}))
-    e = exits(["finding", "new", "2", "766"])
-    assert e.code == "Give --fault and --severity." and "Fault types: bpfo" in out(capsys)
+    choices = {"fault_types": [{"value": "bpfo", "label": "Outer race"}], "severities": [{"value": "major", "label": "Major"}],
+               "suggested_fault_type": "bpfo"}
+    ch = respx.get(f"{I}/findings/choices/").mock(return_value=httpx.Response(200, json=choices))
+    main(["finding", "new", "2", "766", "--hz", "87.3"])  # no --fault: the choices, exit 0
+    o = out(capsys)
+    assert "Fault types: bpfo" in o and "Suggested:   bpfo" in o
+    assert dict(ch.calls.last.request.url.params) == {"point_id": "2", "point_sequence": "766", "hz": "87.3"}
+    main(["finding", "new", "2", "766", "--severity", "major", "--json"])
+    assert json.loads(out(capsys)) == choices
     create = respx.post(f"{I}/findings/").mock(return_value=httpx.Response(201, json={
         "uuid": "f-1", "status": "open", "fault_type": "bpfo", "fault_type_display": "Outer race", "severity": "major",
         "asset_name": "Pump 4", "point_name": "DE", "created_at": "2026-11-27T10:00:00Z"}))
@@ -327,7 +357,15 @@ def test_notify_and_me_set_units(capsys):
 
 
 @respx.mock
-def test_production_flip(capsys):
-    respx.post(f"{I}/assets/4/production/flip").mock(return_value=httpx.Response(200, json={"state": "off", "last_ping": None}))
-    main(["production", "flip", "4"])
-    assert "Asset 4 is now off." in out(capsys)
+def test_production_set_flips_only_a_known_different_state(capsys):
+    row = {"asset_id": 4, "asset_name": "Pump 4", "state": "on", "last_ping": None, "range_hours": 1, "lifetime_hours": 1}
+    hours = respx.get(f"{I}/hours").mock(return_value=httpx.Response(200, json={"rows": [row]}))
+    flip = respx.post(f"{I}/assets/4/production/flip").mock(return_value=httpx.Response(200, json={"state": "off", "last_ping": None}))
+    main(["production", "set", "4", "on"])
+    assert "Asset 4 is already on." in out(capsys) and not flip.called
+    main(["production", "set", "4", "off"])
+    assert "Asset 4 is now off." in out(capsys) and flip.call_count == 1
+    hours.mock(return_value=httpx.Response(200, json={"rows": [{**row, "state": "stale"}]}))
+    assert exits(["production", "set", "4", "off"]).code.startswith("Asset 4's production state is stale")
+    assert exits(["production", "set", "5", "on"]).code == "Asset 5 has no production tracking."
+    assert flip.call_count == 1
