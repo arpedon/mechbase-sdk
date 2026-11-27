@@ -77,10 +77,13 @@ public struct User: Codable, Sendable {
     public let username: String
     public let fullName: String
     public let email: String
+    /// Gates staff-only UI (dashboard editing); false for service tokens and on older servers.
+    public let isStaff: Bool
 
     enum CodingKeys: String, CodingKey {
         case id, username, email
         case fullName = "full_name"
+        case isStaff = "is_staff"
     }
 
     public init(from decoder: Decoder) throws {
@@ -89,6 +92,7 @@ public struct User: Codable, Sendable {
         self.username = try c.decode(String.self, forKey: .username)
         self.fullName = try c.decode(String.self, forKey: .fullName)
         self.email = (try? c.decode(String.self, forKey: .email)) ?? ""
+        self.isStaff = (try? c.decode(Bool.self, forKey: .isStaff)) ?? false
     }
 }
 
