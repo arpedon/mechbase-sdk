@@ -20,7 +20,8 @@
     mechbase tunnel open logo           # remote access to a device's site
 
 Every command takes --json for scripting. MECHBASE_TOKEN / MECHBASE_URL /
-MECHBASE_INSTALLATION override the stored config.
+MECHBASE_INSTALLATION override the stored config and are never written to it
+(`login` stores the URL it signed in to, wherever that came from).
 """
 
 from __future__ import annotations
@@ -57,9 +58,10 @@ def _config_path() -> Path:
 def _stored() -> dict:
     """The config file alone, without the MECHBASE_* overrides."""
     try:
-        return json.loads(_config_path().read_text())
+        data = json.loads(_config_path().read_text())
     except (OSError, ValueError):
         return {}
+    return data if isinstance(data, dict) else {}
 
 
 def _load() -> dict:
@@ -87,7 +89,8 @@ def _save(**changes) -> None:
 def _write_private(path: Path, data: bytes) -> None:
     """Write a file that is 0600 from its creation, never briefly readable by others."""
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    os.fchmod(fd, 0o600)  # an existing file keeps its mode through O_CREAT
+    if hasattr(os, "fchmod"):  # absent on Windows before 3.13
+        os.fchmod(fd, 0o600)  # an existing file keeps its mode through O_CREAT
     with os.fdopen(fd, "wb") as fh:
         fh.write(data)
 
@@ -161,7 +164,9 @@ def cmd_login(args, cfg):
             "/api/auth/token",
             json={"username": email, "password": password, "device_id": f"cli-{platform.node()}"},
         )
-    _save(token=body["token"], url=url)
+    _revoke_stored()  # don't leave the replaced token live on the server
+    _save(token=body["token"], url=url)  # the URL the token was issued by, even if it came from MECHBASE_URL
+    _warn_env("MECHBASE_TOKEN")
     me = Mechbase(token=body["token"], base_url=url).me()
     print(f"Signed in as {me.user.email or me.user.username} on {url}")
 
@@ -178,6 +183,7 @@ def cmd_whoami(args, cfg):
 
 def cmd_use(args, cfg):
     _save(installation=args.installation_id)
+    _warn_env("MECHBASE_INSTALLATION")
     print(f"Using installation {args.installation_id}")
 
 
@@ -244,18 +250,26 @@ def cmd_reading_delete(args, cfg):
     print(f"Deleted reading {args.reading} of point {args.point}.")
 
 
-def cmd_logout(args, cfg):
-    # Revoke the token being forgotten (the stored one), not a MECHBASE_TOKEN override.
+def _revoke_stored() -> None:
+    """Revoke the stored token (not a MECHBASE_TOKEN override) against the URL it was issued by."""
     stored = _stored()
     if stored.get("token"):
         try:
             Mechbase(token=stored["token"], base_url=stored.get("url") or Mechbase.DEFAULT_BASE_URL).revoke_token()
         except (MechbaseError, httpx.HTTPError):
             pass  # already revoked or server gone: forget it locally anyway
+
+
+def _warn_env(var: str) -> None:
+    if os.environ.get(var):
+        print(f"{var} is still set in this shell and overrides the saved config.", file=sys.stderr)
+
+
+def cmd_logout(args, cfg):
+    _revoke_stored()
     _save(token=None)
     print("Signed out.")
-    if os.environ.get("MECHBASE_TOKEN"):
-        print("MECHBASE_TOKEN is still set in this shell; unset it to sign out fully.", file=sys.stderr)
+    _warn_env("MECHBASE_TOKEN")
 
 
 def cmd_point_show(args, cfg):

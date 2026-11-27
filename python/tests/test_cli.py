@@ -153,3 +153,20 @@ def test_use_never_writes_env_overrides(monkeypatch, tmp_path):
     main(["use", "7"])
     assert json.loads(path.read_text()) == {"token": "stored", "url": "https://stored.example", "installation": 7}
     assert path.stat().st_mode & 0o777 == 0o600
+
+
+@respx.mock
+def test_login_revokes_replaced_token_and_stores_issuing_url(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("MECHBASE_URL", "https://new.example")
+    monkeypatch.setattr("getpass.getpass", lambda _: "pw")
+    path = tmp_path / "mechbase" / "config.json"
+    path.parent.mkdir()
+    path.write_text(json.dumps({"token": "old", "url": "https://old.example", "installation": 3}))
+    old = respx.post("https://old.example/api/auth/token/revoke").mock(return_value=httpx.Response(200, json={"ok": True}))
+    respx.post("https://new.example/api/auth/token").mock(return_value=httpx.Response(200, json={"token": "new"}))
+    respx.get("https://new.example/api/me/").mock(return_value=httpx.Response(200, json={
+        "user": {"id": 1, "username": "u", "full_name": "", "email": "u@x"}, "installations": [], "current_installation_id": None}))
+    main(["login", "--email", "u@x"])
+    assert old.calls.last.request.headers["Authorization"].endswith("old")
+    assert json.loads(path.read_text()) == {"token": "new", "url": "https://new.example", "installation": 3}
