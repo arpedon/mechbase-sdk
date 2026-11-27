@@ -68,6 +68,26 @@ final class AnalysisTests: ParityTestCase {
         }
     }
 
+    func testCompareWithoutSequencesFailsBeforeSending() async {
+        await expectError({ _ = try await self.inst.measurementPoints.compare(pointId: 3, pointSequences: []) }) {
+            if case .validation = $0 { return true }; return false
+        }
+        XCTAssertNil(ParityMock.request)
+    }
+
+    func testPointInputOmitVersusClear() async throws {
+        reply("MeasurementPointOut")
+        _ = try await inst.measurementPoints.update(id: 3, PointInput(name: "DE"))  // argument left out: omitted
+        XCTAssertNil(json["nominal_rpm"])
+        XCTAssertFalse(json.keys.contains("bearing"))
+        let rpm: Int? = nil
+        let bearing: String? = nil
+        _ = try await inst.measurementPoints.update(id: 3, PointInput(nominalRpm: rpm, bearing: bearing))  // nil variables: cleared
+        XCTAssertTrue(json["nominal_rpm"] is NSNull)
+        XCTAssertTrue(json["bearing"] is NSNull)
+        XCTAssertFalse(json.keys.contains("speed_ratio"))
+    }
+
     func testNotesTrendFaultRecord() async throws {
         reply("MeasurementOut")
         _ = try await inst.measurements.updateNotes(pointId: 3, pointSequence: 12, notes: "<p>loose</p>")

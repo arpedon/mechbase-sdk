@@ -67,6 +67,7 @@ extension MeasurementPoints {
     /// Conditional: pass the last ETag to get `.notModified`.
     public func compare(pointId: Int, pointSequences: [Int], spectrum: String = "velocity",
                         etag: String? = nil) async throws -> Conditional<CompareResult> {
+        guard !pointSequences.isEmpty else { throw MechbaseError.validation("compare needs at least one point_sequence") }
         let q = [URLQueryItem(name: "seq", value: pointSequences.map(String.init).joined(separator: ",")),
                  URLQueryItem(name: "spectrum", value: spectrum)]
         return try await scope.http.getConditional(scope.path("/measurement-points/\(pointId)/compare"), query: q,

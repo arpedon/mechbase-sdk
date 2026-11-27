@@ -23,6 +23,10 @@ public struct PointInput: Encodable, Sendable {
     /// Rich-text HTML; "" (or the type's default) clears the point's own text.
     public var instructions: String?
 
+    /// - Warning: `nominalRpm`, `bearing`, `speedRatio`, `envelopeBandLow` and `envelopeBandHigh` are
+    ///   `T??`. Leaving the argument out (or writing a literal `nil`) omits the field and keeps the
+    ///   stored value. Passing an **optional variable that is nil** wraps it as `.some(nil)` and sends
+    ///   an explicit `null`, which CLEARS the field. Unwrap first if you mean "leave unchanged".
     public init(name: String? = nil, externalId: String? = nil, assetId: Int? = nil,
                 assetExternalId: String? = nil, transducerType: String? = nil,
                 measurementUnitCode: String? = nil, location: String? = nil,

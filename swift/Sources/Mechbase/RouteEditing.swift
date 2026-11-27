@@ -58,6 +58,9 @@ public struct ReorderEntry: Encodable, Sendable {
     public var zoneId: Int??
     public var assetId: Int??
 
+    /// - Warning: `zoneId` and `assetId` are `Int??`. Leaving the argument out (or a literal `nil`) keeps
+    ///   the check where it is. Passing an **optional variable that is nil** sends an explicit `null`,
+    ///   which CLEARS the zone/asset. Unwrap first if you mean "leave unchanged".
     public init(uuid: String, position: Int, zoneId: Int?? = nil, assetId: Int?? = nil) {
         self.uuid = uuid; self.position = position; self.zoneId = zoneId; self.assetId = assetId
     }

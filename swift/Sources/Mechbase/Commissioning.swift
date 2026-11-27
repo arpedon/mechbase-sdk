@@ -4,20 +4,26 @@ import Foundation
 // then poll ``Devices/get(nodeUuid:)``: `tokenPush.state == "pushed"` → first heartbeat
 // (`lastSeenAt` / `isOnline`) → `config.isCurrent == true`. Service tokens get 403 on lookup and claim.
 
+/// A Balena device uuid, dashed or the 32-hex form the labels carry (the server takes both).
+private func requireBalenaUUID(_ s: String) throws {
+    let hex = s.count == 32 && s.allSatisfy(\.isHexDigit)
+    guard hex || UUID(uuidString: s) != nil else { throw MechbaseError.validation("invalid balena uuid: \(s)") }
+}
+
 extension Devices {
     private struct ClaimBody: Encodable { let balena_uuid: String; let name: String? }
 
     /// What the provision page shows for a device label: `state` is claim | member (already in this
     /// installation) | taken | not_found | unreachable (Balena did not answer; try again).
     public func lookup(balenaUuid: String) async throws -> DeviceLookup {
-        try requireUUID(balenaUuid)
+        try requireBalenaUUID(balenaUuid)
         return try await scope.http.get(scope.path("/devices/lookup/\(balenaUuid)"), as: DeviceLookup.self)
     }
 
     /// Claim the device into this installation and queue its credentials. Already ours: credentials are
     /// sent again and the name is kept. Another installation's: 409.
     public func claim(balenaUuid: String, name: String? = nil) async throws -> Device {
-        try requireUUID(balenaUuid)
+        try requireBalenaUUID(balenaUuid)
         return try await scope.http.postJSON(scope.path("/devices"), body: ClaimBody(balena_uuid: balenaUuid, name: name),
                                              as: Device.self)
     }

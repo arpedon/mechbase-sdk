@@ -14,7 +14,7 @@ final class ZoneFilesTests: ParityTestCase {
         XCTAssertEqual(formField("uuid"), u1)
         XCTAssertTrue(bodyText.contains(#"filename="p.pdf""#))
         ParityMock.reset(status: 413, reply: #"{"detail":"too large"}"#)
-        await expectError({ _ = try await self.inst.zones.addDocument(zoneId: 4, file: Data()) }) {
+        await expectError({ _ = try await self.inst.zones.addDocument(zoneId: 4, file: Data(), filename: "x.pdf") }) {
             if case .tooLarge = $0 { return true }; return false
         }
         ParityMock.reset(status: 204, reply: "")

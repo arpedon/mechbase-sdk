@@ -7,16 +7,15 @@ extension Zones {
         try await scope.http.get(scope.path("/zones/\(zoneId)/documents"), as: [ZoneDocument].self)
     }
 
-    /// Upload `file`. `filename` defaults to "document.pdf" when empty (the server rejects names without an
-    /// extension); `kind` is attachment | drawing | datasheet | manual | check_sheet | test_report; a
-    /// client-minted `uuid` makes a retry safe.
-    public func addDocument(zoneId: Int, file: Data, filename: String = "", kind: String = "attachment",
+    /// Upload `file` as `filename` (the server rejects a name without an extension); `kind` is attachment |
+    /// drawing | datasheet | manual | check_sheet | test_report; a client-minted `uuid` makes a retry safe.
+    public func addDocument(zoneId: Int, file: Data, filename: String, kind: String = "attachment",
                             uuid: String? = nil, mimeType: String = "application/octet-stream") async throws -> ZoneDocument {
         var fields = ["kind": kind.isEmpty ? "attachment" : kind]
         if let uuid { fields["uuid"] = uuid }
         return try await scope.http.postMultipart(
             scope.path("/zones/\(zoneId)/documents"), fields: fields,
-            files: [(name: "file", filename: filename.isEmpty ? "document.pdf" : filename, mimeType: mimeType, data: file)],
+            files: [(name: "file", filename: filename, mimeType: mimeType, data: file)],
             as: ZoneDocument.self)
     }
 

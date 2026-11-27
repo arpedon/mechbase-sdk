@@ -63,6 +63,11 @@ final class RouteEditingTests: ParityTestCase {
         XCTAssertEqual(items?.last?["zone_id"] as? Int, 5)
         XCTAssertTrue(items?.last?["asset_id"] is NSNull)  // cleared
         XCTAssertEqual(numbers.first?.checkId, 2)
+        let zone: Int? = nil  // a nil variable is an explicit null: it clears
+        _ = try await inst.routes.reorderItems(routeUUID: u1, [ReorderEntry(uuid: u2, position: 0, zoneId: zone)])
+        let entry = (json["items"] as? [[String: Any]])?.first
+        XCTAssertTrue(entry?["zone_id"] is NSNull)
+        XCTAssertFalse(entry?.keys.contains("asset_id") ?? true)
     }
 
     func testItemPhotoHistoryAndChecklistRebuild() async throws {
