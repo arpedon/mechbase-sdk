@@ -39,11 +39,13 @@ class Assets(InstallationScoped):
                section_id: int | None = None, section_external_id: str | None = None,
                zone_id: int | None = None, zone_external_id: str | None = None,
                equipment_type: str | None = None, machine_class: str | None = None,
-               asset_type: str | None = _UNSET) -> Asset:
-        """`asset_type` is a type code: omit to leave it, None to clear it."""
-        body = _clean({k: v for k, v in locals().items() if k not in ("self", "asset_id", "asset_type")})
+               asset_type: str | None = _UNSET, fed_from: int | None = _UNSET) -> Asset:
+        """`asset_type` (a type code) and `fed_from` (the feeding asset's asset_id): omit to leave, None to clear."""
+        body = _clean({k: v for k, v in locals().items() if k not in ("self", "asset_id", "asset_type", "fed_from")})
         if asset_type is not _UNSET:
             body["asset_type"] = asset_type
+        if fed_from is not _UNSET:
+            body["fed_from"] = fed_from
         return Asset.from_dict(self._http.request("PATCH", self._path(f"/assets/{asset_id}"), json=body))
 
     def delete(self, asset_id: int, *, cascade: bool = False) -> DeleteResult:

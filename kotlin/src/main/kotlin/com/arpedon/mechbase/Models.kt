@@ -122,6 +122,8 @@ data class Asset(
     val photos: List<Photo> = emptyList(),
     /** Asset type code, if the asset has one. */
     @SerialName("asset_type") val assetType: String? = null,
+    /** asset_id of the panel or box that powers this asset; null when unset (and on older servers). */
+    @SerialName("fed_from") val fedFrom: Int? = null,
     /** Production-tracked assets only: "on" / "off" from the latest run, "stale" when its last ping is too old. */
     val running: String? = null,
     /** When that run began (ISO 8601). */

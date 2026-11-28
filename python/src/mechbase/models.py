@@ -121,6 +121,7 @@ class Asset:
     status: int
     external_id: str | None = None
     asset_type: str | None = None  # type code
+    fed_from: int | None = None  # asset_id of the panel/box powering this asset
     photos: list[Photo] = field(default_factory=list)
     # Production-tracked assets only: "on" / "off" from the latest run, "stale" when its last ping is too old.
     running: str | None = None
@@ -141,6 +142,7 @@ class Asset:
             status=d.pop("status"),
             external_id=d.pop("external_id", None),
             asset_type=d.pop("asset_type", None),
+            fed_from=d.pop("fed_from", None),
             photos=[Photo.from_dict(p) for p in d.pop("photos", None) or []],
             running=d.pop("running", None),
             running_since=d.pop("running_since", None),

@@ -19,11 +19,19 @@ data class AssetInput(
     @SerialName("asset_type") val assetType: String? = null,
     /** Send `"asset_type": null` (clears the type) when [assetType] is null. */
     @kotlinx.serialization.Transient val clearAssetType: Boolean = false,
+    /** PATCH only: asset_id of the panel/box feeding this asset. null omits it; see [clearFedFrom]. */
+    @SerialName("fed_from") val fedFrom: Int? = null,
+    /** Send `"fed_from": null` (clears the link) when [fedFrom] is null. */
+    @kotlinx.serialization.Transient val clearFedFrom: Boolean = false,
 )
 
 private fun AssetInput.toJson(): kotlinx.serialization.json.JsonElement {
     val o = SDK_JSON.encodeToJsonElement(AssetInput.serializer(), this) as kotlinx.serialization.json.JsonObject
-    return if (clearAssetType && assetType == null) kotlinx.serialization.json.JsonObject(o + ("asset_type" to kotlinx.serialization.json.JsonNull)) else o
+    val nulls = buildMap {
+        if (clearAssetType && assetType == null) put("asset_type", kotlinx.serialization.json.JsonNull)
+        if (clearFedFrom && fedFrom == null) put("fed_from", kotlinx.serialization.json.JsonNull)
+    }
+    return if (nulls.isEmpty()) o else kotlinx.serialization.json.JsonObject(o + nulls)
 }
 
 class Assets internal constructor(

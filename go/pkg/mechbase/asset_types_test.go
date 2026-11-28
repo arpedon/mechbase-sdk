@@ -2,6 +2,7 @@ package mechbase
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -163,5 +164,18 @@ func TestAssetTypeEscapedCodeAndClearChecklist(t *testing.T) {
 	}
 	if n != 1 {
 		t.Fatalf("requests: %d", n)
+	}
+}
+
+func TestAssetInputFedFromOmitSetClear(t *testing.T) {
+	for want, in := range map[string]AssetInput{
+		`{}`:                                  AssetInput{},
+		`{"fed_from":7}`:                      AssetInput{FedFrom: ptr(7)},
+		`{"fed_from":null}`:                   AssetInput{ClearFedFrom: true},
+		`{"asset_type":null,"fed_from":null}`: AssetInput{ClearAssetType: true, ClearFedFrom: true},
+	} {
+		if b, err := json.Marshal(in); err != nil || string(b) != want {
+			t.Fatalf("got %s (%v), want %s", b, err, want)
+		}
 	}
 }

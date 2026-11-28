@@ -187,6 +187,10 @@ def test_zone_guest_view_asset_type_omitted_vs_null_checklist(client):
     assert json.loads(a.calls.last.request.content) == {"asset_type": None}
     inst.assets.update(1, asset_type="QB-STD")
     assert json.loads(a.calls.last.request.content) == {"asset_type": "QB-STD"}
+    assert inst.assets.update(1, fed_from=7).fed_from is None  # the canned ASSET has no fed_from
+    assert json.loads(a.calls.last.request.content) == {"fed_from": 7}
+    inst.assets.update(1, fed_from=None)
+    assert json.loads(a.calls.last.request.content) == {"fed_from": None}
     assert inst.assets.ensure_checklist(1) == {"route_uuid": "r", "created": True} and cl.called
 
 
