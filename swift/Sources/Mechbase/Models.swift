@@ -471,11 +471,21 @@ public struct RouteItem: Codable, Sendable {
     public let config: JSONValue
     // First-class, server-resolved fields for the redesigned Point screen.
     // Additive with defaults so legacy payloads decode unchanged.
+    /// Legacy ordered steps (`config["instructions"]`); not what the editor writes.
     public let instructions: [String]
+    /// The rich-text instructions the technician reads (HTML): the item's own (what
+    /// ``RouteItemInput/instructions`` writes) or, without them, its point's. "" on older servers.
+    public let instructionsHtml: String
+    /// True: `instructionsHtml` is the item's own. Prefill an editor only then; otherwise show it as inherited.
+    public let hasOwnInstructions: Bool
+    /// A numerical check's unit and a multi-check's steps, as the editor writes them.
+    public let unit: String
+    public let subchecks: [String]
     public let referenceImageUrl: String?
     public let limit: MeasurementLimit?
     enum CodingKeys: String, CodingKey {
-        case uuid, label, config, instructions, limit
+        case uuid, label, config, instructions, limit, unit, subchecks
+        case instructionsHtml = "instructions_html", hasOwnInstructions = "has_own_instructions"
         case checkId = "check_id"; case itemType = "item_type"
         case assetId = "asset_id"; case zoneId = "zone_id"; case zoneName = "zone_name"
         case measurementPointId = "measurement_point_id"
@@ -493,6 +503,10 @@ public struct RouteItem: Codable, Sendable {
         self.measurementPointId = try c.decodeIfPresent(Int.self, forKey: .measurementPointId)
         self.config = (try? c.decode(JSONValue.self, forKey: .config)) ?? .object([:])
         self.instructions = (try? c.decode([String].self, forKey: .instructions)) ?? []
+        self.instructionsHtml = (try? c.decode(String.self, forKey: .instructionsHtml)) ?? ""
+        self.hasOwnInstructions = (try? c.decode(Bool.self, forKey: .hasOwnInstructions)) ?? false
+        self.unit = (try? c.decode(String.self, forKey: .unit)) ?? ""
+        self.subchecks = (try? c.decode([String].self, forKey: .subchecks)) ?? []
         self.referenceImageUrl = try c.decodeIfPresent(String.self, forKey: .referenceImageUrl)
         self.limit = try c.decodeIfPresent(MeasurementLimit.self, forKey: .limit)
     }

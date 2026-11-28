@@ -199,8 +199,12 @@ public struct ReportCheck: Codable, Sendable {
     public let zoneId: Int?
     public let measurementPointId: Int?
     public let config: JSONValue
+    /// The instructions the technician read (HTML; the item's own, else its point's); nil on older servers.
+    public let instructions: String?
+    /// The point's alarm limit, for a measurement check.
+    public let limit: MeasurementLimit?
     enum CodingKeys: String, CodingKey {
-        case uuid, label, config
+        case uuid, label, config, instructions, limit
         case checkId = "check_id", itemType = "item_type", assetId = "asset_id", assetName = "asset_name"
         case zoneId = "zone_id", measurementPointId = "measurement_point_id"
     }
@@ -270,6 +274,7 @@ public struct NonConformity: Codable, Sendable {
     public let routeItemUuid: String
     public let label: String
     public let assetId: Int?
+    public let assetName: String?
     public let status: Int
     public let notes: String
     public let startedAt: String?
@@ -281,6 +286,7 @@ public struct NonConformity: Codable, Sendable {
         case label, status, notes
         case responseUuid = "response_uuid", executionUuid = "execution_uuid", routeUuid = "route_uuid"
         case routeName = "route_name", routeItemUuid = "route_item_uuid", assetId = "asset_id"
+        case assetName = "asset_name"
         case startedAt = "started_at", createdAt = "created_at", resolvedAt = "resolved_at"
         case resolvedBy = "resolved_by", resolutionComment = "resolution_comment"
     }

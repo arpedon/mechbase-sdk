@@ -116,4 +116,26 @@ final class AppGapsTests: ParityTestCase {
         XCTAssertEqual(URLComponents(string: url!)?.queryItems?.first { $0.name == "include_asset_checks" }?.value, "true")
         XCTAssertEqual(all.first?.assetChecksFor, 4)
     }
+
+    func testRouteItemInstructionsUnitSubchecks() async throws {
+        ParityMock.reset(reply: #"{"uuid":"\#(u1)","name":"R","description":"","items":[{"uuid":"\#(u2)","check_id":1,"label":"Casing","item_type":"multi_check","config":{"checks":[{"label":"Seal"}]},"instructions":["legacy"],"instructions_html":"<div>Hold</div>","has_own_instructions":true,"unit":"","subchecks":["Seal"]},{"uuid":"\#(u3)","check_id":2,"label":"Old","item_type":"pass_fail","config":{}}]}"#)
+        let items = try await inst.routes.detail(routeUUID: u1).items
+        XCTAssertEqual(items[0].instructionsHtml, "<div>Hold</div>")
+        XCTAssertTrue(items[0].hasOwnInstructions)
+        XCTAssertEqual(items[0].subchecks, ["Seal"])
+        XCTAssertEqual(items[0].instructions, ["legacy"])
+        XCTAssertEqual(items[1].instructionsHtml, "")  // an older server
+        XCTAssertFalse(items[1].hasOwnInstructions)
+        XCTAssertEqual(items[1].unit, "")
+    }
+
+    func testReportCheckAndNonConformityFields() throws {
+        let check = try JSONDecoder().decode(ReportCheck.self, from: Data(#"{"uuid":"\#(u1)","check_id":1,"label":"Casing","item_type":"measurement","asset_id":1,"asset_name":"Pump","zone_id":1,"measurement_point_id":1,"config":{},"instructions":"<div>Probe</div>","limit":{"minor":60,"major":80,"direction":"high","unit":"°C"}}"#.utf8))
+        XCTAssertEqual(check.instructions, "<div>Probe</div>")
+        XCTAssertEqual(check.limit?.major, 80)
+        let old = try JSONDecoder().decode(ReportCheck.self, from: Data(#"{"uuid":"\#(u1)","check_id":1,"label":"G","item_type":"pass_fail","asset_id":null,"asset_name":null,"zone_id":null,"measurement_point_id":null,"config":{}}"#.utf8))
+        XCTAssertNil(old.instructions)
+        let nc = try JSONDecoder().decode(NonConformity.self, from: Data(#"{"response_uuid":"a","execution_uuid":"b","route_uuid":"c","route_name":"W","route_item_uuid":"d","label":"Guard","asset_id":1,"asset_name":"Pump","status":3,"notes":"","started_at":null,"created_at":"t","resolved_at":null,"resolved_by":null,"resolution_comment":""}"#.utf8))
+        XCTAssertEqual(nc.assetName, "Pump")
+    }
 }

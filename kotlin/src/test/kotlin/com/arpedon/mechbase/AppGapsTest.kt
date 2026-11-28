@@ -105,4 +105,28 @@ class AppGapsTest : ApiTest() {
         assertRequest("GET /api/installations/7/routes?limit=50&offset=0&include_asset_checks=true")
         Unit
     }
+
+    @Test fun route_item_instructions_unit_subchecks() = runBlocking {
+        reply("""{"uuid":"$u1","name":"R","items":[{"uuid":"$u2","label":"Casing","item_type":"multi_check",""" +
+            """"instructions":["legacy"],"instructions_html":"<div>Hold</div>","has_own_instructions":true,""" +
+            """"subchecks":["Seal"]},{"uuid":"$u3","label":"Old","item_type":"pass_fail"}]}""")
+        val (own, old) = inst.routes.detail(u1).items
+        assertEquals("<div>Hold</div>", own.instructionsHtml)
+        assertTrue(own.hasOwnInstructions)
+        assertEquals(listOf("Seal"), own.subchecks)
+        assertEquals(listOf("legacy"), own.instructions)
+        assertEquals("", old.instructionsHtml)
+        assertFalse(old.hasOwnInstructions)
+    }
+
+    @Test fun report_check_and_non_conformity_fields() {
+        val check = SDK_JSON.decodeFromString(ReportCheck.serializer(), """{"uuid":"$u1","check_id":1,""" +
+            """"instructions":"<div>Probe</div>","limit":{"minor":60,"major":80,"direction":"high","unit":"°C"}}""")
+        assertEquals("<div>Probe</div>", check.instructions)
+        assertEquals(80.0, check.limit!!.major!!, 0.0)
+        assertEquals("", SDK_JSON.decodeFromString(ReportCheck.serializer(), """{"uuid":"$u1","check_id":1}""").instructions)
+        val nc = SDK_JSON.decodeFromString(NonConformity.serializer(), """{"response_uuid":"a","execution_uuid":"b",""" +
+            """"route_uuid":"c","route_item_uuid":"d","asset_name":"Pump","status":3,"created_at":"t"}""")
+        assertEquals("Pump", nc.assetName)
+    }
 }

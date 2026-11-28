@@ -232,7 +232,18 @@ data class RouteItem(
     @SerialName("zone_name") val zoneName: String? = null,
     @SerialName("measurement_point_id") val measurementPointId: Int? = null,
     val config: JsonObject = JsonObject(emptyMap()),
+    /** Legacy ordered steps (`config["instructions"]`); not what the editor writes. */
     val instructions: List<String> = emptyList(),
+    /**
+     * The rich-text instructions the technician reads (HTML): the item's own (what the editor's `instructions`
+     * writes) or, without them, its point's. Empty on older servers.
+     */
+    @SerialName("instructions_html") val instructionsHtml: String = "",
+    /** True: [instructionsHtml] is the item's own. Prefill an editor only then; otherwise show it as inherited. */
+    @SerialName("has_own_instructions") val hasOwnInstructions: Boolean = false,
+    /** A numerical check's unit and a multi-check's steps, as the editor writes them. */
+    val unit: String = "",
+    val subchecks: List<String> = emptyList(),
     @SerialName("reference_image_url") val referenceImageUrl: String? = null,
     val limit: MeasurementLimit? = null,
 )
