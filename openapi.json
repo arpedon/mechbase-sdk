@@ -18522,6 +18522,29 @@
             "title": "Instructions",
             "type": "array"
           },
+          "instructions_html": {
+            "default": "",
+            "title": "Instructions Html",
+            "type": "string"
+          },
+          "has_own_instructions": {
+            "default": false,
+            "title": "Has Own Instructions",
+            "type": "boolean"
+          },
+          "unit": {
+            "default": "",
+            "title": "Unit",
+            "type": "string"
+          },
+          "subchecks": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Subchecks",
+            "type": "array"
+          },
           "reference_image_url": {
             "anyOf": [
               {
@@ -19296,6 +19319,21 @@
             "additionalProperties": true,
             "title": "Config",
             "type": "object"
+          },
+          "instructions": {
+            "default": "",
+            "title": "Instructions",
+            "type": "string"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MeasurementLimit"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -19607,6 +19645,17 @@
               }
             ],
             "title": "Asset Id"
+          },
+          "asset_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Name"
           },
           "status": {
             "title": "Status",

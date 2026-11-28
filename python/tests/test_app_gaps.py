@@ -116,3 +116,12 @@ def test_route_asset_checks_for(inst):
     assert route.calls.last.request.url.params["include_asset_checks"] == "true"
     inst.routes.list()
     assert "include_asset_checks" not in route.calls.last.request.url.params
+
+
+@respx.mock
+def test_route_items_carry_editor_fields(inst):
+    respx.get(f"{I}/routes/r").mock(return_value=httpx.Response(200, json={"uuid": "r", "items": [
+        {"uuid": "i", "instructions": ["legacy"], "instructions_html": "<div>Hold</div>", "has_own_instructions": True,
+         "unit": "", "subchecks": ["Seal"]}]}))
+    item = inst.routes.get("r")["items"][0]
+    assert (item["instructions_html"], item["has_own_instructions"], item["subchecks"]) == ("<div>Hold</div>", True, ["Seal"])

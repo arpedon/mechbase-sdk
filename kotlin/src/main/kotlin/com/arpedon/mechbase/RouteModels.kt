@@ -77,6 +77,10 @@ data class ReportCheck(
     @SerialName("zone_id") val zoneId: Int? = null,
     @SerialName("measurement_point_id") val measurementPointId: Int? = null,
     val config: JsonObject = JsonObject(emptyMap()),
+    /** The instructions the technician read (HTML; the item's own, else its point's). */
+    val instructions: String = "",
+    /** The point's alarm limit, for a measurement check. */
+    val limit: MeasurementLimit? = null,
 )
 
 /** An answer with its photos and, for a measurement check, its linked reading. Photo URLs are signed and expire. */
@@ -135,6 +139,7 @@ data class NonConformity(
     @SerialName("route_item_uuid") val routeItemUuid: String,
     val label: String = "",
     @SerialName("asset_id") val assetId: Int? = null,
+    @SerialName("asset_name") val assetName: String? = null,
     val status: Int,
     val notes: String = "",
     @SerialName("started_at") val startedAt: String? = null,

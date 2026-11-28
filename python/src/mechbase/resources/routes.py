@@ -127,7 +127,8 @@ class Executions(InstallationScoped):
 
     def report(self) -> dict:
         """The run's report: {execution, route, can_amend, totals{checks, answered, passed, non_conformities},
-        groups[{zone_id, label, entries[{check, response}]}], missing[check], exceptions[…]}."""
+        groups[{zone_id, label, entries[{check, response}]}], missing[check], exceptions[…]}.
+        Each check carries instructions (HTML the technician read) and limit (a point's alarm limit)."""
         return self._http.request("GET", self._url("/report"))
 
     # Amending a completed run (staff or whoever ran it; see report()["can_amend"]).
@@ -180,6 +181,9 @@ class Routes(InstallationScoped):
         )
 
     def get(self, route_uuid: str) -> dict:
+        """The route with its items. Each item: instructions_html (what the technician reads: its own, what
+        the editor's instructions writes, else its point's), has_own_instructions, unit, subchecks, config,
+        limit; `instructions` is the legacy steps list."""
         return self._http.request("GET", self._path(f"/routes/{route_uuid}"))
 
     def start(self, route_uuid: str) -> Executions:
@@ -271,7 +275,7 @@ class NonConformities(InstallationScoped):
     """Failed checks across runs, to follow up and resolve."""
 
     def list(self, *, status: str = "open", asset_id: int | None = None, limit: int = 50, offset: int = 0) -> dict:
-        """status open|resolved|all. {items[{response_uuid, route_name, label, asset_id, status, notes,
+        """status open|resolved|all. {items[{response_uuid, route_name, label, asset_id, asset_name, status, notes,
         created_at, resolved_at, resolved_by, resolution_comment, …}], total, limit, offset}."""
         return self._http.request("GET", self._path("/non-conformities"),
                                   params=_clean({"status": status, "asset_id": asset_id, "limit": limit,
