@@ -22,20 +22,29 @@ type AssetInput struct {
 	// AssetType is a type code. Nil leaves it untouched; set ClearAssetType to send null.
 	AssetType      *string `json:"asset_type,omitempty"`
 	ClearAssetType bool    `json:"-"`
+	// FedFrom (update only) is the feeding asset's asset_id. Nil leaves it untouched; set ClearFedFrom to send null.
+	FedFrom      *int `json:"fed_from,omitempty"`
+	ClearFedFrom bool `json:"-"`
 }
 
-// MarshalJSON adds an explicit "asset_type": null when ClearAssetType is set.
+// MarshalJSON adds an explicit null for asset_type / fed_from when their Clear flag is set.
 func (in AssetInput) MarshalJSON() ([]byte, error) {
 	type plain AssetInput
 	b, err := json.Marshal(plain(in))
-	if err != nil || !in.ClearAssetType || in.AssetType != nil {
+	clearType, clearFed := in.ClearAssetType && in.AssetType == nil, in.ClearFedFrom && in.FedFrom == nil
+	if err != nil || !(clearType || clearFed) {
 		return b, err
 	}
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(b, &m); err != nil {
 		return nil, err
 	}
-	m["asset_type"] = json.RawMessage("null")
+	if clearType {
+		m["asset_type"] = json.RawMessage("null")
+	}
+	if clearFed {
+		m["fed_from"] = json.RawMessage("null")
+	}
 	return json.Marshal(m)
 }
 
