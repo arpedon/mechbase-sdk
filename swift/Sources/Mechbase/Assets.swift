@@ -13,11 +13,15 @@ public struct AssetInput: Encodable, Sendable {
     public var machineClass: String?
     /// Type code. nil omits the field (leaves it untouched); `.some(nil)` sends explicit null (clears it).
     public var assetType: String??
+    /// PATCH only: asset_id of the panel/box feeding this asset. nil omits it; `.some(nil)` clears it.
+    public var fedFrom: Int??
 
     public init(name: String? = nil, externalId: String? = nil, sectionId: Int? = nil,
                 sectionExternalId: String? = nil, zoneId: Int? = nil, zoneExternalId: String? = nil,
-                equipmentType: String? = nil, machineClass: String? = nil, assetType: String?? = nil) {
+                equipmentType: String? = nil, machineClass: String? = nil, assetType: String?? = nil,
+                fedFrom: Int?? = nil) {
         self.assetType = assetType
+        self.fedFrom = fedFrom
         self.name = name
         self.externalId = externalId
         self.sectionId = sectionId
@@ -38,6 +42,7 @@ public struct AssetInput: Encodable, Sendable {
         case equipmentType = "equipment_type"
         case machineClass = "machine_class"
         case assetType = "asset_type"
+        case fedFrom = "fed_from"
     }
 }
 

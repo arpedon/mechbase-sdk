@@ -52,13 +52,15 @@ actor HTTPClient {
         return URL(string: combined) ?? baseURL
     }
 
-    private func makeRequest(_ method: String, _ url: URL) -> URLRequest {
+    func makeRequest(_ method: String, _ url: URL) -> URLRequest {
         var req = URLRequest(url: url)
         req.httpMethod = method
         // Empty token: the unauthenticated sign-in calls (``MechbaseAuth``).
         if !token.isEmpty { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         req.setValue("mechbase-swift/0.4", forHTTPHeaderField: "User-Agent")
         req.setValue("application/json", forHTTPHeaderField: "Accept")
+        // The server's day windows ("today", the 7-day strip) follow the caller's zone.
+        req.setValue(TimeZone.current.identifier, forHTTPHeaderField: "X-Timezone")
         return req
     }
 
@@ -178,15 +180,20 @@ actor HTTPClient {
                 throw MechbaseError.transport(error)
             }
         }
+        throw Self.mapError(status: status, data: data)
+    }
+
+    /// The SDK error for a non-2xx response.
+    static func mapError(status: Int, data: Data) -> MechbaseError {
         let detail = Self.extractDetail(data) ?? ""
         let message = "\(status) \(detail)"
         switch status {
-        case 401, 403: throw MechbaseError.auth(message)
-        case 404: throw MechbaseError.notFound(message)
-        case 409: throw MechbaseError.conflict(message, body: data)
-        case 413: throw MechbaseError.tooLarge(message)
-        case 422: throw MechbaseError.validation(message)
-        default: throw MechbaseError.server(status, message)
+        case 401, 403: return .auth(message)
+        case 404: return .notFound(message)
+        case 409: return .conflict(message, body: data)
+        case 413: return .tooLarge(message)
+        case 422: return .validation(message)
+        default: return .server(status, message)
         }
     }
 

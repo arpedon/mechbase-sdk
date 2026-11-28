@@ -17,9 +17,12 @@ class Comments(InstallationScoped):
         return self._http.request("GET", self._path(f"/assets/{asset_id}/comments"),
                                   params={"limit": limit, "offset": offset})["items"]
 
-    def create(self, asset_id: int, body: str, *, references: list[dict] | None = None) -> dict:
+    def create(self, asset_id: int, body: str, *, references: list[dict] | None = None,
+               uuid: str | None = None) -> dict:
+        """A client `uuid` makes retries safe: a retry returns the comment already made; a uuid another
+        asset's or person's comment holds is a ConflictError."""
         return self._http.request("POST", self._path(f"/assets/{asset_id}/comments"),
-                                  json={"body": body, "references": _refs(references)})
+                                  json=_clean({"body": body, "references": _refs(references), "uuid": uuid}))
 
     def update(self, asset_id: int, comment_id: int, body: str, *, references: list[dict] | None = None) -> dict:
         """Replace the body and the whole reference set. Only the author may."""
@@ -37,7 +40,8 @@ class Documents(InstallationScoped):
     KINDS = ("attachment", "drawing", "datasheet", "manual", "check_sheet", "test_report")
 
     def list(self, asset_id: int) -> list[dict]:
-        """Newest first. Each: uuid, name, kind, url, created_at."""
+        """Own first (newest first), then the asset type's: uuid, name, kind, url, created_at, inherited
+        (True for the type's, which are read-only here)."""
         return self._http.request("GET", self._path(f"/assets/{asset_id}/documents"))
 
     def add(self, asset_id: int, file, *, filename: str = "document.pdf", kind: str = "attachment",

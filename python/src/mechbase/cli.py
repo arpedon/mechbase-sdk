@@ -18,6 +18,12 @@
     mechbase asset set-type QB-STD 1 2 3
     mechbase devices                    # MaintNodes: online, health, channels
     mechbase tunnel open logo           # remote access to a device's site
+    mechbase open /2012/assets/5/       # a web page (or tunnel URL), already signed in
+    mechbase overview ; mechbase alerts ; mechbase activity ; mechbase search pump
+    mechbase dashboard                  # the default board's tiles
+    mechbase reading analysis 2 766     # values, peaks, bearing markers, shaft order
+    mechbase runs "Daily round" ; mechbase run report <uuid> ; mechbase ncs
+    mechbase device lookup <balena uuid> ; mechbase device claim <balena uuid> --name "Boiler"
 
 Every command takes --json for scripting. MECHBASE_TOKEN / MECHBASE_URL /
 MECHBASE_INSTALLATION override the stored config and are never written to it
@@ -660,6 +666,16 @@ def cmd_tunnel_open(args, cfg):
     webbrowser.open(t["web_url"])
 
 
+def cmd_open(args, cfg):
+    session = _client(cfg).web_session(args.target)
+    # The link signs a browser in: open it, never print it (scrollback, --json logs).
+    webbrowser.open(session.url)
+    if args.json:
+        print(json.dumps({"opened": args.target, "expires_at": session.expires_at}, indent=2))
+    else:
+        print(f"Opened {args.target} (signed in; the link expires at {session.expires_at})")
+
+
 def cmd_tunnel_file(args, cfg):
     client = _client(cfg)
     t = _find_tunnel(args, cfg, client, args.tunnel)
@@ -706,6 +722,463 @@ def cmd_source_delete(args, cfg):
         sys.exit("Cancelled.")
     inst.sources.delete(args.point, s["uuid"])
     print(f"Removed source {s['uuid']}.")
+
+
+# --- mobile-parity commands ---------------------------------------------------
+
+
+def _when(ts: str | None) -> str:
+    return ts[:16].replace("T", " ") if ts else ""
+
+
+def _print_json(obj) -> None:
+    print(json.dumps(obj, indent=2, default=str))
+
+
+def _alert_rows(rows: list[dict]) -> list[dict]:
+    return [{"asset": a.get("asset_id") or "", "name": a["name"], "status": "silent" if a.get("is_silent") else STATUS.get(a["status"], a["status"]),
+             "reason": a.get("reason") or "", "where": " · ".join(x for x in (a.get("section_name"), a.get("zone_name")) if x),
+             "since": _when(a.get("alert_since"))} for a in rows]
+
+
+def cmd_overview(args, cfg):
+    ov = _inst(args, cfg, _client(cfg)).overview()
+    if args.json:
+        return _print_json(ov)
+    s = ov.get("status_summary") or {}
+    print(f"{s.get('total', 0)} assets · {s.get('nominal', 0)} good · {s.get('elevated', 0)} elevated · "
+          f"{s.get('warning', 0)} minor · {s.get('critical', 0)} major · {ov.get('silent_count', 0)} silent"
+          + (f" · last reading {_ago(ov['last_reading_at'])}" if ov.get("last_reading_at") else ""))
+    if ov.get("attention"):
+        more = ov.get("attention_more_count") or 0
+        print("\nNeeds attention" + (f" (+{more} more: mechbase alerts)" if more else ""))
+        _out(args, _alert_rows(ov["attention"]), ["asset", "name", "status", "reason", "since"])
+    if ov.get("running_executions"):
+        print("\nRunning")
+        _out(args, [{"route": r["route_name"], "done": f"{r['done']}/{r['total']}", "by": (r.get("executed_by") or {}).get("name", ""),
+                     "started": _when(r.get("started_at")), "run": r["execution_uuid"]} for r in ov["running_executions"]],
+             ["route", "done", "by", "started", "run"])
+    if ov.get("back_to_normal"):
+        print("\nBack to normal")
+        _out(args, [{"asset": b.get("asset_id") or "", "name": b["name"], "when": _when(b.get("recovered_at"))}
+                    for b in ov["back_to_normal"]], ["asset", "name", "when"])
+
+
+def cmd_alerts(args, cfg):
+    rows = _inst(args, cfg, _client(cfg)).alerts(silent=args.silent)
+    if args.json:
+        return _print_json(rows)
+    if not rows:
+        return print("No silent assets." if args.silent else "Nothing needs attention.")
+    _out(args, _alert_rows(rows), ["asset", "name", "status", "reason", "where", "since"])
+
+
+def cmd_activity(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    items = []
+    for e in inst.activity.iter(section_id=args.section, page_size=min(args.limit, 200)):
+        items.append(e)
+        if len(items) >= args.limit:
+            break
+    if args.json:
+        return _print_json(items)
+    day = None
+    for e in items:  # newest first; a header per local day
+        local = datetime.fromisoformat(e["timestamp"].replace("Z", "+00:00")).astimezone()
+        if local.date() != day:
+            day = local.date()
+            print(f"\n{day.isoformat()}")
+        by = (e.get("actor") or {}).get("name")
+        print(f"  {local:%H:%M}  {e['title']}" + (f" — {e['detail']}" if e.get("detail") else "") + (f" ({by})" if by else ""))
+
+
+_SEARCH_ID = {"assets": "asset_id", "sections": "section_id", "zones": "zone_id", "points": "point_id", "routes": "uuid",
+              "route_items": "check_id", "comments": "comment_id", "item_responses": "response_uuid"}
+_SEARCH_NAME = ("name", "label", "body_text", "notes")
+
+
+def cmd_search(args, cfg):
+    res = _inst(args, cfg, _client(cfg)).search(args.query, in_=args.category)
+    if args.json:
+        return _print_json(res)
+    cats = res.get("categories") or []
+    print(f"{res.get('total_count', 0)} results: " + ", ".join(f"{c['slug']} {c['count']}" for c in cats if c["count"]))
+    for c in cats:
+        rows = res.get(c["key"]) or []
+        if not rows:
+            continue
+        print(f"\n{c['label']} ({c['count']})")
+        for r in rows:
+            rid = r.get(_SEARCH_ID.get(c["key"], "uuid"))
+            rid = "" if rid is None else rid
+            name = next((r[k] for k in _SEARCH_NAME if r.get(k)), "")
+            where = r.get("asset_name") or r.get("route_name") or r.get("section_name") or ""
+            print(f"  {rid}  {' '.join(str(name).split())[:80]}" + (f"  · {where}" if where else ""))
+
+
+def cmd_hours(args, cfg):
+    h = _inst(args, cfg, _client(cfg)).hours(production_from=args.since, production_to=args.until)
+    if args.json:
+        return _print_json(h)
+    print(f"Running hours {_when(h.get('window_start'))} → {_when(h.get('window_end'))}")
+    _out(args, [{"asset": r.get("asset_id") or "", "name": r["asset_name"], "state": r.get("state") or "unknown",
+                 "hours": f"{r['range_hours']:.1f}", "lifetime": f"{r['lifetime_hours']:.0f}", "last ping": _ago(r.get("last_ping"))}
+                for r in h.get("rows") or []], ["asset", "name", "state", "hours", "lifetime", "last ping"])
+
+
+def cmd_production_set(args, cfg):
+    """Flip only when the current state is known and differs: a flip toggles whatever the last run was."""
+    inst = _inst(args, cfg, _client(cfg))
+    row = next((r for r in inst.hours().get("rows") or [] if r.get("asset_id") == args.asset), None)
+    if row is None:
+        sys.exit(f"Asset {args.asset} has no production tracking.")
+    state = row.get("state")
+    if state == args.state:
+        st = {"state": state, "last_ping": row.get("last_ping")}
+    elif state in ("on", "off"):
+        st = inst.assets.flip_production(args.asset)
+    else:
+        sys.exit(f"Asset {args.asset}'s production state is {state or 'unknown'}: set it on the asset page.")
+    if args.json:
+        return print(json.dumps(st))
+    print(f"Asset {args.asset} is {'already ' if state == args.state else 'now '}{st.get('state') or 'unknown'}.")
+
+
+def cmd_dashboards(args, cfg):
+    boards = _inst(args, cfg, _client(cfg)).dashboards.list()
+    if args.json:
+        return _print_json(boards)
+    _out(args, [{"uuid": b.get("uuid") or "(automatic)", "name": b["name"], "default": "*" if b["is_default"] else ""}
+                for b in boards], ["default", "uuid", "name"])
+
+
+def cmd_dashboard(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    ref = args.dashboard
+    if ref != "default":
+        boards = [b for b in inst.dashboards.list() if b.get("uuid")]
+        ref = _pick(boards, ref, ("uuid", "name"), "dashboard")["uuid"]
+    board = inst.dashboards.get(ref).data
+    if args.json:
+        return _print_json(board)
+    print(f"{board['name']}" + (" (automatic)" if board.get("is_automatic") else ""))
+    for sec in board.get("sections") or []:
+        print(f"\n{sec['title']}" + (f" · {sec['meta']}" if sec.get("meta") else "") + f" · {sec.get('status_label', '')}")
+        rows = []
+        for t in sec.get("tiles") or []:
+            v = t.get("value")
+            val = "—" if v is None else f"{v:.{t.get('decimals', 2)}f} {t.get('unit') or ''}".strip()
+            rows.append({"point": t.get("point_id") or "", "tile": t["label"], "value": val,
+                         "status": "STALE" if t.get("stale_since") else (t.get("status_label") or STATUS.get(t["status"], "")),
+                         "state": t.get("state") or "", "measured": _ago(t.get("measured_at"))})
+        _out(args, rows, ["point", "tile", "value", "status", "state", "measured"])
+
+
+_SPECTRUM = {"velocity": "velocity", "acceleration": "accel", "envelope": "envelope"}
+
+
+def cmd_reading_analysis(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    a = inst.measurements.analysis(args.point, args.reading, highpass_hz=args.highpass, lowpass_hz=args.lowpass)
+    vib = a.get("vibration") or {}
+    spec = vib.get("spectrum") or {}
+    units = a.get("units") or {}
+    found = peaks(spec.get("freq_hz") or [], spec.get(_SPECTRUM[args.signal]) or [], top=args.peaks, line_hz=args.line_hz)
+    markers = [m for m in vib.get("bearing_markers") or [] if m.get("harmonic") == 1]
+    if args.json:
+        return _print_json({"point_id": a["point_id"], "point_sequence": a["point_sequence"], "status": a["status"],
+                            "data": a.get("data"), "units": units, "peaks": found, "signal": args.signal,
+                            "bearing_markers": markers, "order": vib.get("order"), "thermography": a.get("thermography")})
+    print(f"Point {a['point_id']} · reading {a['point_sequence']} · {_when(a['created_at'])} · {a['status'].upper()} · {a.get('transducer_type', '')}")
+    data = {k: v for k, v in (a.get("data") or {}).items() if isinstance(v, (int, float, str)) and not isinstance(v, bool)}
+    if data:
+        width = max(map(len, data))
+        for k, v in data.items():
+            print(f"  {k:<{width}}  {v:.4g}" if isinstance(v, float) else f"  {k:<{width}}  {v}")
+    if spec.get("freq_hz"):
+        print(f"\nSpectrum: {vib.get('n_lines', 0)} lines, {vib.get('freq_resolution_hz', 0):.3g} Hz/line"
+              + (f", fmax {vib['fmax_hz']:g} Hz" if vib.get("fmax_hz") else "")
+              + (f", envelope band {vib['env_band_hz'][0]:g}–{vib['env_band_hz'][1]:g} Hz" if vib.get("env_band_hz") else ""))
+        unit = units.get("acceleration" if args.signal != "velocity" else "velocity", "")
+        print(f"Top {len(found)} {args.signal} peaks ({unit}):")
+        _out(args, found, ["hz", "amplitude", "note"])
+    elif vib:
+        print("\nNo spectrum (reading has no waveform).")
+    order = vib.get("order")
+    if order:
+        print(f"\nShaft {order['shaft_hz']:.2f} Hz ({order['rpm']:.0f} rpm) · 1× phase {order['phase_1x']}° · 2× phase {order['phase_2x']}°")
+    if markers:
+        print("\nBearing markers: " + ", ".join(f"{m['label']} {m['hz']:.1f} Hz" for m in markers))
+    th = a.get("thermography")
+    if th and th.get("thermograms"):
+        print(f"\nThermography: {len(th['thermograms'])} image(s), {th.get('hotspot_count', 0)} hot spot(s)"
+              + (f", worst ΔT {th['worst_delta_t']:.1f}" if th.get("worst_delta_t") is not None else ""))
+    if a.get("attachments"):
+        print(f"\n{len(a['attachments'])} attachment(s)")
+
+
+def _route(inst, ref: str) -> dict:
+    """A route by name or uuid (prefix)."""
+    if re.fullmatch(r"[0-9a-fA-F-]{36}", ref):
+        return {"uuid": ref, "name": ref}
+    return _pick([dataclasses.asdict(r) for r in inst.routes.list(limit=200)], ref, ("uuid", "name"), "route")
+
+
+def cmd_runs(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    page = inst.routes.executions(_route(inst, args.route)["uuid"], limit=args.limit)
+    if args.json:
+        return _print_json(page)
+    _out(args, [{"#": e["number"], "run": e["uuid"], "status": e["status"], "started": _when(e.get("started_at")),
+                 "by": (e.get("executed_by") or {}).get("name", ""), "answered": e["answered_count"],
+                 "passed": e["passed_count"], "ncs": e["non_conformity_count"]} for e in page["items"]],
+         ["#", "run", "status", "started", "by", "answered", "passed", "ncs"])
+
+
+def cmd_run_report(args, cfg):
+    rep = _inst(args, cfg, _client(cfg)).routes.execution(args.run).report()
+    if args.json:
+        return _print_json(rep)
+    ex, t = rep["execution"], rep["totals"]
+    head = [rep["route"]["name"], f"run {ex['number']}", ex["status"], _when(ex.get("started_at")),
+            (ex.get("executed_by") or {}).get("name")]
+    print(" · ".join(h for h in head if h))
+    print(f"  {t['answered']}/{t['checks']} answered · {t['passed']} passed · {t['non_conformities']} non-conformities")
+    if rep.get("exceptions"):
+        print("\nNon-conformities")
+        _out(args, [{"check": x["name"], "status": STATUS.get(x["status"], x["status"]), "resolved": "yes" if x["resolved"] else "",
+                     "response": x["response_uuid"]} for x in rep["exceptions"]], ["check", "status", "resolved", "response"])
+    if rep.get("missing"):
+        print("\nNot answered")
+        for c in rep["missing"]:
+            print(f"  #{c['check_id']} {c['label']}" + (f" · {c['asset_name']}" if c.get("asset_name") else ""))
+
+
+def cmd_ncs(args, cfg):
+    page = _inst(args, cfg, _client(cfg)).non_conformities.list(status=args.status, asset_id=args.asset, limit=args.limit)
+    if args.json:
+        return _print_json(page)
+    _out(args, [{"response": n["response_uuid"], "when": _when(n["created_at"]), "route": n["route_name"], "check": n["label"],
+                 "status": STATUS.get(n["status"], n["status"]), "notes": " ".join((n.get("notes") or "").split())[:60],
+                 "resolved": _when(n.get("resolved_at"))} for n in page["items"]],
+         ["response", "when", "route", "check", "status", "notes", "resolved"])
+
+
+def cmd_nc_resolve(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    if not args.yes and input(f"Resolve non-conformity {args.response}? [y/N] ").lower() != "y":
+        sys.exit("Cancelled.")
+    n = inst.non_conformities.resolve(args.response, comment=args.comment)
+    print(json.dumps(n, indent=2) if args.json else f"Resolved {n['label']} ({n['route_name']}).")
+
+
+def cmd_survey_new(args, cfg):
+    h = _inst(args, cfg, _client(cfg)).routes.start_survey(args.name)
+    if args.json:
+        return _print_json({"route": h.route, "execution": dataclasses.asdict(h.execution)})
+    print(f"Started survey {h.route['name']} ({h.route['uuid']}): run {h.uuid}")
+
+
+def cmd_route_new(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    items = [{"label": c} for c in args.check]
+    if args.file:
+        try:
+            loaded = json.loads(Path(args.file).read_text())
+        except OSError as e:
+            sys.exit(f"Can't read {args.file}: {e.strerror}")
+        except ValueError as e:
+            sys.exit(f"{args.file} is not valid JSON: {e}")
+        if not isinstance(loaded, list):
+            sys.exit("The checks file must hold a JSON list.")
+        items += loaded
+    if not items:
+        sys.exit("Give at least one --check or a --file of checks.")
+    r = inst.routes.create(args.name, items, description=args.description)
+    print(json.dumps(r, indent=2) if args.json else f"Created route {r['name']} ({r['uuid']}) with {len(r['items'])} check(s).")
+
+
+def cmd_route_rename(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    r = inst.routes.update(_route(inst, args.route)["uuid"], name=args.name)
+    print(json.dumps(dataclasses.asdict(r)) if args.json else f"Renamed to {r.name}.")
+
+
+def cmd_route_delete(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    r = _route(inst, args.route)
+    if not args.yes and input(f"Delete route {r['name']} and all its runs? It cannot be undone. [y/N] ").lower() != "y":
+        sys.exit("Cancelled.")
+    inst.routes.delete(r["uuid"])
+    print(f"Deleted route {r['name']}.")
+
+
+def _check(inst, route_uuid: str, ref: str, items: list[dict] | None = None) -> dict:
+    """A route's check by its number (#), label or uuid (prefix)."""
+    items = items if items is not None else inst.routes.get(route_uuid)["items"]
+    num = ref.lstrip("#")
+    if num.isdigit():  # a number is a check number, never a uuid prefix
+        hit = next((i for i in items if i["check_id"] == int(num)), None)
+        if hit is None:
+            sys.exit(f"No check #{num} on this route.")
+        return hit
+    return _pick(items, ref, ("uuid", "label"), "check")
+
+
+def cmd_check_add(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    fields = {k: v for k, v in {"unit": args.unit, "asset_id": args.asset, "zone_id": args.zone,
+                                "measurement_point_id": args.point, "subchecks": args.step or None,
+                                "instructions": args.instructions}.items() if v is not None}
+    c = inst.routes.add_item(_route(inst, args.route)["uuid"], args.label, item_type=args.type, **fields)
+    print(json.dumps(c, indent=2) if args.json else f"Added check #{c['check_id']} {c['label']}.")
+
+
+def cmd_check_rm(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    route = _route(inst, args.route)["uuid"]
+    c = _check(inst, route, args.check)
+    if not args.yes and input(f"Remove check #{c['check_id']} {c['label']}? [y/N] ").lower() != "y":
+        sys.exit("Cancelled.")
+    inst.routes.delete_item(route, c["uuid"])
+    print(f"Removed check #{c['check_id']} {c['label']}.")
+
+
+def _stop(item: dict):
+    # The server's stop: an asset's checks together, else the zone's. ponytail: an asset check pinned to a zone
+    # other than the asset's own groups with the asset here; the server would put it in that zone.
+    return ("asset", item["asset_id"]) if item.get("asset_id") else ("zone", item.get("zone_id"))
+
+
+def _stop_order(items: list[dict], check: dict, position: int) -> list[dict]:
+    """Every check of `check`'s stop with positions 0..n-1, `check` moved to `position` (as the web board
+    sends it): the server takes a position as the check's number, so a lone entry only sorts right at 0."""
+    siblings = sorted((i for i in items if _stop(i) == _stop(check) and i["uuid"] != check["uuid"]),
+                      key=lambda i: i["check_id"])
+    siblings.insert(max(0, min(position, len(siblings))), check)
+    return [{"uuid": i["uuid"], "position": n} for n, i in enumerate(siblings)]
+
+
+def cmd_check_mv(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    route = _route(inst, args.route)["uuid"]
+    items = inst.routes.get(route)["items"]
+    c = _check(inst, route, args.check, items)
+    numbers = inst.routes.reorder_items(route, _stop_order(items, c, args.position))
+    new = next((n["check_id"] for n in numbers if n["uuid"] == c["uuid"]), "?")
+    print(json.dumps(numbers) if args.json else f"Moved {c['label']}: now check #{new}.")
+
+
+def cmd_device_lookup(args, cfg):
+    d = _inst(args, cfg, _client(cfg)).devices.lookup(args.balena_uuid)
+    if args.json:
+        return _print_json(d)
+    say = {"claim": "free to claim: mechbase device claim " + args.balena_uuid,
+           "member": f"already in this installation as {d.get('name') or d['node_uuid']}",
+           "taken": f"claimed by {d.get('installation_name') or 'another installation'}",
+           "not_found": "no such device", "unreachable": "the device registry did not answer; try again"}
+    print(f"{args.balena_uuid}: {say.get(d['state'], d['state'])}")
+    if d["state"] in ("claim", "not_found", "unreachable"):
+        return
+    print(f"  node {d['node_uuid']} · {'online' if d.get('is_online') else 'offline'}")
+
+
+def cmd_device_claim(args, cfg):
+    d = _inst(args, cfg, _client(cfg)).devices.claim(args.balena_uuid, name=args.name)
+    if args.json:
+        return _print_json(d)
+    print(f"Claimed {d['name']} ({d['node_uuid']}). Credentials: {(d.get('token_push') or {}).get('state', '?')}; "
+          f"watch it come online with: mechbase device show {d['node_uuid'][:8]}")
+
+
+def cmd_device_creds(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    d = inst.devices.resend_credentials(_pick(inst.devices.list(), args.device, ("node_uuid", "name"), "device")["node_uuid"])
+    print(json.dumps(d, indent=2) if args.json else f"Credentials for {d['name']}: {(d.get('token_push') or {}).get('state', '?')}.")
+
+
+def cmd_device_channels(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    d = _pick(inst.devices.list(), args.device, ("node_uuid", "name"), "device")
+    groups = inst.devices.channels(d["node_uuid"])
+    if args.json:
+        return _print_json(groups)
+    for g in groups:
+        used = sum(c["used"] for c in g["channels"])
+        print(f"\nGroup {g['name']} ({g['hardware_type']}): {used} used" + (f" of {g['slots']}" if g.get("slots") else ""))
+        _out(args, [{"channel": f"CH{c['channel']}", "point": f"{c['point_id']} {c.get('asset_name') or ''} · {c.get('point_name') or ''}" if c["used"] else "free",
+                     "sensor": c.get("sensor") or "", "state": (c.get("state") or "").upper()} for c in g["channels"]],
+             ["channel", "point", "sensor", "state"])
+
+
+def cmd_bearing_search(args, cfg):
+    res = _inst(args, cfg, _client(cfg)).bearings.search(args.query or "", order=args.order)
+    if args.json:
+        return _print_json(res)
+    rows = res.get("results") if (args.query or args.order) else res.get("own")
+    _out(args, [{"uuid": b["uuid"], "designation": b["designation"], "maker": b.get("manufacturer") or "", "source": b.get("source") or "",
+                 "bpfo": b["bpfo"], "bpfi": b["bpfi"], "bsf": b["bsf"], "ftf": b["ftf"], "match": b.get("match") or ""} for b in rows or []],
+         ["uuid", "designation", "maker", "source", "bpfo", "bpfi", "bsf", "ftf"] + (["match"] if args.order else []))
+
+
+def cmd_finding_new(args, cfg):
+    inst = _inst(args, cfg, _client(cfg))
+    if not args.fault or not args.severity:  # list the choices (exit 0), as the help says
+        ch = inst.findings.choices(point_id=args.point, point_sequence=args.reading, hz=args.hz)
+        if args.json:
+            return _print_json(ch)
+        print("Fault types: " + ", ".join(c["value"] for c in ch["fault_types"]))
+        print("Severities:  " + ", ".join(c["value"] for c in ch["severities"]))
+        if ch.get("suggested_fault_type"):
+            print(f"Suggested:   {ch['suggested_fault_type']}")
+        return print("Record it with --fault <type> --severity <severity>.")
+    f = inst.findings.create(point_id=args.point, point_sequence=args.reading, fault_type=args.fault, severity=args.severity,
+                             recommended_action=args.action, comment=args.comment, due_by=args.due, hz=args.hz)
+    print(json.dumps(dataclasses.asdict(f), indent=2, default=str) if args.json
+          else f"Recorded {f.fault_type_display or f.fault_type} ({f.severity}) on {f.asset_name} · {f.point_name}: {f.uuid}")
+
+
+_NOTIFY = ("severity_threshold", "status_changes", "route_completions", "exports", "notifications_muted")
+
+
+def _print_notify(args, n):
+    if args.json:
+        return _print_json(n)
+    label = {c["value"]: c["label"] for c in n.get("threshold_choices") or []}
+    print(f"severity_threshold   {n['severity_threshold']} ({label.get(n['severity_threshold'], '')})")
+    for k in _NOTIFY[1:]:
+        print(f"{k:<20} {'on' if n[k] else 'off'}")
+
+
+def cmd_notify_show(args, cfg):
+    _print_notify(args, _inst(args, cfg, _client(cfg)).notification_settings.get())
+
+
+def cmd_notify_set(args, cfg):
+    fields = _fields(args.fields)
+    bad = set(fields) - set(_NOTIFY)
+    if bad:
+        sys.exit(f"Unknown setting {', '.join(sorted(bad))}; one of: {', '.join(_NOTIFY)}")
+    fields = {k: {"on": True, "off": False}.get(v, v) for k, v in fields.items()}
+    _print_notify(args, _inst(args, cfg, _client(cfg)).notification_settings.update(**fields))
+
+
+def cmd_notify_test(args, cfg):
+    result = _inst(args, cfg, _client(cfg)).notification_settings.test()
+    print(json.dumps({"result": result}) if args.json else
+          ("Test e-mail sent." if result == "sent" else "The server has no mail set up: the test was only logged."))
+
+
+_UNITS = ("acceleration", "velocity", "temperature", "pressure", "frequency")
+
+
+def cmd_me_set_units(args, cfg):
+    prefs = {k: str(v) for k, v in _fields(args.units).items()}
+    bad = set(prefs) - set(_UNITS)
+    if bad:
+        sys.exit(f"Unknown unit {', '.join(sorted(bad))}; one of: {', '.join(_UNITS)}")
+    me = _client(cfg).update_me(unit_prefs=prefs)
+    print(json.dumps(me.unit_prefs) if args.json else "Units: " + ", ".join(f"{k} {v}" for k, v in me.unit_prefs.items()))
 
 
 # --- wiring -----------------------------------------------------------------
@@ -756,6 +1229,16 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--line-hz", type=float, default=50.0, help="mains frequency for the electrical tag (60 in the Americas)")
     s.set_defaults(fn=cmd_reading_show)
 
+    s = reading.add_parser("analysis", parents=[common], help="analysis summary: values, spectrum peaks, markers, order")
+    s.add_argument("point", type=int)
+    s.add_argument("reading", type=int, help="the number in the web URL")
+    s.add_argument("--peaks", type=int, default=10, help="how many spectrum peaks")
+    s.add_argument("--signal", choices=list(_SPECTRUM), default="velocity")
+    s.add_argument("--highpass", type=float, help="Hz")
+    s.add_argument("--lowpass", type=float, help="Hz")
+    s.add_argument("--line-hz", type=float, default=50.0, help="mains frequency for the electrical tag")
+    s.set_defaults(fn=cmd_reading_analysis)
+
     s = reading.add_parser("delete", parents=[common], help="delete a reading")
     s.add_argument("point", type=int)
     s.add_argument("reading", type=int)
@@ -786,6 +1269,16 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("finding")
     s.add_argument("--wo", help="work order reference")
     s.set_defaults(fn=cmd_finding_set)
+    s = finding.add_parser("new", parents=[common], help="record a finding on a reading (no --fault: list the choices)")
+    s.add_argument("point", type=int)
+    s.add_argument("reading", type=int, help="the number in the web URL")
+    s.add_argument("--fault", help="fault type value, e.g. bpfo")
+    s.add_argument("--severity", help="e.g. minor, major")
+    s.add_argument("--action", default="", help="recommended action")
+    s.add_argument("--comment", default="")
+    s.add_argument("--due", help="due date (YYYY-MM-DD)")
+    s.add_argument("--hz", type=float, help="the spectrum line it is about")
+    s.set_defaults(fn=cmd_finding_new)
 
     s = sub.add_parser("export", parents=[common], help="export a dataset to a file")
     s.add_argument("dataset", choices=["measurements", "events", "inspections"])
@@ -899,12 +1392,29 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("device", help="name or uuid (prefix)")
     s.add_argument("name")
     s.set_defaults(fn=cmd_device_rename)
+    s = device.add_parser("lookup", parents=[common], help="what a scanned label's device is: free, ours or taken")
+    s.add_argument("balena_uuid", help="from the label QR (/provision/<balena_uuid>/)")
+    s.set_defaults(fn=cmd_device_lookup)
+    s = device.add_parser("claim", parents=[common], help="claim a device into this installation")
+    s.add_argument("balena_uuid")
+    s.add_argument("--name")
+    s.set_defaults(fn=cmd_device_claim)
+    s = device.add_parser("channels", parents=[common], help="free and used channels by group")
+    s.add_argument("device", help="name or uuid (prefix)")
+    s.set_defaults(fn=cmd_device_channels)
+    s = device.add_parser("creds", parents=[common], help="push the device its credentials again")
+    s.add_argument("device", help="name or uuid (prefix)")
+    s.set_defaults(fn=cmd_device_creds)
     group = sub.add_parser("group", help="a device's acquisition group").add_subparsers(dest="action", required=True)
     s = group.add_parser("set", parents=[common], help="change a group: interval=600 sample_rate=25600 …")
     s.add_argument("device", help="name or uuid (prefix)")
     s.add_argument("group", help="name or uuid (prefix)")
     s.add_argument("fields", nargs="+", metavar="key=value")
     s.set_defaults(fn=cmd_group_set)
+
+    s = sub.add_parser("open", parents=[common], help="open a web page or tunnel URL in the browser, signed in")
+    s.add_argument("target", help='a path ("/2012/assets/5/") or a device tunnel URL')
+    s.set_defaults(fn=cmd_open)
 
     s = sub.add_parser("tunnels", parents=[common], help="remote access to devices' sites")
     s.add_argument("--all", action="store_true", help="every installation's tunnels (staff)")
@@ -938,6 +1448,117 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("source", help="uuid (prefix)")
     s.add_argument("-y", "--yes", action="store_true", help="skip the confirmation")
     s.set_defaults(fn=cmd_source_delete)
+
+    s = sub.add_parser("overview", parents=[common], help="the home page: status counts, needs attention, running routes")
+    s.set_defaults(fn=cmd_overview)
+    s = sub.add_parser("alerts", parents=[common], help="every asset needing attention")
+    s.add_argument("--silent", action="store_true", help="every silent asset instead")
+    s.set_defaults(fn=cmd_alerts)
+    s = sub.add_parser("activity", parents=[common], help="recent status changes, notes, findings, route runs")
+    s.add_argument("-n", "--limit", type=int, default=30)
+    s.add_argument("--section", type=int, help="section id")
+    s.set_defaults(fn=cmd_activity)
+    s = sub.add_parser("search", parents=[common], help="search assets, points, routes, comments, notes …")
+    s.add_argument("query")
+    s.add_argument("--in", dest="category", choices=["assets", "sections", "zones", "points", "routes", "items", "comments", "notes"])
+    s.set_defaults(fn=cmd_search)
+    s = sub.add_parser("hours", parents=[common], help="running hours of production-tracked assets (default today)")
+    s.add_argument("--since", help="first day (YYYY-MM-DD)")
+    s.add_argument("--until", help="last day (YYYY-MM-DD)")
+    s.set_defaults(fn=cmd_hours)
+    prod = sub.add_parser("production", help="production state").add_subparsers(dest="action", required=True)
+    s = prod.add_parser("set", parents=[common], help="mark an asset running (on) or stopped (off) from now")
+    s.add_argument("asset", type=int)
+    s.add_argument("state", choices=["on", "off"])
+    s.set_defaults(fn=cmd_production_set)
+
+    s = sub.add_parser("dashboards", parents=[common], help="list dashboards")
+    s.set_defaults(fn=cmd_dashboards)
+    s = sub.add_parser("dashboard", parents=[common], help="a dashboard's tiles: latest value, status, state")
+    s.add_argument("dashboard", nargs="?", default="default", help="name or uuid (prefix); default: your default board")
+    s.set_defaults(fn=cmd_dashboard)
+
+    s = sub.add_parser("runs", parents=[common], help="a route's run history")
+    s.add_argument("route", help="name or uuid (prefix)")
+    s.add_argument("-n", "--limit", type=int, default=20)
+    s.set_defaults(fn=cmd_runs)
+    run = sub.add_parser("run", help="one route run").add_subparsers(dest="action", required=True)
+    s = run.add_parser("report", parents=[common], help="totals, non-conformities, unanswered checks")
+    s.add_argument("run", help="run uuid (from `mechbase runs`)")
+    s.set_defaults(fn=cmd_run_report)
+    s = sub.add_parser("ncs", parents=[common], help="non-conformities (failed checks) to follow up")
+    s.add_argument("--status", choices=["open", "resolved", "all"], default="open")
+    s.add_argument("--asset", type=int)
+    s.add_argument("-n", "--limit", type=int, default=50)
+    s.set_defaults(fn=cmd_ncs)
+    nc = sub.add_parser("nc", help="resolve a non-conformity").add_subparsers(dest="action", required=True)
+    s = nc.add_parser("resolve", parents=[common], help="mark a non-conformity resolved")
+    s.add_argument("response", help="uuid (from `mechbase ncs`)")
+    s.add_argument("--comment", default="")
+    s.add_argument("-y", "--yes", action="store_true", help="skip the confirmation")
+    s.set_defaults(fn=cmd_nc_resolve)
+    survey = sub.add_parser("survey", help="blank surveys").add_subparsers(dest="action", required=True)
+    s = survey.add_parser("new", parents=[common], help="a blank route and its first run")
+    s.add_argument("name", nargs="?", default="")
+    s.set_defaults(fn=cmd_survey_new)
+
+    route = sub.add_parser("route", help="create, rename or delete a route").add_subparsers(dest="action", required=True)
+    s = route.add_parser("new", parents=[common], help="a route with pass/fail checks (--check) or checks from a JSON file")
+    s.add_argument("name")
+    s.add_argument("--check", action="append", default=[], metavar="LABEL", help="a pass/fail check (repeat)")
+    s.add_argument("--file", help="JSON list of checks ({label, item_type, unit, measurement_point_id …})")
+    s.add_argument("--description", default="")
+    s.set_defaults(fn=cmd_route_new)
+    s = route.add_parser("rename", parents=[common], help="rename a route")
+    s.add_argument("route", help="name or uuid (prefix)")
+    s.add_argument("name")
+    s.set_defaults(fn=cmd_route_rename)
+    s = route.add_parser("delete", parents=[common], help="delete a route and its runs")
+    s.add_argument("route", help="name or uuid (prefix)")
+    s.add_argument("-y", "--yes", action="store_true", help="skip the confirmation")
+    s.set_defaults(fn=cmd_route_delete)
+    check = sub.add_parser("check", help="a route's checks").add_subparsers(dest="action", required=True)
+    s = check.add_parser("add", parents=[common], help="append a check to a route")
+    s.add_argument("route", help="name or uuid (prefix)")
+    s.add_argument("label")
+    s.add_argument("--type", choices=["pass_fail", "numerical", "multi_check", "measurement"], default="pass_fail")
+    s.add_argument("--unit", help="numerical checks")
+    s.add_argument("--point", type=int, help="measurement checks: the point")
+    s.add_argument("--asset", type=int)
+    s.add_argument("--zone", type=int)
+    s.add_argument("--step", action="append", help="multi_check steps (repeat)")
+    s.add_argument("--instructions")
+    s.set_defaults(fn=cmd_check_add)
+    s = check.add_parser("rm", parents=[common], help="remove a check (archived if past runs answered it)")
+    s.add_argument("route", help="name or uuid (prefix)")
+    s.add_argument("check", help="check number, label or uuid (prefix)")
+    s.add_argument("-y", "--yes", action="store_true", help="skip the confirmation")
+    s.set_defaults(fn=cmd_check_rm)
+    s = check.add_parser("mv", parents=[common], help="move a check to a position within its stop")
+    s.add_argument("route", help="name or uuid (prefix)")
+    s.add_argument("check", help="check number, label or uuid (prefix)")
+    s.add_argument("position", type=int, help="0 = first")
+    s.set_defaults(fn=cmd_check_mv)
+
+    bearing = sub.add_parser("bearing", help="bearing defect frequencies").add_subparsers(dest="action", required=True)
+    s = bearing.add_parser("search", parents=[common], help="search the library (no query: this installation's own)")
+    s.add_argument("query", nargs="?", help="designation or manufacturer, e.g. 6205")
+    s.add_argument("--order", type=float, help="instead: bearings whose defect orders match a tone at this order of shaft speed")
+    s.set_defaults(fn=cmd_bearing_search)
+
+    notify = sub.add_parser("notify", help="your notification settings").add_subparsers(dest="action", required=True)
+    s = notify.add_parser("show", parents=[common], help="what you are notified about")
+    s.set_defaults(fn=cmd_notify_show)
+    s = notify.add_parser("set", parents=[common], help="severity_threshold=3 status_changes=off notifications_muted=on …")
+    s.add_argument("fields", nargs="+", metavar="key=value")
+    s.set_defaults(fn=cmd_notify_set)
+    s = notify.add_parser("test", parents=[common], help="send yourself a test e-mail")
+    s.set_defaults(fn=cmd_notify_test)
+
+    me = sub.add_parser("me", help="your account").add_subparsers(dest="action", required=True)
+    s = me.add_parser("set-units", parents=[common], help="velocity=in/s acceleration=g temperature=°F …")
+    s.add_argument("units", nargs="+", metavar="quantity=unit")
+    s.set_defaults(fn=cmd_me_set_units)
     return p
 
 

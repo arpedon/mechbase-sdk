@@ -9,7 +9,11 @@ open class MechbaseException(
     message: String,
     val status: Int? = null,
     val body: String? = null,
-) : Exception(message)
+) : Exception(message) {
+    /** The server's `detail` message alone, without the status prefix [message] carries, to show the user. */
+    val detail: String
+        get() = message.orEmpty().let { m -> status?.let { m.removePrefix("$it ") } ?: m }
+}
 
 /** 401 / 403. */
 class AuthException(message: String, status: Int? = null, body: String? = null) :

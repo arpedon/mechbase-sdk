@@ -19,7 +19,20 @@ assets = inst.assets.list(q="pump", limit=50)
 inst.measurements.create(point_id=42, data={"rms": 2.3}, notes="manual reading")
 inst.assets.create(name="Box 12", asset_type="QB-STD")   # type by code, one request
 inst.zones.set_guest_view(True, zone_ids=[1, 2])         # or section_id=..., or all=True
+
+inst.overview()                                          # the web home: counts, needs attention, running routes
+for entry in inst.activity.iter():                       # newest first, follows the cursor
+    ...
+board = inst.dashboards.get()                            # the default board
+board = inst.dashboards.get(etag=board.etag)             # board.not_modified on a 304: keep what you have
+inst.measurements.analysis(point_id=2, point_sequence=766)  # waveform, spectra, markers, thermography
+inst.routes.execution(run_uuid).amend_answer(item_uuid, {"passed": True}, idempotency_key=key)
 ```
+
+Every request sends `X-Timezone` (this machine's IANA zone) so the server's "today" (dashboards,
+running hours) is yours: `Mechbase(token=..., timezone="Europe/Athens")` overrides it, `""` turns it off.
+Retry-safe writes take a client-minted `uuid=` (routes, checks, surveys, photo and document uploads) or an
+`idempotency_key=` (measurements, route answers, amendments).
 
 Throttled requests (HTTP 429) are retried up to 6 attempts in total, waiting `Retry-After`
 (when sent) or 1, 2, 4... seconds, before raising `MechbaseError`. A wait over 60 s (the API's
@@ -62,12 +75,40 @@ mechbase device rename 6f1e "Boiler room node"
 mechbase group set "Node A" hat interval=600
 mechbase tunnels                     # remote access you can open (--all: every installation, staff)
 mechbase tunnel open logo            # an http tunnel's page in the browser
+mechbase open /2012/assets/5/        # a web page (or tunnel URL), already signed in
 mechbase tunnel file ssh             # an stcp tunnel's frpc file (staff): frpc -c <file>
 mechbase sources 2                   # a point's data sources
 mechbase source add 2 source_type=maintnode device=<node uuid> group=<uuid> mn_channel=3 sensor=accelerometer
 mechbase source set 2 6f1c sensitivity=50
 mechbase source delete 2 6f1c
+
+mechbase overview                    # status counts, needs attention, running routes, back to normal
+mechbase alerts                      # every asset needing attention (--silent: the silent ones)
+mechbase activity -n 50              # status changes, notes, findings, route runs, by day
+mechbase search pump --in points     # counts per category and the matches
+mechbase hours --since 2026-11-01    # running hours of production-tracked assets (default today)
+mechbase production set 4 off        # mark asset 4 stopped from now (on: running)
+mechbase dashboards ; mechbase dashboard Boilers   # a board's tiles (no name: your default board)
+mechbase reading analysis 2 766      # values, spectrum peaks, bearing markers, shaft order, hot spots
+mechbase finding new 2 766 --fault bpfo --severity major --hz 87.3   # no --fault/--severity: lists the choices
+mechbase bearing search 6205         # or --order 3.58: bearings matching a tone
+mechbase runs "Daily round"          # a route's run history
+mechbase run report <run uuid>       # totals, non-conformities, unanswered checks
+mechbase ncs --asset 4 ; mechbase nc resolve <uuid> --comment "topped up"   # asks; -y skips
+mechbase survey new "Walkdown"       # a blank route and its first run
+mechbase route new "Night" --check "Oil level" --check "Guard fitted"   # or --file checks.json
+mechbase route rename Night "Night shift" ; mechbase route delete "Night shift"
+mechbase check add Night "Bearing temp" --type numerical --unit °C
+mechbase check mv Night 3 0          # check #3 to the top of its stop ; check rm Night 3
+mechbase device lookup <balena uuid> # from the label QR: free, ours or taken
+mechbase device claim <balena uuid> --name "Boiler room node"
+mechbase device channels "Node A"    # free and used channels per group
+mechbase device creds "Node A"       # push the device its credentials again
+mechbase notify show ; mechbase notify set notifications_muted=on severity_threshold=3 ; mechbase notify test
+mechbase me set-units velocity=in/s temperature=°F
 ```
+
+Routes take a name or the start of a uuid, and checks their number (`#3`), label or uuid.
 
 Devices, groups and tunnels take a name or the start of a uuid. `source` and `group` fields are
 the web form's (`key=value`; plain numbers, `null`, `true` and `false` are sent as JSON, and
@@ -77,7 +118,10 @@ Reading numbers are the ones in the web URL (`…/measurementpoints/2/measuremen
 Add `--json` to any command for scripting; `MECHBASE_TOKEN`, `MECHBASE_URL` and
 `MECHBASE_INSTALLATION` override the stored config.
 
-For edge agents identified by a `node_uuid` rather than a bearer token, use `MaintNode`.
+For the MaintNode device side use `MaintNode(node_uuid=..., token=<the device's API token>)`: config,
+measurements and files need the token, and so do heartbeats once the device is claimed.
+`node.heartbeat(config_version=MaintNode.config_version(cfg), hardware={...})` reports what it applied
+and detected.
 
 Full docs and the other language SDKs (Go, Swift, Kotlin) live in the
 [mechbase-sdk repo](https://github.com/arpedon/mechbase-sdk).

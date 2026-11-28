@@ -20,6 +20,11 @@ class User:
     username: str
     full_name: str
     email: str
+    # "" on servers that predate them.
+    first_name: str = ""
+    last_name: str = ""
+    # Gates staff-only features (dashboard editing); always False for service tokens.
+    is_staff: bool = False
     extra: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -38,6 +43,9 @@ class User:
             # stays `str`; the type stops lying. See issue #2.
             full_name=d.pop("full_name") or "",
             email=d.pop("email") or "",
+            first_name=d.pop("first_name", None) or "",
+            last_name=d.pop("last_name", None) or "",
+            is_staff=bool(d.pop("is_staff", False)),
             extra=d,
         )
 
@@ -65,6 +73,8 @@ class Me:
     current_installation_id: int | None
     # {"acceleration": "g", "velocity": "mm/s", ...}: the units the user reads in.
     unit_prefs: dict[str, str] = field(default_factory=dict)
+    # What each unit may be set to: {"velocity": [{"value": "mm/s", "label": "mm/s"}, ...], ...}; {} on older servers.
+    unit_choices: dict[str, list[dict[str, str]]] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, d: dict) -> "Me":
@@ -73,7 +83,20 @@ class Me:
             installations=[Installation.from_dict(i) for i in d["installations"]],
             current_installation_id=d.get("current_installation_id"),
             unit_prefs=d.get("unit_prefs") or {},
+            unit_choices=d.get("unit_choices") or {},
         )
+
+
+@dataclass
+class WebSession:
+    """A one-time browser sign-in link: open `url` once, within the minute."""
+
+    url: str
+    expires_at: str
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "WebSession":
+        return cls(url=d["url"], expires_at=d.get("expires_at") or "")
 
 
 @dataclass
@@ -98,7 +121,11 @@ class Asset:
     status: int
     external_id: str | None = None
     asset_type: str | None = None  # type code
+    fed_from: int | None = None  # asset_id of the panel/box powering this asset
     photos: list[Photo] = field(default_factory=list)
+    # Production-tracked assets only: "on" / "off" from the latest run, "stale" when its last ping is too old.
+    running: str | None = None
+    running_since: str | None = None  # when that run began
     extra: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -115,7 +142,10 @@ class Asset:
             status=d.pop("status"),
             external_id=d.pop("external_id", None),
             asset_type=d.pop("asset_type", None),
+            fed_from=d.pop("fed_from", None),
             photos=[Photo.from_dict(p) for p in d.pop("photos", None) or []],
+            running=d.pop("running", None),
+            running_since=d.pop("running_since", None),
             extra=d,
         )
 
@@ -150,6 +180,13 @@ class MeasurementPoint:
     # {"velocity": {"native": "mm/s", "unit": "in/s", "scale": ..., "offset": ...}}:
     # how to show this point's values in the caller's preferred units.
     display_units: dict[str, dict] = field(default_factory=dict)
+    # Analysis settings: nameplate rpm, fitted bearing uuid, speed ratio and envelope band (Hz).
+    nominal_rpm: int | None = None
+    bearing: str | None = None
+    speed_ratio: float = 1.0
+    envelope_band_low: int | None = None
+    envelope_band_high: int | None = None
+    has_own_instructions: bool = False
 
     @classmethod
     def from_dict(cls, d: dict) -> "MeasurementPoint":
@@ -167,6 +204,12 @@ class MeasurementPoint:
             photos=[Photo.from_dict(p) for p in d.get("photos") or []],
             reference_photo_uuid=d.get("reference_photo_uuid"),
             display_units=d.get("display_units") or {},
+            nominal_rpm=d.get("nominal_rpm"),
+            bearing=d.get("bearing"),
+            speed_ratio=1.0 if d.get("speed_ratio") is None else d["speed_ratio"],
+            envelope_band_low=d.get("envelope_band_low"),
+            envelope_band_high=d.get("envelope_band_high"),
+            has_own_instructions=bool(d.get("has_own_instructions")),
         )
 
 
@@ -212,6 +255,8 @@ class Route:
     uuid: str
     name: str
     description: str
+    # An asset's own checklist route (hidden from route lists): that asset's id; None for any other route.
+    asset_checks_for: int | None = None
 
     @classmethod
     def from_dict(cls, d: dict) -> "Route":
@@ -219,7 +264,8 @@ class Route:
         # present-but-null to "" — same rationale as the other defaulted
         # text fields. The exact production crash on installations 2012/2013
         # (issue #164 server side; #2 client side). See issue #2.
-        return cls(uuid=d["uuid"], name=d["name"], description=d.get("description") or "")
+        return cls(uuid=d["uuid"], name=d["name"], description=d.get("description") or "",
+                   asset_checks_for=d.get("asset_checks_for"))
 
 
 @dataclass
@@ -432,6 +478,8 @@ class Finding:
     work_order_ref: str = ""
     comment: str = ""
     due_by: str | None = None
+    # The reading's number on its point (measurements.get(point_id, point_sequence)); None when none.
+    point_sequence: int | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -453,5 +501,19 @@ class Finding:
             work_order_ref=d.pop("work_order_ref", "") or "",
             comment=d.pop("comment", "") or "",
             due_by=d.pop("due_by", None),
+            point_sequence=d.pop("point_sequence", None),
             extra=d,
         )
+
+
+@dataclass
+class Conditional:
+    """A conditional GET's result. `data` is None when the server said 304 (keep what you have);
+    pass `etag` back next time, verbatim (a weak W/"…" one included)."""
+
+    data: dict | None
+    etag: str | None
+
+    @property
+    def not_modified(self) -> bool:
+        return self.data is None

@@ -91,6 +91,34 @@ class Measurements internal constructor(
         }
     }
 
+    /** One reading, by the number in its web URL (`…/measurements/766/`). */
+    suspend fun get(pointId: Int, pointSequence: Int): Measurement =
+        http.getJson(
+            installationPath(installationId, "/measurement-points/$pointId/measurements/$pointSequence/"),
+            null,
+            Measurement.serializer(),
+        )
+
+    /** Delete one reading; the point's state rolls back to its newest surviving reading. */
+    suspend fun delete(pointId: Int, pointSequence: Int): DeleteResult =
+        http.sendJson(
+            "DELETE",
+            installationPath(installationId, "/measurement-points/$pointId/measurements/$pointSequence/"),
+            null,
+            null,
+            DeleteResult.serializer(),
+        )
+
+    /** Replace a reading's notes (rich-text HTML, sanitized like the web editor's). Device tokens 403. */
+    suspend fun updateNotes(pointId: Int, pointSequence: Int, notes: String): Measurement =
+        http.sendJson(
+            "PATCH",
+            installationPath(installationId, "/measurement-points/$pointId/measurements/$pointSequence/"),
+            buildJsonObject { put("notes", notes) },
+            null,
+            Measurement.serializer(),
+        )
+
     /** Replace a measurement's thermal hotspots (full replacement; an empty list clears them). */
     suspend fun setHotspots(measurementUuid: String, hotClusters: List<HotCluster>): Measurement =
         http.sendJson(

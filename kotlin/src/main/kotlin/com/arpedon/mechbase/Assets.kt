@@ -19,11 +19,19 @@ data class AssetInput(
     @SerialName("asset_type") val assetType: String? = null,
     /** Send `"asset_type": null` (clears the type) when [assetType] is null. */
     @kotlinx.serialization.Transient val clearAssetType: Boolean = false,
+    /** PATCH only: asset_id of the panel/box feeding this asset. null omits it; see [clearFedFrom]. */
+    @SerialName("fed_from") val fedFrom: Int? = null,
+    /** Send `"fed_from": null` (clears the link) when [fedFrom] is null. */
+    @kotlinx.serialization.Transient val clearFedFrom: Boolean = false,
 )
 
 private fun AssetInput.toJson(): kotlinx.serialization.json.JsonElement {
     val o = SDK_JSON.encodeToJsonElement(AssetInput.serializer(), this) as kotlinx.serialization.json.JsonObject
-    return if (clearAssetType && assetType == null) kotlinx.serialization.json.JsonObject(o + ("asset_type" to kotlinx.serialization.json.JsonNull)) else o
+    val nulls = buildMap {
+        if (clearAssetType && assetType == null) put("asset_type", kotlinx.serialization.json.JsonNull)
+        if (clearFedFrom && fedFrom == null) put("fed_from", kotlinx.serialization.json.JsonNull)
+    }
+    return if (nulls.isEmpty()) o else kotlinx.serialization.json.JsonObject(o + nulls)
 }
 
 class Assets internal constructor(
@@ -93,6 +101,14 @@ class Assets internal constructor(
     /** Create (or find) the asset's checklist route from its type. 422 if the asset has no type or the type's checklist is empty. */
     suspend fun ensureChecklist(assetId: Int): ChecklistResult =
         http.postJson(installationPath(installationId, "/assets/$assetId/checklist"), null, ChecklistResult.serializer())
+
+    /** Re-read the type's checklist into the asset's checks route (`created` false). 422 once a run was completed, while one is open, or without a checks route or checklist. */
+    suspend fun rebuildChecklist(assetId: Int): ChecklistResult =
+        http.postJson(installationPath(installationId, "/assets/$assetId/checklist/rebuild"), null, ChecklistResult.serializer())
+
+    /** Flip the asset's Production point on/off (as the web's toggle). 422 when it has no Production point. */
+    suspend fun flipProduction(assetId: Int): ProductionState =
+        http.postJson(installationPath(installationId, "/assets/$assetId/production/flip"), null, ProductionState.serializer())
 
     /** Append a photo to the asset's gallery. Pass a client-minted [uuid] so a retry returns the same photo. */
     suspend fun addPhoto(assetId: Int, file: File, uuid: String? = null): FileAttachment =

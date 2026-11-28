@@ -30,6 +30,19 @@ public enum MechbaseError: Error, CustomStringConvertible {
         }
     }
 
+    /// The server's `detail` message alone, without the status prefix the case's string carries
+    /// (e.g. "next: must be a path on this site…"), to show the user. Nil for a transport error.
+    public var detail: String? {
+        let message: String
+        switch self {
+        case .auth(let m), .notFound(let m), .tooLarge(let m), .validation(let m), .server(_, let m): message = m
+        case .conflict(let m, _): message = m
+        case .transport: return nil
+        }
+        guard let space = message.firstIndex(of: " "), Int(message[..<space]) != nil else { return message }
+        return String(message[message.index(after: space)...])
+    }
+
     /// On a refused route start (409), the uuid of the execution already running
     /// on that route — join it instead. Nil for any other error, including the
     /// other start 409 (client uuid already belongs to a different route).

@@ -17,6 +17,8 @@ data class CommentReference(
 @Serializable
 data class Comment(
     val id: Int,
+    /** The client uuid it was created with (retry-safe creates); null for web comments. */
+    val uuid: String? = null,
     val body: String = "",
     @SerialName("body_text") val bodyText: String = "",
     @SerialName("author_name") val authorName: String = "",
@@ -42,9 +44,10 @@ data class CommentReferenceIn(
     @SerialName("point_sequence") val pointSequence: Int? = null,
 )
 
-// No defaults on purpose: SDK_JSON drops defaulted fields, and an empty reference list must be sent.
+// references has no default on purpose: SDK_JSON drops defaulted fields, and an empty list must be sent.
+// uuid is defaulted, so a null one is not sent.
 @Serializable
-private data class CommentBody(val body: String, val references: List<CommentReferenceIn>)
+private data class CommentBody(val body: String, val references: List<CommentReferenceIn>, val uuid: String? = null)
 
 @Serializable
 data class Document(
@@ -53,6 +56,8 @@ data class Document(
     val kind: String = "",
     val url: String = "",
     @SerialName("created_at") val createdAt: String = "",
+    /** An asset's list ends with its asset type's documents: read-only there (change them on the type). */
+    val inherited: Boolean = false,
 )
 
 /** `scope` is "point" or "installation" (read-only defaults). */
@@ -101,10 +106,19 @@ class Comments internal constructor(private val http: Http, private val installa
     suspend fun list(assetId: Int, limit: Int? = null, offset: Int? = null): CommentsPage =
         http.getJson(path(assetId), mapOf("limit" to limit, "offset" to offset), CommentsPage.serializer())
 
-    suspend fun create(assetId: Int, body: String, references: List<CommentReferenceIn> = emptyList()): Comment =
+    /**
+     * A client-minted [uuid] (outbox) makes retries safe: a retry returns the comment already made; a uuid
+     * another asset's or person's comment holds throws [ConflictException].
+     */
+    suspend fun create(
+        assetId: Int,
+        body: String,
+        references: List<CommentReferenceIn> = emptyList(),
+        uuid: String? = null,
+    ): Comment =
         http.postJson(
             path(assetId),
-            SDK_JSON.encodeToJsonElement(CommentBody.serializer(), CommentBody(body, references)),
+            SDK_JSON.encodeToJsonElement(CommentBody.serializer(), CommentBody(body, references, uuid)),
             Comment.serializer(),
         )
 

@@ -18,6 +18,8 @@ public struct CommentReferenceIn: Codable, Sendable, Equatable {
 /// One entry in an asset's thread. `body` is rich-text HTML; `editable` is false for other authors' and findings' notes.
 public struct Comment: Codable, Sendable {
     public let id: Int
+    /// The client uuid it was created with (retry-safe creates); nil for web comments.
+    public let uuid: String?
     public let body: String
     public let bodyText: String
     public let authorName: String
@@ -28,7 +30,7 @@ public struct Comment: Codable, Sendable {
     public let editable: Bool
 
     enum CodingKeys: String, CodingKey {
-        case id, body, references, editable
+        case id, uuid, body, references, editable
         case bodyText = "body_text", authorName = "author_name", createdAt = "created_at"
         case editedAt = "edited_at", isFinding = "is_finding"
     }
@@ -37,6 +39,7 @@ public struct Comment: Codable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         func str(_ k: CodingKeys) -> String { (try? c.decode(String.self, forKey: k)) ?? "" }
         self.id = try c.decode(Int.self, forKey: .id)
+        self.uuid = (try? c.decodeIfPresent(String.self, forKey: .uuid)) ?? nil
         self.body = str(.body)
         self.bodyText = str(.bodyText)
         self.authorName = str(.authorName)
@@ -70,8 +73,10 @@ public struct Document: Codable, Sendable {
     public let kind: String
     public let url: String
     public let createdAt: String
+    /// An asset's list ends with its asset type's documents: read-only there (change them on the type).
+    public let inherited: Bool
 
-    enum CodingKeys: String, CodingKey { case uuid, name, kind, url, createdAt = "created_at" }
+    enum CodingKeys: String, CodingKey { case uuid, name, kind, url, inherited, createdAt = "created_at" }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -81,6 +86,7 @@ public struct Document: Codable, Sendable {
         self.kind = str(.kind)
         self.url = str(.url)
         self.createdAt = str(.createdAt)
+        self.inherited = (try? c.decode(Bool.self, forKey: .inherited)) ?? false
     }
 }
 
@@ -129,7 +135,7 @@ public final class Comments: Sendable {
     }
 
     // Non-optional `references`: an empty set must still be sent.
-    private struct Body: Encodable { let body: String; let references: [CommentReferenceIn] }
+    private struct Body: Encodable { let body: String; let references: [CommentReferenceIn]; var uuid: String? = nil }
 
     public func list(assetId: Int, limit: Int? = nil, offset: Int? = nil) async throws -> CommentsPage {
         let q = [
@@ -139,9 +145,12 @@ public final class Comments: Sendable {
         return try await scope.http.get(scope.path("/assets/\(assetId)/comments"), query: q, as: CommentsPage.self)
     }
 
-    public func create(assetId: Int, body: String, references: [CommentReferenceIn] = []) async throws -> Comment {
+    /// Pass a client-minted `uuid` (outbox) to make retries safe: a retry returns the comment already
+    /// made; a uuid another asset's or person's comment holds is ``MechbaseError/conflict(_:body:)``.
+    public func create(assetId: Int, body: String, references: [CommentReferenceIn] = [],
+                       uuid: String? = nil) async throws -> Comment {
         try await scope.http.postJSON(scope.path("/assets/\(assetId)/comments"),
-                                      body: Body(body: body, references: references), as: Comment.self)
+                                      body: Body(body: body, references: references, uuid: uuid), as: Comment.self)
     }
 
     /// Replaces the body and the whole reference set.

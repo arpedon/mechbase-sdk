@@ -119,7 +119,7 @@ final class RegistryTests: XCTestCase {
             XCTAssertEqual(req.url?.path, "/api/installations/2012/assets/1")
             XCTAssertEqual(req.httpMethod, "PATCH")
             bodies.append(self.body(req))
-            return (200, self.json(#"{"uuid":"a","asset_id":1,"name":"P","status":1,"asset_type":"QB-STD"}"#))
+            return (200, self.json(#"{"uuid":"a","asset_id":1,"name":"P","status":1,"asset_type":"QB-STD","fed_from":7}"#))
         }
         let assets = client.forInstallation(id: 2012).assets
         let a = try await assets.update(id: 1, AssetInput(name: "P"))
@@ -130,6 +130,12 @@ final class RegistryTests: XCTestCase {
         XCTAssertEqual(bodies[1].count, 1)
         XCTAssertTrue(bodies[1]["asset_type"] is NSNull)
         XCTAssertEqual(bodies[2]["asset_type"] as? String, "QB-STD")
+        XCTAssertEqual(a.fedFrom, 7)
+        _ = try await assets.update(id: 1, AssetInput(fedFrom: 7))
+        _ = try await assets.update(id: 1, AssetInput(fedFrom: .some(nil)))
+        XCTAssertEqual(bodies[3]["fed_from"] as? Int, 7)
+        XCTAssertEqual(bodies[4].count, 1)
+        XCTAssertTrue(bodies[4]["fed_from"] is NSNull)
     }
 
     func testZoneGuestViewAndEnsureChecklist() async throws {

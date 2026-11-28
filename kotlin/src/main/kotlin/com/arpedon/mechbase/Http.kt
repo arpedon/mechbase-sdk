@@ -41,6 +41,8 @@ internal class Http(
     private val token: String,
     baseUrl: String,
     private val ok: OkHttpClient = OkHttpClient(),
+    // Null: the JVM default zone, read per request so a device zone change is picked up.
+    private val timeZone: String? = null,
 ) {
     private val baseUrl: String = baseUrl.trimEnd('/')
 
@@ -62,6 +64,8 @@ internal class Http(
             .apply { if (token.isNotEmpty()) header("Authorization", "Bearer $token") }
             .header("User-Agent", "mechbase-kotlin/0.2")
             .header("Accept", "application/json")
+            // Day windows (dashboard "today", hours, activity) follow it; the server ignores an invalid one.
+            .header("X-Timezone", timeZone ?: java.time.ZoneId.systemDefault().id)
 
     suspend fun <T> getJson(
         path: String,
@@ -73,6 +77,22 @@ internal class Http(
         ok.newCall(request).execute().use { resp ->
             val body = handle(resp)
             SDK_JSON.decodeFromString(serializer, body)
+        }
+    }
+
+    /** GET with `If-None-Match`; a 304 is [Conditional.NotModified], else the body and its (verbatim) ETag. */
+    suspend fun <T> getConditional(
+        path: String,
+        params: Map<String, Any?>?,
+        serializer: KSerializer<T>,
+        ifNoneMatch: String?,
+    ): Conditional<T> = withContext(Dispatchers.IO) {
+        val builder = baseRequest(buildUrl(path, params)).get()
+        ifNoneMatch?.let { builder.header("If-None-Match", it) }
+        ok.newCall(builder.build()).execute().use { resp ->
+            if (resp.code == 304) return@use Conditional.NotModified
+            val body = handle(resp)
+            Conditional.Fresh(SDK_JSON.decodeFromString(serializer, body), resp.header("ETag"))
         }
     }
 
@@ -164,12 +184,14 @@ internal class Http(
         files: List<MultipartFile>,
         serializer: KSerializer<T>,
         fields: Map<String, String> = emptyMap(),
+        headers: Map<String, String> = emptyMap(),
     ): T = withContext(Dispatchers.IO) {
         val mb = MultipartBody.Builder().setType(MultipartBody.FORM)
         fields.forEach { (k, v) -> mb.addFormDataPart(k, v) }
         files.forEach { mf -> mb.addFormDataPart(mf.fieldName, mf.filename, mf.file.asRequestBody(OCTET_MEDIA)) }
-        val request = baseRequest(buildUrl(path, null)).post(mb.build()).build()
-        ok.newCall(request).execute().use { resp -> SDK_JSON.decodeFromString(serializer, handle(resp)) }
+        val builder = baseRequest(buildUrl(path, null)).post(mb.build())
+        headers.forEach { (k, v) -> builder.header(k, v) }
+        ok.newCall(builder.build()).execute().use { resp -> SDK_JSON.decodeFromString(serializer, handle(resp)) }
     }
 
     private fun handle(resp: Response): String {

@@ -62,6 +62,7 @@ type Asset struct {
 	ImageURLs     []string   `json:"image_urls"`
 	Photos        []PhotoRef `json:"photos"`
 	AssetType     *string    `json:"asset_type"` // type code
+	FedFrom       *int       `json:"fed_from"`   // asset_id of the panel/box powering this asset
 }
 
 // MeasurementPoint is a measurement location on an asset.

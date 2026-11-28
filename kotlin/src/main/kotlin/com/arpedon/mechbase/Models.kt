@@ -18,7 +18,12 @@ data class User(
     val id: Int,
     val username: String,
     @SerialName("full_name") val fullName: String,
+    /** "" on servers that predate them. */
+    @SerialName("first_name") val firstName: String = "",
+    @SerialName("last_name") val lastName: String = "",
     val email: String = "",
+    /** Gates staff-only UI (dashboard editing). False for service tokens and on older servers. */
+    @SerialName("is_staff") val isStaff: Boolean = false,
 )
 
 @Serializable
@@ -34,6 +39,18 @@ data class Me(
     @SerialName("current_installation_id") val currentInstallationId: Int? = null, // null for a user with no installations
     /** The user's display-unit choices; null on servers that predate them. */
     @SerialName("unit_prefs") val unitPrefs: UnitPrefs? = null,
+    /** What each unit may be set to ([MechbaseClient.updateMe]); null on servers that predate them. */
+    @SerialName("unit_choices") val unitChoices: UnitChoices? = null,
+)
+
+/** The values each display unit accepts, as the web profile offers them. */
+@Serializable
+data class UnitChoices(
+    val acceleration: List<Choice> = emptyList(),
+    val velocity: List<Choice> = emptyList(),
+    val temperature: List<Choice> = emptyList(),
+    val pressure: List<Choice> = emptyList(),
+    val frequency: List<Choice> = emptyList(),
 )
 
 /** Per-quantity display units from `/api/me/` (e.g. `velocity = "mm/s"`). */
@@ -105,6 +122,12 @@ data class Asset(
     val photos: List<Photo> = emptyList(),
     /** Asset type code, if the asset has one. */
     @SerialName("asset_type") val assetType: String? = null,
+    /** asset_id of the panel or box that powers this asset; null when unset (and on older servers). */
+    @SerialName("fed_from") val fedFrom: Int? = null,
+    /** Production-tracked assets only: "on" / "off" from the latest run, "stale" when its last ping is too old. */
+    val running: String? = null,
+    /** When that run began (ISO 8601). */
+    @SerialName("running_since") val runningSince: String? = null,
 )
 
 @Serializable
@@ -135,6 +158,16 @@ data class MeasurementPoint(
     val photos: List<Photo> = emptyList(),
     /** Uuid of the point's reference photo (one of [photos]); null when unset, and on older servers. */
     @SerialName("reference_photo_uuid") val referencePhotoUuid: String? = null,
+    /** Nameplate shaft speed, rpm. */
+    @SerialName("nominal_rpm") val nominalRpm: Int? = null,
+    /** The fitted bearing's uuid ([Bearings.get]). */
+    val bearing: String? = null,
+    /** Bearing shaft ÷ measured shaft. */
+    @SerialName("speed_ratio") val speedRatio: Double = 1.0,
+    @SerialName("envelope_band_low") val envelopeBandLow: Int? = null,
+    @SerialName("envelope_band_high") val envelopeBandHigh: Int? = null,
+    /** False: [instructions] is the transducer type's default. */
+    @SerialName("has_own_instructions") val hasOwnInstructions: Boolean = false,
 )
 
 @Serializable
@@ -160,6 +193,10 @@ data class Route(
     val uuid: String,
     val name: String,
     val description: String = "",
+    /** Set on single-route reads (survey, report, update); the list omits it. */
+    val section: SectionRef? = null,
+    /** An asset's own checklist route (hidden from route lists): that asset's id; null for any other route. */
+    @SerialName("asset_checks_for") val assetChecksFor: Int? = null,
 )
 
 /** Lightweight section reference embedded in a route (`{section_id, name}`). */
@@ -197,7 +234,18 @@ data class RouteItem(
     @SerialName("zone_name") val zoneName: String? = null,
     @SerialName("measurement_point_id") val measurementPointId: Int? = null,
     val config: JsonObject = JsonObject(emptyMap()),
+    /** Legacy ordered steps (`config["instructions"]`); not what the editor writes. */
     val instructions: List<String> = emptyList(),
+    /**
+     * The rich-text instructions the technician reads (HTML): the item's own (what the editor's `instructions`
+     * writes) or, without them, its point's. Empty on older servers.
+     */
+    @SerialName("instructions_html") val instructionsHtml: String = "",
+    /** True: [instructionsHtml] is the item's own. Prefill an editor only then; otherwise show it as inherited. */
+    @SerialName("has_own_instructions") val hasOwnInstructions: Boolean = false,
+    /** A numerical check's unit and a multi-check's steps, as the editor writes them. */
+    val unit: String = "",
+    val subchecks: List<String> = emptyList(),
     @SerialName("reference_image_url") val referenceImageUrl: String? = null,
     val limit: MeasurementLimit? = null,
 )
@@ -209,6 +257,8 @@ data class RouteDetail(
     val name: String,
     val description: String = "",
     val section: SectionRef? = null,
+    /** As [Route.assetChecksFor]. */
+    @SerialName("asset_checks_for") val assetChecksFor: Int? = null,
     val items: List<RouteItem> = emptyList(),
 )
 
@@ -346,6 +396,18 @@ internal data class CursorMeasurements(
     val items: List<Measurement>,
     @SerialName("next_cursor") val nextCursor: String? = null,
 )
+
+/**
+ * A conditional GET's result (dashboards, point compare). Send the last [Fresh.etag] back as
+ * `ifNoneMatch`: while nothing changed the server answers 304 and you get [NotModified] — keep
+ * showing what you have.
+ */
+sealed class Conditional<out T> {
+    /** A new body; [etag] is echoed verbatim (gzip makes it weak, `W/"…"`). */
+    data class Fresh<out T>(val value: T, val etag: String?) : Conditional<T>()
+
+    data object NotModified : Conditional<Nothing>()
+}
 
 /** Convert a loose `Map<String, Any?>` into a `JsonObject` for request bodies. */
 fun Map<String, Any?>.toJsonObject(): JsonObject =

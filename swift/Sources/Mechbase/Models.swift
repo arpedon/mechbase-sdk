@@ -76,11 +76,17 @@ public struct User: Codable, Sendable {
     public let id: Int
     public let username: String
     public let fullName: String
+    /// "" on servers that predate them.
+    public let firstName: String
+    public let lastName: String
     public let email: String
+    /// Gates staff-only UI (dashboard editing); false for service tokens and on older servers.
+    public let isStaff: Bool
 
     enum CodingKeys: String, CodingKey {
         case id, username, email
-        case fullName = "full_name"
+        case fullName = "full_name", firstName = "first_name", lastName = "last_name"
+        case isStaff = "is_staff"
     }
 
     public init(from decoder: Decoder) throws {
@@ -88,7 +94,10 @@ public struct User: Codable, Sendable {
         self.id = try c.decode(Int.self, forKey: .id)
         self.username = try c.decode(String.self, forKey: .username)
         self.fullName = try c.decode(String.self, forKey: .fullName)
+        self.firstName = (try? c.decode(String.self, forKey: .firstName)) ?? ""
+        self.lastName = (try? c.decode(String.self, forKey: .lastName)) ?? ""
         self.email = (try? c.decode(String.self, forKey: .email)) ?? ""
+        self.isStaff = (try? c.decode(Bool.self, forKey: .isStaff)) ?? false
     }
 }
 
@@ -111,11 +120,13 @@ public struct Me: Codable, Sendable {
     public let currentInstallationId: Int?
     /// The user's display-unit choices; `nil` on servers that predate them.
     public let unitPrefs: UnitPrefs?
+    /// What each unit may be set to (`updateMe`); `nil` on servers that predate them.
+    public let unitChoices: UnitChoices?
 
     enum CodingKeys: String, CodingKey {
         case user, installations
         case currentInstallationId = "current_installation_id"
-        case unitPrefs = "unit_prefs"
+        case unitPrefs = "unit_prefs", unitChoices = "unit_choices"
     }
 
     public init(from decoder: Decoder) throws {
@@ -125,7 +136,17 @@ public struct Me: Codable, Sendable {
         self.currentInstallationId = try c.decodeIfPresent(Int.self, forKey: .currentInstallationId)
         // A malformed block must not break sign-in: treat it as absent.
         self.unitPrefs = (try? c.decodeIfPresent(UnitPrefs.self, forKey: .unitPrefs)) ?? nil
+        self.unitChoices = (try? c.decodeIfPresent(UnitChoices.self, forKey: .unitChoices)) ?? nil
     }
+}
+
+/// The values each display unit accepts, as the web profile offers them.
+public struct UnitChoices: Codable, Sendable {
+    public let acceleration: [Choice]
+    public let velocity: [Choice]
+    public let temperature: [Choice]
+    public let pressure: [Choice]
+    public let frequency: [Choice]
 }
 
 /// Per-quantity display units from `/api/me/` (e.g. `velocity: "mm/s"`).
@@ -182,10 +203,19 @@ public struct Asset: Codable, Sendable {
     public let photos: [Photo]
     /// Asset type code, if the asset has one.
     public let assetType: String?
+    /// asset_id of the panel or box that powers this asset; nil when unset (and on older servers).
+    public let fedFrom: Int?
+    /// Production-tracked assets only: "on" / "off" from the latest run, "stale" when its last ping is
+    /// too old to know; nil otherwise (and on older servers).
+    public let running: String?
+    /// When that run began (ISO 8601).
+    public let runningSince: String?
 
     enum CodingKeys: String, CodingKey {
-        case uuid, name, status, photos
+        case uuid, name, status, photos, running
+        case runningSince = "running_since"
         case assetType = "asset_type"
+        case fedFrom = "fed_from"
         case imageUrls = "image_urls"
         case assetId = "asset_id"
         case sectionId = "section_id"
@@ -209,6 +239,9 @@ public struct Asset: Codable, Sendable {
         self.imageUrls = (try? c.decode([String].self, forKey: .imageUrls)) ?? []
         self.photos = (try? c.decode([Photo].self, forKey: .photos)) ?? []
         self.assetType = try c.decodeIfPresent(String.self, forKey: .assetType)
+        self.fedFrom = (try? c.decodeIfPresent(Int.self, forKey: .fedFrom)) ?? nil
+        self.running = (try? c.decodeIfPresent(String.self, forKey: .running)) ?? nil
+        self.runningSince = (try? c.decodeIfPresent(String.self, forKey: .runningSince)) ?? nil
     }
 }
 
@@ -243,9 +276,22 @@ public struct MeasurementPoint: Codable, Sendable {
     public let photos: [Photo]
     /// Uuid of the point's reference photo (one of `photos`); `nil` when unset, and on older servers.
     public let referencePhotoUuid: String?
+    /// Nameplate shaft speed, rpm.
+    public let nominalRpm: Int?
+    /// The fitted bearing's uuid (``Bearings/get(uuid:)``).
+    public let bearing: String?
+    /// Bearing shaft ÷ measured shaft; 1 when unset and on older servers.
+    public let speedRatio: Double
+    /// Envelope band edges, Hz; nil = default.
+    public let envelopeBandLow: Int?
+    public let envelopeBandHigh: Int?
+    /// False: `instructions` is the transducer type's default.
+    public let hasOwnInstructions: Bool
 
     enum CodingKeys: String, CodingKey {
-        case uuid, name, location, status, instructions, photos
+        case uuid, name, location, status, instructions, photos, bearing
+        case nominalRpm = "nominal_rpm", speedRatio = "speed_ratio", envelopeBandLow = "envelope_band_low"
+        case envelopeBandHigh = "envelope_band_high", hasOwnInstructions = "has_own_instructions"
         case imageUrls = "image_urls"
         case displayUnits = "display_units"
         case referencePhotoUuid = "reference_photo_uuid"
@@ -272,6 +318,12 @@ public struct MeasurementPoint: Codable, Sendable {
         self.displayUnits = (try? c.decode([String: DisplayUnit].self, forKey: .displayUnits)) ?? [:]
         self.photos = (try? c.decode([Photo].self, forKey: .photos)) ?? []
         self.referencePhotoUuid = try c.decodeIfPresent(String.self, forKey: .referencePhotoUuid)
+        self.nominalRpm = try c.decodeIfPresent(Int.self, forKey: .nominalRpm)
+        self.bearing = try c.decodeIfPresent(String.self, forKey: .bearing)
+        self.speedRatio = (try? c.decode(Double.self, forKey: .speedRatio)) ?? 1
+        self.envelopeBandLow = try c.decodeIfPresent(Int.self, forKey: .envelopeBandLow)
+        self.envelopeBandHigh = try c.decodeIfPresent(Int.self, forKey: .envelopeBandHigh)
+        self.hasOwnInstructions = (try? c.decode(Bool.self, forKey: .hasOwnInstructions)) ?? false
     }
 }
 
@@ -362,15 +414,21 @@ public struct Route: Codable, Sendable {
     public let uuid: String
     public let name: String
     public let description: String
+    /// The route's section; nil when it has none, and where the server leaves it out.
+    public let section: SectionRef?
+    /// An asset's own checklist route (hidden from route lists): that asset's id; nil for any other route.
+    public let assetChecksFor: Int?
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.uuid = try c.decode(String.self, forKey: .uuid)
         self.name = try c.decode(String.self, forKey: .name)
         self.description = (try? c.decode(String.self, forKey: .description)) ?? ""
+        self.section = try? c.decodeIfPresent(SectionRef.self, forKey: .section)
+        self.assetChecksFor = (try? c.decodeIfPresent(Int.self, forKey: .assetChecksFor)) ?? nil
     }
 
-    enum CodingKeys: String, CodingKey { case uuid, name, description }
+    enum CodingKeys: String, CodingKey { case uuid, name, description, section, assetChecksFor = "asset_checks_for" }
 }
 
 public struct SectionRef: Codable, Sendable {
@@ -417,11 +475,21 @@ public struct RouteItem: Codable, Sendable {
     public let config: JSONValue
     // First-class, server-resolved fields for the redesigned Point screen.
     // Additive with defaults so legacy payloads decode unchanged.
+    /// Legacy ordered steps (`config["instructions"]`); not what the editor writes.
     public let instructions: [String]
+    /// The rich-text instructions the technician reads (HTML): the item's own (what
+    /// ``RouteItemInput/instructions`` writes) or, without them, its point's. "" on older servers.
+    public let instructionsHtml: String
+    /// True: `instructionsHtml` is the item's own. Prefill an editor only then; otherwise show it as inherited.
+    public let hasOwnInstructions: Bool
+    /// A numerical check's unit and a multi-check's steps, as the editor writes them.
+    public let unit: String
+    public let subchecks: [String]
     public let referenceImageUrl: String?
     public let limit: MeasurementLimit?
     enum CodingKeys: String, CodingKey {
-        case uuid, label, config, instructions, limit
+        case uuid, label, config, instructions, limit, unit, subchecks
+        case instructionsHtml = "instructions_html", hasOwnInstructions = "has_own_instructions"
         case checkId = "check_id"; case itemType = "item_type"
         case assetId = "asset_id"; case zoneId = "zone_id"; case zoneName = "zone_name"
         case measurementPointId = "measurement_point_id"
@@ -439,6 +507,10 @@ public struct RouteItem: Codable, Sendable {
         self.measurementPointId = try c.decodeIfPresent(Int.self, forKey: .measurementPointId)
         self.config = (try? c.decode(JSONValue.self, forKey: .config)) ?? .object([:])
         self.instructions = (try? c.decode([String].self, forKey: .instructions)) ?? []
+        self.instructionsHtml = (try? c.decode(String.self, forKey: .instructionsHtml)) ?? ""
+        self.hasOwnInstructions = (try? c.decode(Bool.self, forKey: .hasOwnInstructions)) ?? false
+        self.unit = (try? c.decode(String.self, forKey: .unit)) ?? ""
+        self.subchecks = (try? c.decode([String].self, forKey: .subchecks)) ?? []
         self.referenceImageUrl = try c.decodeIfPresent(String.self, forKey: .referenceImageUrl)
         self.limit = try c.decodeIfPresent(MeasurementLimit.self, forKey: .limit)
     }
@@ -449,14 +521,19 @@ public struct RouteDetail: Codable, Sendable {
     public let name: String
     public let description: String
     public let section: SectionRef?
+    /// As ``Route/assetChecksFor``.
+    public let assetChecksFor: Int?
     public let items: [RouteItem]
-    enum CodingKeys: String, CodingKey { case uuid, name, description, section, items }
+    enum CodingKeys: String, CodingKey {
+        case uuid, name, description, section, items, assetChecksFor = "asset_checks_for"
+    }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.uuid = try c.decode(String.self, forKey: .uuid)
         self.name = (try? c.decode(String.self, forKey: .name)) ?? ""
         self.description = (try? c.decode(String.self, forKey: .description)) ?? ""
         self.section = try c.decodeIfPresent(SectionRef.self, forKey: .section)
+        self.assetChecksFor = (try? c.decodeIfPresent(Int.self, forKey: .assetChecksFor)) ?? nil
         self.items = (try? c.decode([RouteItem].self, forKey: .items)) ?? []
     }
 }
