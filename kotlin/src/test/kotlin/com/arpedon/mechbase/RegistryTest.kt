@@ -133,14 +133,18 @@ class RegistryTest {
 
     @Test fun assetTypeOmittedNullCode() = runBlocking {
         val assets = client.forInstallation(2012).assets
-        val a = """{"uuid":"a","asset_id":1,"name":"P","status":1,"asset_type":"QB-STD"}"""
-        repeat(3) { server.enqueue(ok(a)) }
+        val a = """{"uuid":"a","asset_id":1,"name":"P","status":1,"asset_type":"QB-STD","fed_from":7}"""
+        repeat(5) { server.enqueue(ok(a)) }
         assertEquals("QB-STD", assets.update(1, AssetInput(name = "P")).assetType)
         assets.update(1, AssetInput(clearAssetType = true))
         assets.update(1, AssetInput(assetType = "QB-STD"))
         assertEquals("""{"name":"P"}""", server.takeRequest().body.readUtf8())
         assertEquals("""{"asset_type":null}""", server.takeRequest().body.readUtf8())
         assertEquals("""{"asset_type":"QB-STD"}""", server.takeRequest().body.readUtf8())
+        assertEquals(7, assets.update(1, AssetInput(fedFrom = 7)).fedFrom)
+        assets.update(1, AssetInput(clearFedFrom = true))
+        assertEquals("""{"fed_from":7}""", server.takeRequest().body.readUtf8())
+        assertEquals("""{"fed_from":null}""", server.takeRequest().body.readUtf8())
     }
 
     @Test fun zoneGuestViewAndEnsureChecklist() = runBlocking {

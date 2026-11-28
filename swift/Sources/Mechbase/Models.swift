@@ -203,6 +203,8 @@ public struct Asset: Codable, Sendable {
     public let photos: [Photo]
     /// Asset type code, if the asset has one.
     public let assetType: String?
+    /// asset_id of the panel or box that powers this asset; nil when unset (and on older servers).
+    public let fedFrom: Int?
     /// Production-tracked assets only: "on" / "off" from the latest run, "stale" when its last ping is
     /// too old to know; nil otherwise (and on older servers).
     public let running: String?
@@ -213,6 +215,7 @@ public struct Asset: Codable, Sendable {
         case uuid, name, status, photos, running
         case runningSince = "running_since"
         case assetType = "asset_type"
+        case fedFrom = "fed_from"
         case imageUrls = "image_urls"
         case assetId = "asset_id"
         case sectionId = "section_id"
@@ -236,6 +239,7 @@ public struct Asset: Codable, Sendable {
         self.imageUrls = (try? c.decode([String].self, forKey: .imageUrls)) ?? []
         self.photos = (try? c.decode([Photo].self, forKey: .photos)) ?? []
         self.assetType = try c.decodeIfPresent(String.self, forKey: .assetType)
+        self.fedFrom = (try? c.decodeIfPresent(Int.self, forKey: .fedFrom)) ?? nil
         self.running = (try? c.decodeIfPresent(String.self, forKey: .running)) ?? nil
         self.runningSince = (try? c.decodeIfPresent(String.self, forKey: .runningSince)) ?? nil
     }
